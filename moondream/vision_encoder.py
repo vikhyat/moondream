@@ -1,0 +1,28 @@
+import torch
+from PIL import Image
+from torchvision.transforms.v2 import (
+    Compose,
+    Resize,
+    InterpolationMode,
+    ToImage,
+    ToDtype,
+    Normalize,
+)
+
+
+class VisionEncoder:
+    def __init__(self) -> None:
+        self.model = torch.jit.load("model/vision.pt").to(dtype=torch.float32)
+        self.preprocess = Compose(
+            [
+                Resize(size=(384, 384), interpolation=InterpolationMode.BICUBIC),
+                ToImage(),
+                ToDtype(torch.float32, scale=True),
+                Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            ]
+        )
+
+    def __call__(self, image: Image) -> torch.Tensor:
+        with torch.no_grad():
+            image_vec = self.preprocess(image.convert("RGB")).unsqueeze(0)
+            return self.model(image_vec)
