@@ -1,8 +1,12 @@
 import torch
+import transformers
 from transformers import CodeGenTokenizerFast as Tokenizer
 from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 from .phi.configuration_phi import PhiConfig
 from .phi.modeling_phi import PhiForCausalLM
+import re
+
+transformers.logging.set_verbosity_error()
 
 
 class TextModel:
@@ -69,3 +73,33 @@ class TextModel:
             )
 
         return self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+
+    def suggest_questions(self, image_embeds, **kwargs):
+        prompt = "User: <image>\nWhat"
+        suggestions = self.generate(
+            image_embeds,
+            prompt,
+            eos_text="Assistant:",
+            max_new_tokens=64,
+            do_sample=True,
+            top_p=0.8,
+            num_return_sequences=3,
+            **kwargs,
+        )
+
+        suggestions = [
+            "What " + re.sub("Assistant$", "", s).strip() for s in suggestions
+        ]
+        return suggestions
+
+    def answer_question(self, image_embeds, question, **kwargs):
+        prompt = f"User: <image>\n{question}\nAssistant:"
+        answer = self.generate(
+            image_embeds,
+            prompt,
+            eos_text="Human:",
+            max_new_tokens=128,
+            **kwargs,
+        )[0]
+
+        return re.sub("Human$", "", answer).strip()

@@ -1,11 +1,26 @@
 from moondream import VisionEncoder, TextModel
 from PIL import Image
+import argparse
 
 vision_encoder = VisionEncoder()
 text_model = TextModel()
 
-image = Image.open("assets/demo-1.jpg")
-image_embeds = vision_encoder(image)
-out = text_model.generate(image_embeds, "User: <image>\nWhat is this?\nAssistant: ")
+parser = argparse.ArgumentParser()
+parser.add_argument("--image", type=str, required=True)
+parser.add_argument("--interactive", action="store_true")
+args = parser.parse_args()
 
-print(out)
+image = Image.open(args.image)
+image_embeds = vision_encoder(image)
+
+if args.interactive:
+    while True:
+        question = input("> ")
+        print(text_model.answer_question(image_embeds, question))
+        print()
+else:
+    suggestions = text_model.suggest_questions(image_embeds)
+    for suggestion in suggestions:
+        print("> ", suggestion)
+        print(text_model.answer_question(image_embeds, suggestion))
+        print()
