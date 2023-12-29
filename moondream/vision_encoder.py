@@ -11,8 +11,8 @@ from torchvision.transforms.v2 import (
 
 
 class VisionEncoder:
-    def __init__(self) -> None:
-        self.model = torch.jit.load("model/vision.pt").to(dtype=torch.float32)
+    def __init__(self, model_path: str = "model") -> None:
+        self.model = torch.jit.load(f"{model_path}/vision.pt").to(dtype=torch.float32)
         self.preprocess = Compose(
             [
                 Resize(size=(384, 384), interpolation=InterpolationMode.BICUBIC),
