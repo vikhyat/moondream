@@ -21,7 +21,7 @@ class TextModel:
         self.model = load_checkpoint_and_dispatch(
             self.model,
             f"{model_path}/text_model.pt",
-            device_map={"": "cpu"},
+            device_map="auto",
         )
 
         self.text_emb = self.model.get_input_embeddings()
@@ -48,7 +48,7 @@ class TextModel:
             assert prompt.count("<image>") == 1
             before, after = prompt.split("<image>")
             embeds.append(self.text_emb(_tokenize(f"{before}<image>")))
-            embeds.append(image_embeds)
+            embeds.append(image_embeds.to(self.model.device))
             embeds.append(self.text_emb(_tokenize(f"</image>{after}")))
 
         return torch.cat(embeds, dim=1)
