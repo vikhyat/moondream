@@ -1,9 +1,12 @@
 from moondream import VisionEncoder, TextModel
 from PIL import Image
+from huggingface_hub import snapshot_download
 import argparse
 
-vision_encoder = VisionEncoder()
-text_model = TextModel()
+model_path = snapshot_download("vikhyatk/moondream0")
+
+vision_encoder = VisionEncoder(model_path)
+text_model = TextModel(model_path)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image", type=str, required=True)
