@@ -90,6 +90,8 @@ class TextModel:
         suggestions = [
             "What " + re.sub("Assistant$", "", s).strip() for s in suggestions
         ]
+        suggestions = list(set(suggestions))
+
         return suggestions
 
     def answer_question(self, image_embeds, question, **kwargs):

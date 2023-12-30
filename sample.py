@@ -43,5 +43,3 @@ else:
                 print(buffer, end="", flush=True)
                 buffer = ""
         print(re.sub("Human$", "", buffer))
-
-        print()
