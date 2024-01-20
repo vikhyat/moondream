@@ -21,7 +21,7 @@ class TextModel:
         self.model = load_checkpoint_and_dispatch(
             self.model,
             f"{model_path}/text_model.pt",
-            device_map="auto",
+            device_map={"": "cpu"},
         )
 
         self.text_emb = self.model.get_input_embeddings()
@@ -74,34 +74,14 @@ class TextModel:
 
         return self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
 
-    def suggest_questions(self, image_embeds, **kwargs):
-        prompt = "User: <image>\nWhat"
-        suggestions = self.generate(
-            image_embeds,
-            prompt,
-            eos_text="Assistant:",
-            max_new_tokens=64,
-            do_sample=True,
-            top_p=0.8,
-            num_return_sequences=3,
-            **kwargs,
-        )
-
-        suggestions = [
-            "What " + re.sub("Assistant$", "", s).strip() for s in suggestions
-        ]
-        suggestions = list(set(suggestions))
-
-        return suggestions
-
     def answer_question(self, image_embeds, question, **kwargs):
-        prompt = f"User: <image>\n{question}\nAssistant:"
+        prompt = f"<image>\n\nQuestion: {question}\n\nAnswer:"
         answer = self.generate(
             image_embeds,
             prompt,
-            eos_text="Human:",
+            eos_text="<END>",
             max_new_tokens=128,
             **kwargs,
         )[0]
 
-        return re.sub("Human$", "", answer).strip()
+        return re.sub("<$", "", re.sub("END$", "", answer)).strip()

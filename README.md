@@ -2,27 +2,31 @@
 
 a tiny vision language model
 
-## project goals
+## moondream1
 
-Build a high-quality, low-hallucination vision language model small enough to
-run on an edge device without a GPU.
+1.8B parameter model built using SigLIP, Phi-1.5 and the LLaVa training dataset.
+The model is release for research purposes only; commercial use is prohibited.
 
-## moondream0
+**Benchmarks**
 
-Initial prototype built using SigLIP, Phi-1.5, and the LLaVa training dataset.
-The model is for research purposes only, and is subject to the Phi and LLaVa
-license restrictions.
+| Model | Parameters | VQAv2 | GQA | VizWiz | TextVQA |
+| --- | --- | --- | --- | --- | --- |
+| LLaVA-1.5 | 13.3B | 80.0 | 63.3 | 53.6 | 61.3 |
+| LLaVA-1.5 | 7.3B | 78.5 | 62.0 | 50.0 | 58.2 |
+| [MC-LLaVA-3B](https://huggingface.co/visheratin/MC-LLaVA-3b) | 3B | 64.2 | 49.6 | 24.9 | 38.6 |
+| [LLaVA-Phi](https://arxiv.org/pdf/2401.02330.pdf) | 3B | 71.4 | - | 35.9 | 48.6 |
+| **moondream1** | 1.6B | 74.3 | 56.3 | 30.3 | 39.8 |
 
 **Examples**
 
 | Image | Examples |
 | --- | --- |
-| ![](assets/demo-1.jpg) | **What is the title of this book?**<br>The Little Book of Deep Learning<br>Author: Francois Flaubert<br><br>**What can you tell me about this book?**<br>The book in question is a small paperback titled "The Little Book of Deep Learning." It appears to be a guide or reference for those interested in deep learning, as the title suggests. The book is likely to be helpful for individuals who are new to the field or looking to expand their knowledge in this area. The image shows the book being held by a person, possibly a reader or a professional in the field.<br><br>**What is the person holding?**<br> The person is holding a book, which is titled "The Little Book of Deep Learning." |
-| ![](assets/demo-2.jpg) | **What type of food is the girl holding?**<br>The girl is holding a sandwich.<br><br>**What color is the woman's hair?**<br>The woman's hair is white.<br><br>**What is the girl doing in the image?**<br>The girl in the image is eating a sandwich, specifically a hamburger, while sitting at a table. |
-| ![](assets/demo-3.jpg) | **What color is the train?**<br>The train is red.<br><br>**What is the bus doing in the image?**<br>The bus in the image is traveling down a city street, passing by tall buildings and driving under a street light.<br><br>**What kind of public transportation is in the image?**<br>The image features a red light-rail train, which is a type of public transportation. |
-| ![](assets/demo-4.jpg) | **What is the girl looking at?**<br>The girl is looking at her reflection in a mirror.<br><br>**What color is the woman's hair?**<br>The woman has black hair.<br><br>**What is the woman doing in the mirror?**<br>The woman is looking at herself in the mirror, possibly adjusting her hair or makeup. |
-| ![](assets/demo-5.jpg) | **What might be the reason for the dog's aggressive behavior?**<br>The dog's aggressive behavior could be attributed to the fact that it is being bitten by a person, which is a form of animal abuse. The dog's eyes are red, and it appears to be growling, which are signs of fear or pain. The aggressive behavior might be a result of the dog's attempt to protect itself or its owner from the perceived threat. It is essential to address such behavior in dogs to ensure their well-being and prevent potential harm to both the dog and the person involved.<br><br>**What kind of dog is in the picture?**<br>The dog in the picture is a Chihuahua.<br><br>**What color is the dog?**<br>The dog is black and white. |
-| ![](assets/demo-6.jpg) | **What is the man wearing?**<br>The man is wearing a large, inflatable suit or a giant inflatable costume.<br><br>**Is he indoors or outdoors?**<br>The man is outdoors, standing in front of a building.<br><br>**What is in the background?**<br>In the background, there is a building visible behind the person dressed up in a large amount of plastic wrap. |
+| ![](assets/demo-1.jpg) | **What is the title of this book?**<br>The Little Book of Deep Learning<br><br>**What can you tell me about this book?**<br>The book appears to be a white booklet titled "The Little Book of Deep Learning." It is held in a person's hand, and it seems to be a personal possession. The book's content focuses on the basics of deep learning, which is a field of artificial intelligence that uses neural networks to process and analyze data. It is likely that the book provides an introduction to the concepts and techniques involved in deep learning, making it accessible for beginners and helping them understand the fundamentals of this advanced machine learning approach.<br><br>**Where is the person standing?**<br>The person is standing on a balcony or a deck, which is located outside the house. |
+| ![](assets/demo-2.jpg) | **What type of food is the girl holding?**<br>The girl is holding a large hamburger or burger, which is a type of sandwich made from ground meat, typically consisting of a beef patty, and is usually served between two slices of bread.<br><br>**What color is the woman's hair?**<br>The woman's hair is white.<br><br>**What is the girl doing in the image?**<br>The girl in the image is eating a hamburger. |
+| ![](assets/demo-3.jpg) | **What color is the train?**<br>The train is red.<br><br>**What is the bus doing in the image?**<br>The bus is driving down a street, passing through an intersection, and traveling on a train track.<br><br>**What kind of public transportation is in the image?**<br>The image features a red trolley or commuter train on a city street, which is a form of public transportation. |
+| ![](assets/demo-4.jpg) | **What is the girl looking at?**<br>The girl is looking at her reflection in the mirror while adjusting her uniform.<br><br>**What color is the woman's hair?**<br>The woman's hair is brown.<br><br>**What is the woman doing in the mirror?**<br>The woman is adjusting her hair in the mirror. |
+| ![](assets/demo-5.jpg) | **What might be the reason for the dog's aggressive behavior?**<br>The dog's aggressive behavior, with its teeth bared and growling, could be due to several reasons. It is possible that the dog is feeling threatened, scared, or defensive in its current environment, such as a room with a person it doesn't know well or a situation that provokes it. Alternatively, the dog might be reacting to a perceived threat or discomfort from the person holding it. It is essential to assess the situation and the dog's body language to determine the exact cause of its aggressive behavior and respond accordingly to ensure the safety and well-being of both the dog and the person involved.<br><br>**What kind of dog is in the picture?**<br>The picture features a small dog, possibly a Chihuahua, with red eyes and a mean, hungry-looking expression.<br><br>**What color is the dog?**<br>The dog is black and white. |
+| ![](assets/demo-6.jpg) | **What is the man wearing?**<br>The man is wearing a white jumpsuit made out of blown-up balloons.<br><br>**Is he indoors or outdoors?**<br>He is outdoors, standing in front of a building.<br><br>**Why is the man wearing this?**<br>The man is wearing a white jumpsuit made of blown-up balloons, which is an unconventional and humorous costume. It is likely that he is attending a party, event, or celebration where he is participating in a fun activity or game that involves dressing up in a unique and silly outfit. The costume is made of balloons, which adds a playful and lighthearted element to his appearance, making it an entertaining choice for the occasion. |
 
 **Usage**
 
@@ -35,11 +39,11 @@ pip install -r requirements.txt
 Use the `sample.py` script to run the model on CPU:
 
 ```bash
-python sample.py --image [IMAGE_PATH] [--interactive]
+python sample.py --image [IMAGE_PATH] --prompt [PROMPT]
 ```
 
-When the `--interactive` flag is not set, the script will predict three questions and try
-to answer them.
+When the `--prompt` argument is not provided, the script will allow you to ask
+questions interactively.
 
 **Limitations**
 

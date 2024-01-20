@@ -1,5 +1,6 @@
 import torch
 from PIL import Image
+from einops import rearrange
 from torchvision.transforms.v2 import (
     Compose,
     Resize,
@@ -25,4 +26,9 @@ class VisionEncoder:
     def __call__(self, image: Image) -> torch.Tensor:
         with torch.no_grad():
             image_vec = self.preprocess(image.convert("RGB")).unsqueeze(0)
+            image_vec = image_vec[:, :, :-6, :-6]
+            image_vec = rearrange(
+                image_vec, "b c (h p1) (w p2) -> b (h w) (c p1 p2)", p1=14, p2=14
+            )
+
             return self.model(image_vec)
