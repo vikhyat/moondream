@@ -1,4 +1,4 @@
-# moondream
+# 🌔 moondream
 
 a tiny vision language model
 
