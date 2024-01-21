@@ -4,7 +4,7 @@ a tiny vision language model
 
 ## moondream1
 
-1.8B parameter model built using SigLIP, Phi-1.5 and the LLaVa training dataset.
+1.6B parameter model built using SigLIP, Phi-1.5 and the LLaVa training dataset.
 The model is release for research purposes only; commercial use is prohibited.
 
 **Benchmarks**
