@@ -36,7 +36,7 @@ def moondream(img, prompt):
 
 # Using Gradio Blocks API
 with gr.Blocks() as demo:
-  gr.HTML("<h1><center>🌔MoonDream</center></h1>")
+  gr.HTML("<h1><center>🌔 moondream</center></h1>")
   gr.HTML("<h3><center>A tiny vision language model. <a href='https://github.com/vikhyat/moondream' target='blank_'>GitHub</a></center></h3>")
   with gr.Group():
     with gr.Row():
