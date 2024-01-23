@@ -45,6 +45,15 @@ python sample.py --image [IMAGE_PATH] --prompt [PROMPT]
 When the `--prompt` argument is not provided, the script will allow you to ask
 questions interactively.
 
+**Gradio demo**
+
+Use the `grado_demo.py` script to run the gradio app:
+
+```python
+python gradio_app.py
+```
+
+
 **Limitations**
 
 * The model may generate inaccurate statements.
