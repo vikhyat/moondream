@@ -47,7 +47,7 @@ questions interactively.
 
 **Gradio demo**
 
-Use the `grado_demo.py` script to run the gradio app:
+Use the `gradio_demo.py` script to run the gradio app:
 
 ```python
 python gradio_app.py
