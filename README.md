@@ -1,12 +1,12 @@
 # 🌔 moondream
 
-a tiny vision language model
+a tiny vision language model that kicks ass and runs anywhere
 
 ## moondream1
 
-1.6B parameter model built using SigLIP, Phi-1.5 and the LLaVa training dataset.
-The model is release for research purposes only; commercial use is not allowed.
-Try it out on [Huggingface Spaces](https://huggingface.co/spaces/vikhyatk/moondream1)!
+1.6B parameter model built using SigLIP, Phi-1.5 and the LLaVA training dataset.
+Weights are licensed under CC-BY-SA due to using the LLaVA dataset. Try it out
+on [Huggingface Spaces](https://huggingface.co/spaces/vikhyatk/moondream1)!
 
 **Benchmarks**
 
