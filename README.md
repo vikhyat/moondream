@@ -50,7 +50,7 @@ questions interactively.
 Use the `gradio_demo.py` script to run the gradio app:
 
 ```python
-python gradio_app.py
+python gradio_demo.py
 ```
 
 
