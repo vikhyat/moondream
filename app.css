@@ -93,3 +93,7 @@ section.links {
     font-family: 'Space Mono', monospace;
     font-size: 0.8rem;
 }
+.gradio-heading,
+.gradio-sub-heading {
+    display: none;
+}
