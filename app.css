@@ -87,3 +87,9 @@
     font-weight: 100;
     font-size: 1.5rem;
 }
+section.links {
+    margin-top: -6rem;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+}
