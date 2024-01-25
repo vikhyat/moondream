@@ -2,7 +2,7 @@
     font-family: 'Space Mono';
     font-style: normal;
     font-weight: 400;
-    src: local(''), url('/fonts/Space_Mono/SpaceMono-Regular.ttf') format('truetype');
+    src: local(''), url('/assets/fonts/Space_Mono/SpaceMono-Regular.ttf') format('truetype');
 }
 
 [data-theme=light],
