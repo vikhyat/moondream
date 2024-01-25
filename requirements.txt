@@ -1,7 +1,0 @@
-accelerate==0.25.0
-huggingface-hub==0.20.1
-Pillow==10.1.0
-torch==2.1.2
-torchvision==0.16.2
-transformers==4.36.2
-einops==0.7.0
