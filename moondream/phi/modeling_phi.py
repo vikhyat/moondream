@@ -225,21 +225,14 @@ class CrossAttention(nn.Module):
         return output
 
 
-def _find_mha_dims(
-    config: PretrainedConfig,
-    n_head: Optional[int] = None,
-    n_head_kv: Optional[int] = None,
-    head_dim: Optional[int] = None,
-) -> Tuple[int, int]:
+def _find_mha_dims(config: PretrainedConfig, n_head: Optional[int] = None, n_head_kv: Optional[int] = None, head_dim: Optional[int] = None) -> Tuple[int, int]:
     if n_head is None and head_dim is None:
         head_dim = config.n_embd // config.n_head
         n_head = config.n_head
     elif n_head is None or head_dim is None:
         raise ValueError("`n_head` and `head_dim` must be both specified or `None`.")
-
     if n_head_kv is None:
         n_head_kv = getattr(config, "n_head_kv", None) or n_head
-
     return n_head, n_head_kv, head_dim
 
 
