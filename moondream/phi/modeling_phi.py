@@ -76,64 +76,32 @@ def _apply_rotary_emb_qkv(qkv: torch.FloatTensor, cos: torch.FloatTensor, sin: t
     qkv_v = qkv[:, :, 2:3, :, :]
     return torch.cat([qkv_rot, qkv_pass, qkv_v], dim=2)
 
-
 class RotaryEmbedding(nn.Module):
-    """Rotary positional embedding (RoPE).
-
-    Reference:
-        RoFormer: Enhanced Transformer with Rotary Position Embedding.
-        https://arxiv.org/pdf/2104.09864.pdf.
-
-    """
-
+    # Enhanced Transformer with Rotary Position Embedding (https://arxiv.org/pdf/2104.09864.pdf)
     def __init__(
-        self,
-        dim: int,
-        base: int = 10000,
-        scale_base: Optional[float] = None,
-        pos_idx_in_fp32: bool = True,
-        max_position_embeddings: int = 2048,
-        device: Optional[str] = None,
-        **kwargs,
+        self, 
+        dim: int, 
+        base: int = 10000, 
+        scale_base: Optional[float] = None, 
+        pos_idx_in_fp32: bool = True, 
+        max_position_embeddings: int = 2048, 
+        device: Optional[str] = None
     ) -> None:
         super().__init__()
-
-        if scale_base is not None:
-            raise NotImplementedError
-
-        self.dim = dim
-        self.base = float(base)
-        self.scale_base = scale_base
-        self.pos_idx_in_fp32 = pos_idx_in_fp32
+        self.dim, self.base, self.pos_idx_in_fp32, self.device = dim, float(base), pos_idx_in_fp32, device
         self.max_position_embeddings = max_position_embeddings
-        self.device = device
+        if scale_base is not None: raise NotImplementedError
 
-        # Generate and save the inverse frequency buffer (non-trainable)
-        inv_freq = self._compute_inv_freq(device)
-        self.register_buffer("inv_freq", inv_freq, persistent=False)
-
-        # Generate and save the scale buffer (non-trainable)
-        scale = (
-            (torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim)
-            / (1.4 * dim)
-            if scale_base is not None
-            else None
-        )
-        self.register_buffer("scale", scale, persistent=False)
-
-        # Initialize cached attributes since ONNX can't rely on dynamic initialization
-        self._update_cos_sin_cache(
-            max_position_embeddings, device=device, dtype=torch.float32
-        )
+        # Generate and register the non-trainable buffers
+        self.register_buffer("inv_freq", self._compute_inv_freq(device), persistent=False)
+        self.register_buffer("scale", self._calculate_scale(dim, scale_base, device), persistent=False)
+        self._update_cos_sin_cache(max_position_embeddings, device=device, dtype=torch.float32)
+    
+    def _calculate_scale(self, dim, scale_base, device):
+        return ((torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim) / (1.4 * dim)) if scale_base is not None else None
 
     def _compute_inv_freq(self, device: Optional[str] = None) -> torch.FloatTensor:
-        return 1.0 / (
-            self.base
-            ** (
-                torch.arange(0, self.dim, 2, device=device, dtype=torch.float32)
-                / self.dim
-            )
-        )
+        return 1.0 / (self.base ** (torch.arange(0, self.dim, 2, device=device, dtype=torch.float32) / self.dim))
 
     def _update_cos_sin_cache(
         self,
