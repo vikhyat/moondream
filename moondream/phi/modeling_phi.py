@@ -380,8 +380,6 @@ class CausalLMLoss(nn.Module):
 
 
 class PhiPreTrainedModel(PreTrainedModel):
-    """Phi pre-trained model."""
-
     config_class = PhiConfig
     base_model_prefix = "transformer"
     supports_gradient_checkpointing = False
@@ -398,22 +396,15 @@ class PhiPreTrainedModel(PreTrainedModel):
         attention_mask: Optional[Union[torch.LongTensor, torch.BoolTensor]] = None,
         **kwargs,
     ) -> Dict[str, Any]:
-        if inputs_embeds is not None:
-            max_batch_size = inputs_embeds.shape[0]
-            seqlen_offset = inputs_embeds.shape[1] + input_ids.shape[1] - 2
-        elif input_ids is not None:
-            max_batch_size = input_ids.shape[0]
-            seqlen_offset = input_ids.shape[1] - 1
-        else:
-            raise ValueError(
-                "You have to specify either `input_ids` or `inputs_embeds`."
-            )
+        if input_ids is None and inputs_embeds is None:
+            raise ValueError("You have to specify either `input_ids` or `inputs_embeds`.")
 
-        args = {}
+        max_batch_size = inputs_embeds.shape[0] if inputs_embeds is not None else input_ids.shape[0]
+        seqlen_offset = inputs_embeds.shape[1] + input_ids.shape[1] - 2 if inputs_embeds is not None else input_ids.shape[1] - 1
 
-        if past_key_values is None or not (
-            isinstance(past_key_values, InferenceParams)
-        ):
+        args = {"inputs_embeds": inputs_embeds} if inputs_embeds is not None else {"input_ids": input_ids}
+
+        if not isinstance(past_key_values, InferenceParams):
             past_key_values = InferenceParams(
                 max_seqlen=self.config.n_positions,
                 max_batch_size=max_batch_size,
@@ -422,19 +413,9 @@ class PhiPreTrainedModel(PreTrainedModel):
                 key_value_memory_dict={},
                 lengths_per_sample=None,
             )
-            if inputs_embeds is not None:
-                args = {"inputs_embeds": inputs_embeds}
-            elif input_ids is not None:
-                args = {"input_ids": input_ids}
-            else:
-                raise ValueError(
-                    "You have to specify either `input_ids` or `inputs_embeds`."
-                )
         else:
-            # Assume that `past_key_values` has cached all tokens up to the last token in `input_ids`
             past_key_values.seqlen_offset = seqlen_offset
-            input_ids = input_ids[:, -1].unsqueeze(-1)
-            args = {"input_ids": input_ids}
+            args = {"input_ids": input_ids[:, -1].unsqueeze(-1)}
 
         return {
             **args,
