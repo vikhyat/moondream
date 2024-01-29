@@ -24,60 +24,23 @@ FlashRotaryEmbedding = None
 FlashSelfAttention, FlashCrossAttention = None, None
 FusedDense = None
 
-
 @dataclass
 class InferenceParams:
-    """Inference parameters passed to model to efficiently calculate
-    and store context during inference.
-
-    Reference:
-        https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/utils/generation.py.
-
-    Args:
-        max_seqlen: Maximum sequence length.
-        max_batch_size: Maximum batch size.
-        seqlen_offset: Sequence length offset.
-        batch_size_offset: Batch size offset.
-        key_value_memory_dict: Key value memory dictionary.
-        lengths_per_sample: Lengths per sample.
-
-    """
-
-    max_seqlen: int = field(metadata={"help": "Maximum sequence length."})
-
-    max_batch_size: int = field(metadata={"help": "Maximum batch size."})
-
-    seqlen_offset: int = field(default=0, metadata={"help": "Sequence length offset."})
-
-    batch_size_offset: int = field(default=0, metadata={"help": "Batch size offset."})
-
-    key_value_memory_dict: Dict[str, Any] = field(
-        default_factory=dict, metadata={"help": "Key value memory dictionary."}
-    )
-
-    lengths_per_sample: torch.Tensor = field(
-        default=None, metadata={"help": "Lengths per sample."}
-    )
-
+    max_seqlen: int
+    max_batch_size: int
+    seqlen_offset: int = 0
+    batch_size_offset: int = 0
+    key_value_memory_dict: Dict[str, Any] = field(default_factory=dict)
+    lengths_per_sample: torch.Tensor = None
 
 class Embedding(nn.Module):
-    """Token embedding with dropout."""
-
-    def __init__(self, config: PretrainedConfig) -> None:
+    def __init__(self, config: PretrainedConfig):
         super().__init__()
-
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
         self.drop = nn.Dropout(config.embd_pdrop)
 
     def forward(self, input_ids: torch.LongTensor) -> torch.FloatTensor:
-        input_shape = input_ids.size()
-        input_ids = input_ids.view(-1, input_shape[-1])
-
-        hidden_states = self.wte(input_ids)
-        hidden_states = self.drop(hidden_states)
-
-        return hidden_states
-
+        return self.drop(self.wte(input_ids.view(-1, input_ids.size(-1))))
 
 # @torch.compile
 def _apply_rotary_emb(
