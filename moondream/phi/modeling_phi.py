@@ -324,35 +324,15 @@ class MHA(nn.Module):
         self,
         x: torch.FloatTensor,
         past_key_values: Optional[InferenceParams] = None,
-        attention_mask: Optional[Union[torch.LongTensor, torch.BoolTensor]] = None,
-        **kwargs,
+        attention_mask: Optional[Union[torch.LongTensor, torch.BoolTensor]] = None
     ) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
-        if attention_mask is not None:
-            attention_mask = attention_mask.bool()
-        else:
-            attention_mask = None
-
-        # MHA
-        if self.n_head == self.n_head_kv:
-            if past_key_values is None:
-                # If `past_key_values` are not supplied, we run self-attention
-                attn_output = self._forward_self_attn(x, attention_mask)
-            else:
-                # If `past_key_values` are supplied, it means that we might have cached values and
-                # could take advantage of cross-attention
-                attn_output = self._forward_cross_attn(
-                    x, past_key_values, attention_mask
-                )
-        # MQA / GQA
-        else:
-            # Regardless of `past_key_values` being supplied or not, it always use cross-attention
-            # because `q` and `kv` lengths might be different
-            attn_output = self._forward_cross_attn(x, past_key_values, attention_mask)
-
-        output = rearrange(attn_output, "... h d -> ... (h d)")
-        output = self.out_proj(output)
-
-        return output if not self.return_residual else (output, x)
+        
+        attention_mask = attention_mask.bool() if attention_mask is not None else None
+        use_cross_attn = self.n_head != self.n_head_kv or past_key_values is not None
+        attn_output_function = self._forward_cross_attn if use_cross_attn else self._forward_self_attn
+        attn_output = attn_output_function(x, past_key_values, attention_mask) if use_cross_attn else attn_output_function(x, attention_mask)
+        output = self.out_proj(rearrange(attn_output, "... h d -> ... (h d)"))
+        return (output, x) if self.return_residual else output
 
 
 class ParallelBlock(nn.Module):
