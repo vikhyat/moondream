@@ -190,14 +190,7 @@ class CrossAttention(nn.Module):
     
     @torch.autocast("cpu", enabled=False)
     @torch.autocast("cuda", enabled=False)
-    def forward(
-        self,
-        q: torch.FloatTensor,
-        kv: torch.FloatTensor,
-        causal: bool = None,
-        key_padding_mask: Optional[torch.BoolTensor] = None,
-        **kwargs,
-    ) -> torch.FloatTensor:
+    def forward(self, q: torch.FloatTensor, kv: torch.FloatTensor, causal: bool = None, key_padding_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:
         batch_size, seqlen_q = q.shape[0], q.shape[1]
         seqlen_k = kv.shape[1]
 
@@ -211,33 +204,22 @@ class CrossAttention(nn.Module):
         causal = self.causal if causal is None else causal
         softmax_scale = self.softmax_scale or 1.0 / math.sqrt(q.shape[-1])
 
-        # Autocast is manually disabled to avoid `torch.einsum` performing the operation
-        # using float16, which might lead to overflow
+        # Autocast is manually disabled to avoid `torch.einsum` performing the operation using float16, which might lead to overflow
         scores = torch.einsum("bthd,bshd->bhts", q, k * softmax_scale)
 
         if key_padding_mask is not None:
-            padding_mask = torch.full(
-                (batch_size, seqlen_k),
-                -10000.0,
-                dtype=scores.dtype,
-                device=scores.device,
-            )
+            padding_mask = torch.full((batch_size, seqlen_k), -10000.0, dtype=scores.dtype, device=scores.device,)
             padding_mask.masked_fill_(key_padding_mask, 0.0)
-
             scores = scores + rearrange(padding_mask, "b s -> b 1 1 s")
 
         if causal:
-            rows = rearrange(
-                torch.arange(seqlen_q, device=q.device, dtype=torch.long), "s -> s 1"
-            )
+            rows = rearrange(torch.arange(seqlen_q, device=q.device, dtype=torch.long), "s -> s 1")
             cols = torch.arange(seqlen_k, device=k.device, dtype=torch.long)
             causal_mask = cols > rows + seqlen_k - seqlen_q
-
             scores = scores.masked_fill(causal_mask, -10000.0)
 
         attention = torch.softmax(scores, dim=-1).to(v.dtype)
         attention = self.drop(attention)
-
         output = torch.einsum("bhts,bshd->bthd", attention, v)
 
         return output
