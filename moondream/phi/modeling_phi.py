@@ -451,10 +451,8 @@ class PhiModel(PhiPreTrainedModel):
         return hidden_states
 
 class PhiForCausalLM(PhiPreTrainedModel):
-    _keys_to_ignore_on_load_missing, _keys_to_ignore_on_load_unexpected = (
-        [""],
-        [r"transformer\.h\.\d+\.mlp.(fc_in|fc_out)\.(weight|bias)"]
-    )
+    
+    _keys_to_ignore_on_load_missing, _keys_to_ignore_on_load_unexpected = ([""], [r"transformer\.h\.\d+\.mlp.(fc_in|fc_out)\.(weight|bias)"])
 
     def __init__(self, config: PhiConfig) -> None:
         super().__init__(config)
