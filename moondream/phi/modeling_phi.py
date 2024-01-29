@@ -123,42 +123,25 @@ class RotaryEmbedding(nn.Module):
             self._cos_k_cached = apply_scale(freqs, scale, torch.cos, dtype)
             self._sin_k_cached = apply_scale(freqs, scale, torch.sin, dtype)
 
-    def forward(
-        self,
-        qkv: torch.Tensor,
-        kv: Optional[torch.Tensor] = None,
-        seqlen_offset: int = 0,
-        **kwargs,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        if (
+    def forward(self, qkv: torch.Tensor, kv: Optional[torch.Tensor] = None, seqlen_offset: int = 0) -> Tuple[torch.Tensor, torch.Tensor]:
+        
+        should_update = (
             self._seq_len_cached < qkv.shape[1] + seqlen_offset
             or self._cos_cached.device != qkv.device
             or self._cos_cached.dtype != qkv.dtype
             or (self.training and self._cos_cached.is_inference())
-        ):
-            self._update_cos_sin_cache(
-                qkv.shape[1] + seqlen_offset, device=qkv.device, dtype=qkv.dtype
-            )
+        )
+
+        if should_update:
+            self._update_cos_sin_cache(qkv.shape[1] + seqlen_offset, device=qkv.device, dtype=qkv.dtype)
+
+        offset_cos = self._cos_cached[seqlen_offset:]
+        offset_sin = self._sin_cached[seqlen_offset:]
 
         if kv is None:
-            return _apply_rotary_emb_qkv(
-                qkv,
-                self._cos_cached[seqlen_offset:],
-                self._sin_cached[seqlen_offset:],
-            )
+            return _apply_rotary_emb_qkv(qkv, offset_cos, offset_sin)
         else:
-            q = _apply_rotary_emb(
-                qkv,
-                self._cos_cached[seqlen_offset:],
-                self._sin_cached[seqlen_offset:],
-            )
-            kv = _apply_rotary_emb_kv(
-                kv,
-                self._cos_cached[seqlen_offset:],
-                self._sin_cached[seqlen_offset:],
-            )
-
-            return q, kv
+            return _apply_rotary_emb(qkv, offset_cos, offset_sin), _apply_rotary_emb_kv(kv, offset_cos, offset_sin)
 
 
 class MLP(nn.Module):
