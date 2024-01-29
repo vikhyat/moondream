@@ -145,39 +145,19 @@ class RotaryEmbedding(nn.Module):
 
 
 class MLP(nn.Module):
-    """Multi-Layer Perceptron.
-
-    Reference:
-        Attention Is All You Need.
-        https://arxiv.org/pdf/1706.03762.pdf.
-
-    """
-
-    def __init__(
-        self,
-        config: PretrainedConfig,
-        n_inner: Optional[int] = None,
-        act_fn: Optional[str] = None,
-    ) -> None:
+    def __init__(self, config: PretrainedConfig, n_inner: Optional[int] = None, act_fn: Optional[str] = None) -> None:
         super().__init__()
-
-        act_fn = config.activation_function if act_fn is None else act_fn
-
-        n_inner = getattr(config, "n_inner", None) if n_inner is None else n_inner
-        n_inner = n_inner if n_inner is not None else 4 * config.n_embd
+        n_inner = n_inner or getattr(config, "n_inner", None) or 4 * config.n_embd
+        act_fn = act_fn or config.activation_function
 
         self.fc1 = nn.Linear(config.n_embd, n_inner)
         self.fc2 = nn.Linear(n_inner, config.n_embd)
         self.act = ACT2FN[act_fn]
 
     def forward(self, hidden_states: torch.FloatTensor) -> torch.FloatTensor:
-        hidden_states = self.fc1(hidden_states)
-        hidden_states = self.act(hidden_states)
-        hidden_states = self.fc2(hidden_states)
+        return self.fc2(self.act(self.fc1(hidden_states)))
 
-        return hidden_states
-
-
+# https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py
 class SelfAttention(nn.Module):
     """Self-attention layer (compatible with PyTorch).
 
