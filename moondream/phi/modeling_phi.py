@@ -358,25 +358,14 @@ class ParallelBlock(nn.Module):
 
 
 class CausalLMHead(nn.Module):
-    """Causal Language Modeling head.
-
-    Reference:
-        Improving Language Understanding by Generative Pre-Training.
-        https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf.
-
-    """
-
-    def __init__(self, config: PretrainedConfig) -> None:
+    """Causal Language Modeling head. Simplified version."""
+    def __init__(self, config):
         super().__init__()
-
         self.ln = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
         self.linear = nn.Linear(config.n_embd, config.vocab_size)
 
-    def forward(self, hidden_states: torch.FloatTensor) -> torch.FloatTensor:
-        hidden_states = self.ln(hidden_states)
-        logits = self.linear(hidden_states).to(torch.float32)
-
-        return logits
+    def forward(self, hidden_states):
+        return self.linear(self.ln(hidden_states)).to(torch.float32)
 
 
 class CausalLMLoss(nn.Module):
