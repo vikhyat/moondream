@@ -451,20 +451,16 @@ class PhiModel(PhiPreTrainedModel):
         return hidden_states
 
 class PhiForCausalLM(PhiPreTrainedModel):
-    """Phi for Causal Language Modeling."""
-
-    _keys_to_ignore_on_load_missing = [""]
-    _keys_to_ignore_on_load_unexpected = [
-        r"transformer\.h\.\d+\.mlp.(fc_in|fc_out)\.(weight|bias)"
-    ]
+    _keys_to_ignore_on_load_missing, _keys_to_ignore_on_load_unexpected = (
+        [""],
+        [r"transformer\.h\.\d+\.mlp.(fc_in|fc_out)\.(weight|bias)"]
+    )
 
     def __init__(self, config: PhiConfig) -> None:
         super().__init__(config)
-
         self.transformer = PhiModel(config)
         self.lm_head = CausalLMHead(config)
         self.loss = CausalLMLoss()
-
         self.post_init()
 
     def get_output_embeddings(self) -> nn.Linear:
@@ -483,17 +479,9 @@ class PhiForCausalLM(PhiPreTrainedModel):
         **kwargs,
     ) -> CausalLMOutputWithPast:
         hidden_states = self.transformer(
-            input_ids,
-            inputs_embeds,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
+            input_ids=input_ids, inputs_embeds=inputs_embeds, past_key_values=past_key_values, attention_mask=attention_mask
         )
         lm_logits = self.lm_head(hidden_states)
+        loss = self.loss(lm_logits, labels) if labels is not None else None
 
-        loss = None
-        if labels is not None:
-            loss = self.loss(lm_logits, labels)
-
-        return CausalLMOutputWithPast(
-            loss=loss, logits=lm_logits, past_key_values=past_key_values
-        )
+        return CausalLMOutputWithPast(loss=loss, logits=lm_logits, past_key_values=past_key_values)
