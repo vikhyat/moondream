@@ -157,9 +157,8 @@ class MLP(nn.Module):
     def forward(self, hidden_states: torch.FloatTensor) -> torch.FloatTensor:
         return self.fc2(self.act(self.fc1(hidden_states)))
 
-
+# Flash Attention (https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py)
 class SelfAttention(nn.Module):
-    # Flash Attention (https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py)
     def __init__(self, causal: bool = True, softmax_scale: Optional[float] = None, attention_dropout: float = 0.0):
         super().__init__()
         self.causal = causal
@@ -168,23 +167,18 @@ class SelfAttention(nn.Module):
 
     @torch.autocast("cpu", enabled=False)
     @torch.autocast("cuda", enabled=False)
-    def forward(self, qkv: torch.FloatTensor, causal: bool = None, key_padding_mask: Optional[torch.BoolTensor] = None):
-        batch_size, seqlen, _ = qkv.shape
-        q, k, v = qkv.unbind(dim=2)
+    def forward(self, qkv: torch.FloatTensor, causal: Optional[bool] = None, key_padding_mask: Optional[torch.BoolTensor] = None):
+        q, k, v = qkv.chunk(3, dim=-1)
+        scale = self.softmax_scale or 1.0 / q.size(-1) ** 0.5
 
-        causal = causal if causal is not None else self.causal
-        softmax_scale = self.softmax_scale or 1.0 / math.sqrt(q.size(-1))
-
-        scores = torch.einsum("bthd,bshd->bhts", q.to(torch.float32), k.to(torch.float32) * softmax_scale)
-
+        scores = torch.einsum('bthd,bshd->bhts', q.to(torch.float32), k.to(torch.float32)) * scale
+        if causal or self.causal:
+            scores.triu_(1).fill_(-10000.0)
         if key_padding_mask is not None:
-            scores = scores.masked_fill(key_padding_mask.unsqueeze(1).unsqueeze(2), -10000.0)
-
-        if causal:
-            scores.masked_fill_(torch.triu(torch.ones((seqlen, seqlen), device=scores.device), diagonal=1) == 1, -10000.0)
-
-        attention = self.drop(torch.softmax(scores, dim=-1)).to(v.dtype)
-        return torch.einsum("bhts,bshd->bthd", attention, v)
+            scores.masked_fill_(key_padding_mask[:, None, None, :], -10000.0)
+        
+        attn = self.drop(torch.softmax(scores, dim=-1).to(v.dtype))
+        return torch.einsum('bhts,bshd->bthd', attn, v)
 
 
 class CrossAttention(nn.Module):
