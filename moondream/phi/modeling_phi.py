@@ -157,69 +157,34 @@ class MLP(nn.Module):
     def forward(self, hidden_states: torch.FloatTensor) -> torch.FloatTensor:
         return self.fc2(self.act(self.fc1(hidden_states)))
 
-# https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py
+
 class SelfAttention(nn.Module):
-    """Self-attention layer (compatible with PyTorch).
-
-    Reference:
-        https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py.
-
-    """
-
-    def __init__(
-        self,
-        causal: bool = True,
-        softmax_scale: Optional[float] = None,
-        attention_dropout: float = 0.0,
-    ) -> None:
+    # Flash Attention (https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py)
+    def __init__(self, causal: bool = True, softmax_scale: Optional[float] = None, attention_dropout: float = 0.0):
         super().__init__()
-
         self.causal = causal
         self.softmax_scale = softmax_scale
         self.drop = nn.Dropout(attention_dropout)
 
     @torch.autocast("cpu", enabled=False)
     @torch.autocast("cuda", enabled=False)
-    def forward(
-        self,
-        qkv: torch.FloatTensor,
-        causal: bool = None,
-        key_padding_mask: Optional[torch.BoolTensor] = None,
-        **kwargs,
-    ) -> torch.FloatTensor:
-        batch_size, seqlen = qkv.shape[0], qkv.shape[1]
+    def forward(self, qkv: torch.FloatTensor, causal: bool = None, key_padding_mask: Optional[torch.BoolTensor] = None):
+        batch_size, seqlen, _ = qkv.shape
         q, k, v = qkv.unbind(dim=2)
 
-        q = q.to(torch.float32)
-        k = k.to(torch.float32)
+        causal = causal if causal is not None else self.causal
+        softmax_scale = self.softmax_scale or 1.0 / math.sqrt(q.size(-1))
 
-        causal = self.causal if causal is None else causal
-        softmax_scale = self.softmax_scale or 1.0 / math.sqrt(q.shape[-1])
-
-        # Autocast is manually disabled to avoid `torch.einsum` performing the operation
-        # using float16, which might lead to overflow
-        scores = torch.einsum("bthd,bshd->bhts", q, k * softmax_scale)
+        scores = torch.einsum("bthd,bshd->bhts", q.to(torch.float32), k.to(torch.float32) * softmax_scale)
 
         if key_padding_mask is not None:
-            padding_mask = torch.full(
-                (batch_size, seqlen), -10000.0, dtype=scores.dtype, device=scores.device
-            )
-            padding_mask.masked_fill_(key_padding_mask, 0.0)
-
-            scores = scores + rearrange(padding_mask, "b s -> b 1 1 s")
+            scores = scores.masked_fill(key_padding_mask.unsqueeze(1).unsqueeze(2), -10000.0)
 
         if causal:
-            causal_mask = torch.triu(
-                torch.full((seqlen, seqlen), -10000.0, device=scores.device), 1
-            )
-            scores = scores + causal_mask.to(dtype=scores.dtype)
+            scores.masked_fill_(torch.triu(torch.ones((seqlen, seqlen), device=scores.device), diagonal=1) == 1, -10000.0)
 
-        attention = torch.softmax(scores, dim=-1).to(v.dtype)
-        attention = self.drop(attention)
-
-        output = torch.einsum("bhts,bshd->bthd", attention, v)
-
-        return output
+        attention = self.drop(torch.softmax(scores, dim=-1)).to(v.dtype)
+        return torch.einsum("bhts,bshd->bthd", attention, v)
 
 
 class CrossAttention(nn.Module):
