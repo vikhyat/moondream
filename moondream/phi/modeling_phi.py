@@ -417,11 +417,7 @@ class PhiPreTrainedModel(PreTrainedModel):
             past_key_values.seqlen_offset = seqlen_offset
             args = {"input_ids": input_ids[:, -1].unsqueeze(-1)}
 
-        return {
-            **args,
-            "past_key_values": past_key_values,
-            "attention_mask": attention_mask,
-        }
+        return {**args, "past_key_values": past_key_values, "attention_mask": attention_mask}
 
 
 class PhiModel(PhiPreTrainedModel):
