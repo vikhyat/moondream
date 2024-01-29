@@ -17,9 +17,6 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from .configuration_phi import PhiConfig
 
-pad_input, unpad_input = None, None
-FlashRotaryEmbedding = None
-FlashSelfAttention, FlashCrossAttention = None, None
 FusedDense = None
 
 @dataclass
