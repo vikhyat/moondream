@@ -50,7 +50,6 @@ def _apply_rotary_emb(x, cos, sin):
     x_rot = torch.cat([x1 * c - x2 * s, x1 * s + x2 * c], dim=-1)
     return torch.cat([x_rot.to(x.dtype), x_pass], dim=-1)
 
-# @torch.compile
 def _apply_rotary_emb_kv(
     kv: torch.FloatTensor,
     cos: torch.FloatTensor,
@@ -58,29 +57,12 @@ def _apply_rotary_emb_kv(
     cos_k: Optional[torch.FloatTensor] = None,
     sin_k: Optional[torch.FloatTensor] = None,
 ) -> torch.FloatTensor:
-    _, seqlen, _, _, _ = kv.shape
-    _, rotary_dim = cos.shape
-    rotary_dim *= 2
-
-    k_rot = kv[:, :, 0, :, :rotary_dim]
+    seqlen, rotary_dim = kv.shape[1], cos.shape[-1] * 2
+    k_rot = kv[:, :, 0, :, :rotary_dim].chunk(2, dim=-1)
     k_pass = kv[:, :, 0, :, rotary_dim:]
-
-    k1, k2 = k_rot.chunk(2, dim=-1)
-    c, s = rearrange(cos[:seqlen], "s d -> s 1 d"), rearrange(
-        sin[:seqlen], "s d -> s 1 d"
-    )
-    k1, k2, c, s = [t.to(dtype=torch.float32) for t in [k1, k2, c, s]]
-
-    k_rot = torch.cat([k1 * c - k2 * s, k1 * s + k2 * c], axis=-1).to(kv.dtype)
-
-    return torch.cat(
-        [
-            torch.cat([k_rot, k_pass], axis=-1).unsqueeze(2),
-            kv[:, :, 1:2, :, :],
-        ],
-        axis=2,
-    )
-
+    c, s = cos[:seqlen].unsqueeze(1), sin[:seqlen].unsqueeze(1)
+    k_rot = torch.cat([k_rot[0] * c - k_rot[1] * s, k_rot[0] * s + k_rot[1] * c], dim=-1)
+    return torch.cat([torch.cat([k_rot, k_pass], dim=-1).unsqueeze(2), kv[:, :, 1:2, :, :]], dim=2)
 
 # @torch.compile
 def _apply_rotary_emb_qkv(
