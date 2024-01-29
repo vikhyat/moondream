@@ -64,7 +64,6 @@ def _apply_rotary_emb_kv(
     k_rot = torch.cat([k_rot[0] * c - k_rot[1] * s, k_rot[0] * s + k_rot[1] * c], dim=-1)
     return torch.cat([torch.cat([k_rot, k_pass], dim=-1).unsqueeze(2), kv[:, :, 1:2, :, :]], dim=2)
 
-# @torch.compile
 def _apply_rotary_emb_qkv(
     qkv: torch.FloatTensor,
     cos: torch.FloatTensor,
@@ -72,34 +71,19 @@ def _apply_rotary_emb_qkv(
     cos_k: Optional[torch.FloatTensor] = None,
     sin_k: Optional[torch.FloatTensor] = None,
 ) -> torch.FloatTensor:
-    _, seqlen, _, _, _ = qkv.shape
-    _, rotary_dim = cos.shape
-    rotary_dim *= 2
+    seqlen = qkv.shape[1]
+    rotary_dim = cos.shape[1] * 2
 
-    q_rot = qkv[:, :, 0, :, :rotary_dim]
-    q_pass = qkv[:, :, 0, :, rotary_dim:]
+    def rotate_half(x):
+        x1, x2 = x[..., :rotary_dim // 2], x[..., rotary_dim // 2:rotary_dim]
+        c, s = cos[:seqlen].unsqueeze(1), sin[:seqlen].unsqueeze(1)
+        return torch.cat([x1 * c - x2 * s, x1 * s + x2 * c], dim=-1).to(qkv.dtype)
 
-    k_rot = qkv[:, :, 1, :, :rotary_dim]
-    k_pass = qkv[:, :, 1, :, rotary_dim:]
+    qkv_rot = torch.stack([rotate_half(qkv[:, :, i, :, :rotary_dim]) for i in range(2)], dim=2)
+    qkv_pass = qkv[:, :, :2, :, rotary_dim:].unsqueeze(2)
+    qkv_v = qkv[:, :, 2:3, :, :]
 
-    q1, q2 = q_rot.chunk(2, dim=-1)
-    k1, k2 = k_rot.chunk(2, dim=-1)
-    c, s = rearrange(cos[:seqlen], "s d -> s 1 d"), rearrange(
-        sin[:seqlen], "s d -> s 1 d"
-    )
-    q1, q2, k1, k2, c, s = [t.to(dtype=torch.float32) for t in [q1, q2, k1, k2, c, s]]
-
-    q_rot = torch.cat([q1 * c - q2 * s, q1 * s + q2 * c], axis=-1).to(qkv.dtype)
-    k_rot = torch.cat([k1 * c - k2 * s, k1 * s + k2 * c], axis=-1).to(qkv.dtype)
-
-    return torch.cat(
-        [
-            torch.cat([q_rot, q_pass], axis=-1).unsqueeze(2),
-            torch.cat([k_rot, k_pass], axis=-1).unsqueeze(2),
-            qkv[:, :, 2:3, :, :],
-        ],
-        axis=2,
-    )
+    return torch.cat([qkv_rot, qkv_pass, qkv_v], dim=2)
 
 
 class RotaryEmbedding(nn.Module):
