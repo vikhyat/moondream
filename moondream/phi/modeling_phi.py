@@ -252,10 +252,8 @@ def _update_kv_cache(kv: torch.FloatTensor, inference_params: InferenceParams, l
     layer_memory[batch_slice, seqlen_slice, ...] = kv
     return layer_memory[batch_slice, :seqlen_slice.stop, ...]
 
-
+# Multi-head attention layer with rotary embeddings
 class MHA(nn.Module):
-    """Multi-head attention layer with rotary embeddings."""
-
     def __init__(self, config, dtype=None, device=None, rotary_dim=None, rotary_base=10000.0,
                  rotary_scale_base=None, n_head=None, n_head_kv=None, head_dim=None, bias=True,
                  causal=True, softmax_scale=None, layer_idx=None, return_residual=False, checkpointing=False):
@@ -329,8 +327,8 @@ class MHA(nn.Module):
         output = self.out_proj(rearrange(attn_output, "... h d -> ... (h d)"))
         return (output, x) if self.return_residual else output
 
+# Parallel block. This block applies parallel mixer and MLP layers to the input (used in GPT-J and CodeGen).
 class ParallelBlock(nn.Module):
-    # Parallel block. This block applies parallel mixer and MLP layers to the input (used in GPT-J and CodeGen).
     def __init__(self, config: PretrainedConfig, block_idx: Optional[int] = None):
         super().__init__()
         self.ln = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
@@ -367,32 +365,18 @@ class CausalLMHead(nn.Module):
     def forward(self, hidden_states):
         return self.linear(self.ln(hidden_states)).to(torch.float32)
 
-
+# Improving Language Understanding by Generative Pre-Training
+# (https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf)
 class CausalLMLoss(nn.Module):
-    """Causal Language Modeling loss.
-
-    Reference:
-        Improving Language Understanding by Generative Pre-Training.
-        https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf.
-
-    """
-
     def __init__(self, shift_labels: bool = True) -> None:
         super().__init__()
-
         self.shift_labels = shift_labels
         self.loss_fct = nn.CrossEntropyLoss()
 
-    def forward(
-        self, logits: torch.FloatTensor, labels: torch.LongTensor
-    ) -> torch.FloatTensor:
+    def forward(self, logits: torch.FloatTensor, labels: torch.LongTensor) -> torch.FloatTensor:
         if self.shift_labels:
-            logits = logits[..., :-1, :].contiguous()
-            labels = labels[..., 1:].contiguous()
-
-        loss = self.loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
-
-        return loss
+            logits, labels = logits[..., :-1, :], labels[..., 1:]
+        return self.loss_fct(logits.reshape(-1, logits.size(-1)), labels.reshape(-1))
 
 
 class PhiPreTrainedModel(PreTrainedModel):
