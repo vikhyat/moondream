@@ -286,23 +286,12 @@ class MHA(nn.Module):
         self.return_residual = return_residual
         self.checkpointing = checkpointing
 
-    def _forward_self_attn(
-        self, x: torch.FloatTensor, key_padding_mask: Optional[torch.BoolTensor]
-    ) -> torch.FloatTensor:
-        qkv = self.Wqkv(x)
-        qkv = rearrange(
-            qkv, "... (three h d) -> ... three h d", three=3, d=self.head_dim
-        )
-
+    def _forward_self_attn(self, x: torch.FloatTensor, key_padding_mask: Optional[torch.BoolTensor]) -> torch.FloatTensor:
+        qkv = rearrange(self.Wqkv(x), "... (three h d) -> ... three h d", three=3, d=self.head_dim)
         if self.rotary_dim > 0:
             qkv = self.rotary_emb(qkv)
-
-        if self.checkpointing:
-            return torch.utils.checkpoint.checkpoint(
-                self.inner_attn, qkv, key_padding_mask=key_padding_mask
-            )
-
-        return self.inner_attn(qkv, key_padding_mask=key_padding_mask)
+        attn_func = torch.utils.checkpoint.checkpoint if self.checkpointing else lambda f, *args, **kwargs: f(*args, **kwargs)
+        return attn_func(self.inner_attn, qkv, key_padding_mask=key_padding_mask)
 
     def _forward_cross_attn(
         self,
