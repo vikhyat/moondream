@@ -254,7 +254,7 @@ def _update_kv_cache(kv: torch.FloatTensor, inference_params: InferenceParams, l
 
 
 class MHA(nn.Module):
-    """Multi-head attention layer with simplified initialization."""
+    """Multi-head attention layer with rotary embeddings."""
 
     def __init__(self, config, dtype=None, device=None, rotary_dim=None, rotary_base=10000.0,
                  rotary_scale_base=None, n_head=None, n_head_kv=None, head_dim=None, bias=True,
@@ -293,25 +293,17 @@ class MHA(nn.Module):
         attn_func = torch.utils.checkpoint.checkpoint if self.checkpointing else lambda f, *args, **kwargs: f(*args, **kwargs)
         return attn_func(self.inner_attn, qkv, key_padding_mask=key_padding_mask)
 
-    def _forward_cross_attn(
-        self,
+    def _forward_cross_attn(self,
         x: torch.FloatTensor,
         past_key_values: Optional[InferenceParams],
         key_padding_mask: Optional[torch.BoolTensor],
     ) -> torch.FloatTensor:
-        batch_size = x.shape[0]
-
         qkv = self.Wqkv(x)
-
-        q = qkv[..., : self.n_head * self.head_dim]
+        q, kv = qkv[..., :self.n_head * self.head_dim], qkv[..., self.n_head * self.head_dim:]
         q = rearrange(q, "... (h d) -> ... h d", d=self.head_dim)
-
-        kv = qkv[..., self.n_head * self.head_dim :]
         kv = rearrange(kv, "... (two hkv d) -> ... two hkv d", two=2, d=self.head_dim)
-
-        seqlen_offset = (
-            past_key_values.seqlen_offset if past_key_values is not None else 0
-        )
+        
+        seqlen_offset = past_key_values.seqlen_offset if past_key_values is not None else 0
         causal = None if seqlen_offset == 0 else False
         if self.rotary_dim > 0:
             q, kv = self.rotary_emb(q, kv=kv, seqlen_offset=seqlen_offset)
@@ -319,17 +311,13 @@ class MHA(nn.Module):
         if past_key_values is not None:
             kv = _update_kv_cache(kv, past_key_values, self.layer_idx)
 
-        if self.checkpointing:
-            return torch.utils.checkpoint.checkpoint(
-                self.inner_cross_attn,
-                q,
-                kv,
-                key_padding_mask=key_padding_mask,
-                causal=causal,
-            )
-
-        return self.inner_cross_attn(
-            q, kv, key_padding_mask=key_padding_mask, causal=causal
+        attn_func = torch.utils.checkpoint.checkpoint if self.checkpointing else lambda fn, *args, **kwargs: fn(*args, **kwargs)
+        
+        return attn_func(
+            self.inner_cross_attn, 
+            q, kv, 
+            key_padding_mask=key_padding_mask, 
+            causal=causal
         )
 
     def forward(
