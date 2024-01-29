@@ -180,27 +180,14 @@ class SelfAttention(nn.Module):
         attn = self.drop(torch.softmax(scores, dim=-1).to(v.dtype))
         return torch.einsum('bhts,bshd->bthd', attn, v)
 
-
+# Flash Attention (https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py)
 class CrossAttention(nn.Module):
-    """Cross-attention layer (compatible with PyTorch).
-
-    Reference:
-        https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/modules/mha.py.
-
-    """
-
-    def __init__(
-        self,
-        causal: bool = True,
-        softmax_scale: Optional[float] = None,
-        attention_dropout: float = 0.0,
-    ) -> None:
+    def __init__(self, causal=True, softmax_scale=None, attention_dropout=0.0):
         super().__init__()
-
         self.causal = causal
         self.softmax_scale = softmax_scale
         self.drop = nn.Dropout(attention_dropout)
-
+    
     @torch.autocast("cpu", enabled=False)
     @torch.autocast("cuda", enabled=False)
     def forward(
