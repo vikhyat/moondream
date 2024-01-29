@@ -329,25 +329,13 @@ class MHA(nn.Module):
         output = self.out_proj(rearrange(attn_output, "... h d -> ... (h d)"))
         return (output, x) if self.return_residual else output
 
-
 class ParallelBlock(nn.Module):
-    """Parallel block.
-
-    This block applies parallel mixer and MLP layers to the input (used in GPT-J and CodeGen).
-
-    """
-
-    def __init__(
-        self,
-        config: PretrainedConfig,
-        block_idx: Optional[int] = None,
-    ) -> None:
+    # Parallel block. This block applies parallel mixer and MLP layers to the input (used in GPT-J and CodeGen).
+    def __init__(self, config: PretrainedConfig, block_idx: Optional[int] = None):
         super().__init__()
-
         self.ln = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
         self.block_idx = block_idx
-
         self.mixer = MHA(config, layer_idx=block_idx)
         self.mlp = MLP(config)
 
