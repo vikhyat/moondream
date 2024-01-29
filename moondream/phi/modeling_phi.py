@@ -313,12 +313,7 @@ class MHA(nn.Module):
 
         attn_func = torch.utils.checkpoint.checkpoint if self.checkpointing else lambda fn, *args, **kwargs: fn(*args, **kwargs)
         
-        return attn_func(
-            self.inner_cross_attn, 
-            q, kv, 
-            key_padding_mask=key_padding_mask, 
-            causal=causal
-        )
+        return attn_func(self.inner_cross_attn, q, kv, key_padding_mask=key_padding_mask, causal=causal)
 
     def forward(
         self,
