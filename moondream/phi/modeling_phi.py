@@ -235,44 +235,22 @@ def _find_mha_dims(config: PretrainedConfig, n_head: Optional[int] = None, n_hea
         n_head_kv = getattr(config, "n_head_kv", None) or n_head
     return n_head, n_head_kv, head_dim
 
-
-def _update_kv_cache(
-    kv: torch.FloatTensor, inference_params: InferenceParams, layer_idx: int
-) -> torch.FloatTensor:
+def _update_kv_cache(kv: torch.FloatTensor, inference_params: InferenceParams, layer_idx: int) -> torch.FloatTensor:
     num_heads, head_dim = kv.shape[-2:]
+    layer_memory = inference_params.key_value_memory_dict.setdefault(
+        layer_idx, torch.empty(
+            inference_params.max_batch_size, inference_params.max_seqlen, 2, 
+            num_heads, head_dim, dtype=kv.dtype, device=kv.device))
 
-    if layer_idx not in inference_params.key_value_memory_dict:
-        inference_params.key_value_memory_dict[layer_idx] = torch.empty(
-            inference_params.max_batch_size,
-            inference_params.max_seqlen,
-            2,
-            num_heads,
-            head_dim,
-            dtype=kv.dtype,
-            device=kv.device,
-        )
+    batch_slice = slice(inference_params.batch_size_offset, inference_params.batch_size_offset + kv.shape[0])
+    seqlen_slice = slice(inference_params.seqlen_offset, inference_params.seqlen_offset + kv.shape[1])
 
-    batch_start = inference_params.batch_size_offset
-    batch_end = batch_start + kv.shape[0]
+    if seqlen_slice.stop >= inference_params.max_seqlen:
+        layer_memory = torch.cat((layer_memory, kv), dim=1)
+        inference_params.key_value_memory_dict[layer_idx] = layer_memory
 
-    sequence_start = inference_params.seqlen_offset
-    sequence_end = sequence_start + kv.shape[1]
-
-    # When the current sequence length is equal to or larger than the maximum sequence length,
-    # we need to concatenate the current `kv` with the cached `kv` to expand its length
-    if sequence_end >= inference_params.max_seqlen:
-        inference_params.key_value_memory_dict[layer_idx] = torch.concatenate(
-            (inference_params.key_value_memory_dict[layer_idx], kv), dim=1
-        )
-
-    inference_params.key_value_memory_dict[layer_idx][
-        batch_start:batch_end, sequence_start:sequence_end, ...
-    ] = kv
-    kv = inference_params.key_value_memory_dict[layer_idx][
-        batch_start:batch_end, :sequence_end, ...
-    ]
-
-    return kv
+    layer_memory[batch_slice, seqlen_slice, ...] = kv
+    return layer_memory[batch_slice, :seqlen_slice.stop, ...]
 
 
 class MHA(nn.Module):
