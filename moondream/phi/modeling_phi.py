@@ -419,20 +419,14 @@ class PhiPreTrainedModel(PreTrainedModel):
 
         return {**args, "past_key_values": past_key_values, "attention_mask": attention_mask}
 
-
 class PhiModel(PhiPreTrainedModel):
-    """Phi model."""
-
     _keys_to_ignore_on_load_missing = [""]
     _keys_to_ignore_on_load_unexpected = [r"h\.\d+\.mlp.(fc_in|fc_out)\.(weight|bias)"]
 
     def __init__(self, config: PhiConfig) -> None:
         super().__init__(config)
-
         self.embd = Embedding(config)
-        self.h = nn.ModuleList(
-            [ParallelBlock(config, block_idx=i) for i in range(config.n_layer)]
-        )
+        self.h = nn.ModuleList([ParallelBlock(config, block_idx=i) for i in range(config.n_layer)])
         self.gradient_checkpointing = config.gradient_checkpointing
         self.post_init()
 
@@ -442,44 +436,22 @@ class PhiModel(PhiPreTrainedModel):
     def set_input_embeddings(self, new_embeddings: nn.Embedding) -> None:
         self.embd.wte = new_embeddings
 
-    def forward(
-        self,
-        input_ids: torch.LongTensor = None,
-        inputs_embeds: torch.FloatTensor = None,
-        past_key_values: Optional[Union[torch.FloatTensor, InferenceParams]] = None,
-        attention_mask: Optional[torch.BoolTensor] = None,
-    ) -> torch.FloatTensor:
-        if input_ids is not None and inputs_embeds is not None:
-            raise ValueError(
-                "You cannot specify both `input_ids` and `inputs_embeds` at the same time."
-            )
-        elif input_ids is None and inputs_embeds is None:
-            raise ValueError(
-                "You have to specify either `input_ids` or `inputs_embeds`."
-            )
-        elif input_ids is not None:
-            hidden_states = self.embd(input_ids)
-        else:
-            hidden_states = inputs_embeds
+    def forward(self,
+                input_ids: torch.LongTensor = None,
+                inputs_embeds: torch.FloatTensor = None,
+                past_key_values: Optional[Union[torch.FloatTensor, InferenceParams]] = None,
+                attention_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:
+        if (input_ids is None) == (inputs_embeds is None):
+            raise ValueError("Specify exactly one of `input_ids` or `inputs_embeds`.")
+        hidden_states = self.embd(input_ids) if input_ids is not None else inputs_embeds
 
         for layer in self.h:
-            if self.gradient_checkpointing:
-                hidden_states = torch.utils.checkpoint.checkpoint(
-                    layer.__call__,
-                    hidden_states,
-                    past_key_values,
-                    attention_mask,
-                    use_reentrant=True,
-                )
-            else:
-                hidden_states = layer(
-                    hidden_states,
-                    past_key_values=past_key_values,
-                    attention_mask=attention_mask,
-                )
+            func = layer.__call__ if self.gradient_checkpointing else layer
+            args = (hidden_states, past_key_values, attention_mask)
+            hidden_states = torch.utils.checkpoint.checkpoint(func, *args, use_reentrant=True) \
+                if self.gradient_checkpointing else func(*args)
 
         return hidden_states
-
 
 class PhiForCausalLM(PhiPreTrainedModel):
     """Phi for Causal Language Modeling."""
