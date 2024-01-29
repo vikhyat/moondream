@@ -4,12 +4,10 @@
 # Copyright (c) 2022, Tri Dao, trid@cs.stanford.edu.
 # Licensed under the BSD 3-Clause License.
 
-from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Union, Tuple
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple, Union
-
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
