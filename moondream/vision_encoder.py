@@ -3,7 +3,6 @@ from PIL import Image
 from einops import rearrange
 from torchvision.transforms.v2 import Compose, Resize, InterpolationMode, ToImage, ToDtype, Normalize
 
-
 class VisionEncoder:
     def __init__(self, model_path: str = "model") -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
