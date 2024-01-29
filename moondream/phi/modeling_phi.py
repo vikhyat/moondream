@@ -42,29 +42,13 @@ class Embedding(nn.Module):
     def forward(self, input_ids: torch.LongTensor) -> torch.FloatTensor:
         return self.drop(self.wte(input_ids.view(-1, input_ids.size(-1))))
 
-# @torch.compile
-def _apply_rotary_emb(
-    x: torch.FloatTensor,
-    cos: torch.FloatTensor,
-    sin: torch.FloatTensor,
-) -> torch.FloatTensor:
-    _, seqlen, _, _ = x.shape
-    _, rotary_dim = cos.shape
-    rotary_dim *= 2
-
-    x_rot = x[:, :, :, :rotary_dim]
-    x_pass = x[:, :, :, rotary_dim:]
-
+def _apply_rotary_emb(x, cos, sin):
+    seqlen, rotary_dim = x.size(1), cos.size(1) * 2
+    x_rot, x_pass = x[..., :rotary_dim], x[..., rotary_dim:]
     x1, x2 = x_rot.chunk(2, dim=-1)
-    c, s = rearrange(cos[:seqlen], "s d -> s 1 d"), rearrange(
-        sin[:seqlen], "s d -> s 1 d"
-    )
-    x1, x2, c, s = [t.to(dtype=torch.float32) for t in [x1, x2, c, s]]
-
-    x_rot = torch.cat([x1 * c - x2 * s, x1 * s + x2 * c], axis=-1).to(x.dtype)
-
-    return torch.cat([x_rot, x_pass], axis=-1)
-
+    c, s = cos[:seqlen].unsqueeze(1), sin[:seqlen].unsqueeze(1)
+    x_rot = torch.cat([x1 * c - x2 * s, x1 * s + x2 * c], dim=-1)
+    return torch.cat([x_rot.to(x.dtype), x_pass], dim=-1)
 
 # @torch.compile
 def _apply_rotary_emb_kv(
