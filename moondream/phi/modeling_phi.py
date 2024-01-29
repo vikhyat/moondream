@@ -50,7 +50,7 @@ def _apply_rotary_emb(x, cos, sin):
     x_rot = torch.cat([x1 * c - x2 * s, x1 * s + x2 * c], dim=-1)
     return torch.cat([x_rot.to(x.dtype), x_pass], dim=-1)
 
-def _apply_rotary_emb_kv( kv: torch.FloatTensor, cos: torch.FloatTensor, sin: torch.FloatTensor) -> torch.FloatTensor:
+def _apply_rotary_emb_kv(kv: torch.FloatTensor, cos: torch.FloatTensor, sin: torch.FloatTensor) -> torch.FloatTensor:
     seqlen, rotary_dim = kv.shape[1], cos.shape[-1] * 2
     k_rot = kv[:, :, 0, :, :rotary_dim].chunk(2, dim=-1)
     k_pass = kv[:, :, 0, :, rotary_dim:]
@@ -58,19 +58,22 @@ def _apply_rotary_emb_kv( kv: torch.FloatTensor, cos: torch.FloatTensor, sin: to
     k_rot = torch.cat([k_rot[0] * c - k_rot[1] * s, k_rot[0] * s + k_rot[1] * c], dim=-1)
     return torch.cat([torch.cat([k_rot, k_pass], dim=-1).unsqueeze(2), kv[:, :, 1:2, :, :]], dim=2)
 
-def _apply_rotary_emb_qkv(qkv: torch.FloatTensor, cos: torch.FloatTensor, sin: torch.FloatTensor ) -> torch.FloatTensor:
-    seqlen = qkv.shape[1]
-    rotary_dim = cos.shape[1] * 2
+def _apply_rotary_emb_qkv(qkv: torch.FloatTensor, cos: torch.FloatTensor, sin: torch.FloatTensor) -> torch.FloatTensor:
+    seqlen, rotary_dim = qkv.shape[1], cos.shape[1] * 2
 
-    def rotate_half(x):
-        x1, x2 = x[..., :rotary_dim // 2], x[..., rotary_dim // 2:rotary_dim]
-        c, s = cos[:seqlen].unsqueeze(1), sin[:seqlen].unsqueeze(1)
-        return torch.cat([x1 * c - x2 * s, x1 * s + x2 * c], dim=-1).to(qkv.dtype)
+    c = cos[:seqlen].unsqueeze(1)
+    s = sin[:seqlen].unsqueeze(1)
 
-    qkv_rot = torch.stack([rotate_half(qkv[:, :, i, :, :rotary_dim]) for i in range(2)], dim=2)
+    qkv_rot = torch.stack([
+        torch.cat([
+            qkv[:, :, i, :, :rotary_dim // 2] * c - qkv[:, :, i, :, rotary_dim // 2:rotary_dim] * s,
+            qkv[:, :, i, :, :rotary_dim // 2] * s + qkv[:, :, i, :, rotary_dim // 2:rotary_dim] * c
+        ], dim=-1).to(qkv.dtype)
+        for i in range(2)
+    ], dim=2)
+
     qkv_pass = qkv[:, :, :2, :, rotary_dim:].unsqueeze(2)
     qkv_v = qkv[:, :, 2:3, :, :]
-
     return torch.cat([qkv_rot, qkv_pass, qkv_v], dim=2)
 
 
