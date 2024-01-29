@@ -343,26 +343,18 @@ class ParallelBlock(nn.Module):
         self,
         hidden_states: torch.FloatTensor,
         past_key_values: Optional[Union[torch.FloatTensor, InferenceParams]] = None,
-        attention_mask: Optional[torch.BoolTensor] = None,
-        **kwargs,
+        attention_mask: Optional[torch.BoolTensor] = None
     ) -> torch.FloatTensor:
         residual = hidden_states
         hidden_states = self.ln(hidden_states)
 
-        attn_outputs = self.mixer(
-            hidden_states,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-        )
+        attn_outputs = self.mixer(hidden_states, past_key_values=past_key_values, attention_mask=attention_mask)
         if isinstance(attn_outputs, tuple):
             attn_outputs = attn_outputs[0]
 
         attn_outputs = self.resid_dropout(attn_outputs)
         feed_forward_hidden_states = self.resid_dropout(self.mlp(hidden_states))
-
-        hidden_states = attn_outputs + feed_forward_hidden_states + residual
-
-        return hidden_states
+        return attn_outputs + feed_forward_hidden_states + residual
 
 
 class CausalLMHead(nn.Module):
