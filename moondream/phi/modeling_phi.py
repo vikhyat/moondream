@@ -254,71 +254,33 @@ def _update_kv_cache(kv: torch.FloatTensor, inference_params: InferenceParams, l
 
 
 class MHA(nn.Module):
-    """Multi-head attention layer."""
+    """Multi-head attention layer with simplified initialization."""
 
-    def __init__(
-        self,
-        config: PretrainedConfig,
-        dtype: Optional[torch.dtype] = None,
-        device: Optional[str] = None,
-        rotary_dim: Optional[int] = None,
-        rotary_base: float = 10000.0,
-        rotary_scale_base: Optional[float] = None,
-        n_head: Optional[int] = None,
-        n_head_kv: Optional[int] = None,
-        head_dim: Optional[int] = None,
-        bias: bool = True,
-        causal: bool = True,
-        softmax_scale: Optional[float] = None,
-        layer_idx: Optional[int] = None,
-        return_residual: bool = False,
-        checkpointing: bool = False,
-    ) -> None:
+    def __init__(self, config, dtype=None, device=None, rotary_dim=None, rotary_base=10000.0,
+                 rotary_scale_base=None, n_head=None, n_head_kv=None, head_dim=None, bias=True,
+                 causal=True, softmax_scale=None, layer_idx=None, return_residual=False, checkpointing=False):
         super().__init__()
 
-        # Rotary embedding
-        self.rotary_dim = (
-            rotary_dim if rotary_dim is not None else getattr(config, "rotary_dim", 0)
-        )
+        # Set rotary embedding if specified
+        self.rotary_dim = rotary_dim or getattr(config, "rotary_dim", 0)
+        if self.rotary_dim:
+            self.rotary_emb = RotaryEmbedding(self.rotary_dim, base=rotary_base, scale_base=rotary_scale_base,
+                                              device=device, max_position_embeddings=config.n_positions)
 
-        if self.rotary_dim > 0:
-            self.rotary_emb = RotaryEmbedding(
-                self.rotary_dim,
-                base=rotary_base,
-                scale_base=rotary_scale_base,
-                device=device,
-                max_position_embeddings=config.n_positions,
-            )
-
-        # MLP
-        self.n_head, self.n_head_kv, self.head_dim = _find_mha_dims(
-            config, n_head=n_head, n_head_kv=n_head_kv, head_dim=head_dim
-        )
+        # Determine MHA dims from arguments or config
+        self.n_head, self.n_head_kv, self.head_dim = _find_mha_dims(config, n_head, n_head_kv, head_dim)
         op_size = self.head_dim * (self.n_head + 2 * self.n_head_kv)
         hidden_size = config.n_embd
 
-        linear_cls = FusedDense if config.fused_dense else nn.Linear
-        if linear_cls is None:
-            linear_cls = nn.Linear
+        # Choose Linear class based on config, FusedDense is optional
+        LinearClass = FusedDense if config.fused_dense and FusedDense is not None else nn.Linear
+        self.Wqkv = LinearClass(hidden_size, op_size, bias=bias, device=device, dtype=dtype)
+        self.out_proj = LinearClass(hidden_size, hidden_size, bias=bias, device=device, dtype=dtype)
 
-        self.Wqkv = linear_cls(
-            hidden_size, op_size, bias=bias, device=device, dtype=dtype
-        )
-        self.out_proj = linear_cls(
-            hidden_size, hidden_size, bias=bias, device=device, dtype=dtype
-        )
-
-        # Attention
-        self.inner_attn = SelfAttention(
-            causal=causal,
-            softmax_scale=softmax_scale,
-            attention_dropout=config.attn_pdrop,
-        )
-        self.inner_cross_attn = CrossAttention(
-            causal=causal,
-            softmax_scale=softmax_scale,
-            attention_dropout=config.attn_pdrop,
-        )
+        # Initialize attention mechanisms
+        attn_kwargs = {'causal': causal, 'softmax_scale': softmax_scale, 'attention_dropout': config.attn_pdrop}
+        self.inner_attn = SelfAttention(**attn_kwargs)
+        self.inner_cross_attn = CrossAttention(**attn_kwargs)
 
         self.layer_idx = layer_idx
         self.return_residual = return_residual
