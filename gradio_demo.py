@@ -1,7 +1,6 @@
 import re
 import gradio as gr
 from moondream import VisionEncoder, TextModel
-from PIL import Image
 from huggingface_hub import snapshot_download
 from threading import Thread
 from transformers import TextIteratorStreamer
@@ -25,7 +24,6 @@ def moondream(img, prompt):
 
     buffer = ""
     for new_text in streamer:
-        # check for the end of generated text and yield the generated token
         if not new_text.endswith("<") and not new_text.endswith("END"):
           buffer += new_text
           yield buffer
@@ -40,11 +38,11 @@ with gr.Blocks() as demo:
   gr.HTML("<h3><center>A tiny vision language model. <a href='https://github.com/vikhyat/moondream' target='blank_'>GitHub</a></center></h3>")
   with gr.Group():
     with gr.Row():
-      prompt = gr.Textbox(label='Input Prompt for the model',placeholder='Type whatever you want to ask about the image',scale=4 )
+      prompt = gr.Textbox(label='Input Prompt for the model', placeholder='Type whatever you want to ask about the image', scale=4)
       submit = gr.Button('Submit', scale=1,)
     with gr.Row():
       img = gr.Image(type='pil', label='Upload or Drag an Image')
-      output = gr.TextArea(label="Bot's response to the user query-", info='The response might take a few seconds..' )
+      output = gr.TextArea(label="Bot's response to the user query-", info='The response might take a few seconds..')
   
   # handling events
   submit.click(moondream, [img, prompt], output)

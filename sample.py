@@ -1,10 +1,10 @@
+import re
+import argparse
+from threading import Thread
 from moondream import VisionEncoder, TextModel
 from PIL import Image
 from huggingface_hub import snapshot_download
-import argparse
-from threading import Thread
 from transformers import TextIteratorStreamer
-import re
 
 model_path = snapshot_download("vikhyatk/moondream1")
 
@@ -24,9 +24,7 @@ if args.prompt is None:
         question = input("> ")
 
         streamer = TextIteratorStreamer(text_model.tokenizer, skip_special_tokens=True)
-        generation_kwargs = dict(
-            image_embeds=image_embeds, question=question, streamer=streamer
-        )
+        generation_kwargs = dict(image_embeds=image_embeds, question=question, streamer=streamer)
         thread = Thread(target=text_model.answer_question, kwargs=generation_kwargs)
         thread.start()
 
