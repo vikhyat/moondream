@@ -3,6 +3,7 @@ import argparse
 from PIL import Image
 from moondream import VisionEncoder, TextModel, detect_device
 from huggingface_hub import snapshot_download
+from queue import Queue
 from threading import Thread
 from transformers import TextIteratorStreamer
 import re
@@ -34,16 +35,26 @@ if __name__ == "__main__":
     image_embeds = vision_encoder(image)
 
     if prompt is None:
+        chat_history = ""
+
         while True:
             question = input("> ")
+
+            result_queue = Queue()
 
             streamer = TextIteratorStreamer(
                 text_model.tokenizer, skip_special_tokens=True
             )
-            generation_kwargs = dict(
-                image_embeds=image_embeds, question=question, streamer=streamer
+
+            # Separate direct arguments from keyword arguments
+            thread_args = (image_embeds, question, chat_history)
+            thread_kwargs = {"streamer": streamer, "result_queue": result_queue}
+
+            thread = Thread(
+                target=text_model.answer_question,
+                args=thread_args,
+                kwargs=thread_kwargs,
             )
-            thread = Thread(target=text_model.answer_question, kwargs=generation_kwargs)
             thread.start()
 
             buffer = ""
@@ -54,6 +65,11 @@ if __name__ == "__main__":
                     buffer = ""
             print(re.sub("<$", "", re.sub("END$", "", buffer)))
 
+            thread.join()
+
+            answer = result_queue.get()
+            chat_history += f"Question: {question}\n\nAnswer: {answer}\n\n"
     else:
         print(">", prompt)
-        print(text_model.answer_question(image_embeds, prompt))
+        answer = text_model.answer_question(image_embeds, prompt)
+        print(answer)
