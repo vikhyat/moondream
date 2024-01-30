@@ -3,6 +3,9 @@ import argparse
 from PIL import Image
 from moondream import VisionEncoder, TextModel, detect_device
 from huggingface_hub import snapshot_download
+from threading import Thread
+from transformers import TextIteratorStreamer
+import re
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -37,9 +40,26 @@ if __name__ == "__main__":
         while True:
             chat_history = "Question:" + question + "\n" + "Answer:" + answer + "\n\n" if answer else ""  
             question = input("> ")
+
+            streamer = TextIteratorStreamer(
+                text_model.tokenizer, skip_special_tokens=True
+            )
+            generation_kwargs = dict(
+                image_embeds=image_embeds, question=question, streamer=streamer
+            )
+            thread = Thread(target=text_model.answer_question, chat_history=chat_history, kwargs=generation_kwargs)
+            thread.start()
+
+            buffer = ""
+            for new_text in streamer:
+                buffer += new_text
+                if not new_text.endswith("<") and not new_text.endswith("END"):
+                    print(buffer, end="", flush=True)
+                    buffer = ""
+            print(re.sub("<$", "", re.sub("END$", "", buffer)))
             
-            answer = text_model.answer_question(image_embeds, question, chat_history)
-            print(answer)
+            thread.join()
+            answer = thread.result()
     else:
         print(">", prompt)
         answer = text_model.answer_question(image_embeds, prompt)
