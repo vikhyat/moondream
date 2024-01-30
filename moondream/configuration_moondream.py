@@ -1,21 +1,20 @@
-# Copyright (c) Microsoft Corporation.
-# Licensed under the MIT license.
-
 from transformers import PretrainedConfig
+
 from typing import Optional
 import math
+
 
 class PhiConfig(PretrainedConfig):
     model_type = "phi-msft"
 
     def __init__(
         self,
-        vocab_size: int = 50304,
+        vocab_size: int = 51200,
         n_positions: int = 2048,
-        n_embd: int = 1024,
-        n_layer: int = 20,
+        n_embd: int = 2048,
+        n_layer: int = 24,
         n_inner: Optional[int] = None,
-        n_head: int = 16,
+        n_head: int = 32,
         n_head_kv: Optional[int] = None,
         rotary_dim: Optional[int] = 32,
         activation_function: Optional[str] = "gelu_new",
@@ -32,7 +31,9 @@ class PhiConfig(PretrainedConfig):
         gradient_checkpointing: bool = False,
         **kwargs
     ):
-        pad_vocab_size = math.ceil(vocab_size / pad_vocab_size_multiple) * pad_vocab_size_multiple
+        pad_vocab_size = (
+            math.ceil(vocab_size / pad_vocab_size_multiple) * pad_vocab_size_multiple
+        )
         super().__init__(
             vocab_size=pad_vocab_size,
             n_positions=n_positions,
@@ -63,3 +64,11 @@ class PhiConfig(PretrainedConfig):
         "num_attention_heads": "n_head",
         "num_hidden_layers": "n_layer",
     }
+
+
+class MoondreamConfig(PretrainedConfig):
+    model_type = "moondream"
+
+    def __init__(self, **kwargs):
+        self.phi_config = PhiConfig(**kwargs)
+        super().__init__(**kwargs)

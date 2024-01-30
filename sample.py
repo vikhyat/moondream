@@ -1,11 +1,14 @@
 import torch
 import argparse
 from PIL import Image
-from moondream import VisionEncoder, TextModel, detect_device
+from moondream import Moondream, detect_device
 from huggingface_hub import snapshot_download
 from queue import Queue
 from threading import Thread
-from transformers import TextIteratorStreamer
+from transformers import (
+    TextIteratorStreamer,
+    CodeGenTokenizerFast as Tokenizer,
+)
 import re
 
 if __name__ == "__main__":
@@ -28,9 +31,15 @@ if __name__ == "__main__":
     image_path = args.image
     prompt = args.prompt
 
+    model_id = "vikhyatk/moondream1"
+    moondream = Moondream.from_pretrained(model_id).to(device=device, dtype=dtype)
+    vision_encoder = moondream.vision_encoder
+    text_model = moondream.text_model
+
     model_path = snapshot_download("vikhyatk/moondream1")
-    vision_encoder = VisionEncoder(model_path).to(device=device, dtype=dtype)
-    text_model = TextModel(model_path).to(device=device, dtype=dtype)
+    tokenizer = Tokenizer.from_pretrained(f"{model_path}/tokenizer")
+    text_model.tokenizer = tokenizer
+
     image = Image.open(image_path)
     image_embeds = vision_encoder(image)
 
