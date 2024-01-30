@@ -19,7 +19,7 @@ class VisionEncoder(nn.Module):
         self.model = torch.jit.load(f"{model_path}/vision.pt")
         self.preprocess = Compose(
             [
-                Resize(size=(384, 384), interpolation=InterpolationMode.BICUBIC),
+                Resize(size=(378, 378), interpolation=InterpolationMode.BICUBIC),
                 ToImage(),
                 ToDtype(torch.float32, scale=True),
                 Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
@@ -41,7 +41,6 @@ class VisionEncoder(nn.Module):
                 .unsqueeze(0)
                 .to(self.device, dtype=self.dtype)
             )
-            image_vec = image_vec[:, :, :-6, :-6]
             image_vec = rearrange(
                 image_vec, "b c (h p1) (w p2) -> b (h w) (c p1 p2)", p1=14, p2=14
             )
