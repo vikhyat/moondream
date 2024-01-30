@@ -78,14 +78,15 @@ class TextModel(nn.Module):
         return self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
 
     def answer_question(
-        self, image_embeds, question, chat_history="", result_queue=None, **kwargs
+        self, image_embeds, question, chat_history="", result_queue=None,
+        max_new_tokens=128, **kwargs
     ):
         prompt = f"<image>\n\n{chat_history}Question: {question}\n\nAnswer:"
         answer = self.generate(
             image_embeds,
             prompt,
             eos_text="<END>",
-            max_new_tokens=128,
+            max_new_tokens=max_new_tokens,
             **kwargs,
         )[0]
         cleaned_answer = re.sub("<$", "", re.sub("END$", "", answer)).strip()
