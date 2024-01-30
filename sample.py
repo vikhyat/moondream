@@ -29,11 +29,18 @@ if __name__ == "__main__":
     text_model = TextModel(model_path).to(device=device, dtype=dtype)
     image = Image.open(image_path)
     image_embeds = vision_encoder(image)
+    question = ""
+    answer = ""
+    chat_history = ""
 
     if prompt is None:
         while True:
+            chat_history = "Question:" + question + "\n" + "Answer:" + answer + "\n\n" if answer else ""  
             question = input("> ")
-            print(text_model.answer_question(image_embeds, question))
+            
+            answer = text_model.answer_question(image_embeds, question, chat_history)
+            print(answer)
     else:
         print(">", prompt)
-        print(text_model.answer_question(image_embeds, prompt))
+        answer = text_model.answer_question(image_embeds, prompt)
+        print(answer)

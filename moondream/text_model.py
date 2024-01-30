@@ -77,8 +77,8 @@ class TextModel(nn.Module):
 
         return self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
 
-    def answer_question(self, image_embeds, question, **kwargs):
-        prompt = f"<image>\n\nQuestion: {question}\n\nAnswer:"
+    def answer_question(self, image_embeds, question, chat_history="", **kwargs):
+        prompt = f"<image>\n\n{chat_history}Question: {question}\n\nAnswer:"
         answer = self.generate(
             image_embeds,
             prompt,
