@@ -1,12 +1,22 @@
 import torch
+from torch import nn
 from PIL import Image
 from einops import rearrange
-from torchvision.transforms.v2 import Compose, Resize, InterpolationMode, ToImage, ToDtype, Normalize
+from torchvision.transforms.v2 import (
+    Compose,
+    Resize,
+    InterpolationMode,
+    ToImage,
+    ToDtype,
+    Normalize,
+)
 
-class VisionEncoder:
+
+class VisionEncoder(nn.Module):
     def __init__(self, model_path: str = "model") -> None:
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = torch.jit.load(f"{model_path}/vision.pt").to(self.device).to(dtype=torch.float32)
+        super().__init__()
+
+        self.model = torch.jit.load(f"{model_path}/vision.pt")
         self.preprocess = Compose(
             [
                 Resize(size=(384, 384), interpolation=InterpolationMode.BICUBIC),
@@ -16,9 +26,23 @@ class VisionEncoder:
             ]
         )
 
+    @property
+    def device(self):
+        return self.model.projection.mlp1.fc1.weight.device
+
+    @property
+    def dtype(self):
+        return self.model.projection.mlp1.fc1.weight.dtype
+
     def __call__(self, image: Image) -> torch.Tensor:
         with torch.no_grad():
-            image_vec = self.preprocess(image.convert("RGB")).unsqueeze(0).to(self.device)
+            image_vec = (
+                self.preprocess(image.convert("RGB"))
+                .unsqueeze(0)
+                .to(self.device, dtype=self.dtype)
+            )
             image_vec = image_vec[:, :, :-6, :-6]
-            image_vec = rearrange(image_vec, "b c (h p1) (w p2) -> b (h w) (c p1 p2)", p1=14, p2=14)
+            image_vec = rearrange(
+                image_vec, "b c (h p1) (w p2) -> b (h w) (c p1 p2)", p1=14, p2=14
+            )
             return self.model(image_vec)
