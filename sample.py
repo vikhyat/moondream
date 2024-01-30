@@ -42,16 +42,20 @@ if __name__ == "__main__":
             chat_history = "Question:" + question + "\n" + "Answer:" + answer + "\n\n" if answer else ""
             question = input("> ")
 
-            result_queue = Queue()  
+            result_queue = Queue()
 
             streamer = TextIteratorStreamer(
                 text_model.tokenizer, skip_special_tokens=True
             )
-            generation_kwargs = dict(
-                image_embeds=image_embeds, question=question, chat_history=chat_history, streamer=streamer, result_queue=result_queue
-            )
 
-            thread = Thread(target=text_model.answer_question, kwargs=generation_kwargs)
+            # Separate direct arguments from keyword arguments
+            thread_args = (image_embeds, question, chat_history)
+            thread_kwargs = {
+                "streamer": streamer,
+                "result_queue": result_queue
+            }
+
+            thread = Thread(target=text_model.answer_question, args=thread_args, kwargs=thread_kwargs)
             thread.start()
 
             buffer = ""
