@@ -77,7 +77,9 @@ class TextModel(nn.Module):
 
         return self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
 
-    def answer_question(self, image_embeds, question, chat_history="", result_queue=None, **kwargs):
+    def answer_question(
+        self, image_embeds, question, chat_history="", result_queue=None, **kwargs
+    ):
         prompt = f"<image>\n\n{chat_history}Question: {question}\n\nAnswer:"
         answer = self.generate(
             image_embeds,
@@ -93,4 +95,3 @@ class TextModel(nn.Module):
             result_queue.put(cleaned_answer)
         else:
             return cleaned_answer
-

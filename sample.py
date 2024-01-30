@@ -33,13 +33,11 @@ if __name__ == "__main__":
     text_model = TextModel(model_path).to(device=device, dtype=dtype)
     image = Image.open(image_path)
     image_embeds = vision_encoder(image)
-    question = ""
-    answer = ""
-    chat_history = ""
 
     if prompt is None:
+        chat_history = ""
+
         while True:
-            chat_history = "Question:" + question + "\n" + "Answer:" + answer + "\n\n" if answer else ""
             question = input("> ")
 
             result_queue = Queue()
@@ -50,12 +48,13 @@ if __name__ == "__main__":
 
             # Separate direct arguments from keyword arguments
             thread_args = (image_embeds, question, chat_history)
-            thread_kwargs = {
-                "streamer": streamer,
-                "result_queue": result_queue
-            }
+            thread_kwargs = {"streamer": streamer, "result_queue": result_queue}
 
-            thread = Thread(target=text_model.answer_question, args=thread_args, kwargs=thread_kwargs)
+            thread = Thread(
+                target=text_model.answer_question,
+                args=thread_args,
+                kwargs=thread_kwargs,
+            )
             thread.start()
 
             buffer = ""
@@ -67,7 +66,9 @@ if __name__ == "__main__":
             print(re.sub("<$", "", re.sub("END$", "", buffer)))
 
             thread.join()
+
             answer = result_queue.get()
+            chat_history += f"Question: {question}\n\nAnswer: {answer}\n\n"
     else:
         print(">", prompt)
         answer = text_model.answer_question(image_embeds, prompt)
