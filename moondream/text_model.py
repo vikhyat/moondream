@@ -2,19 +2,19 @@ import re
 import torch
 from torch import nn
 import transformers
-from transformers import CodeGenTokenizerFast as Tokenizer
 from .modeling_phi import PhiForCausalLM
+from .configuration_moondream import PhiConfig
 
 transformers.logging.set_verbosity_error()
 
 
 class TextModel(nn.Module):
-    def __init__(self, config) -> None:
+    def __init__(self, config, tokenizer) -> None:
         super().__init__()
 
-        self.model = PhiForCausalLM(config.phi_config)
+        self.model = PhiForCausalLM(PhiConfig(**config.phi_config))
         self.text_emb = self.model.get_input_embeddings()
-        self.tokenizer = None
+        self.tokenizer = tokenizer
 
     def input_embeds(self, prompt, image_embeds):
         def _tokenize(txt):

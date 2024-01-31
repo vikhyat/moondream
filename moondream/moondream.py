@@ -10,4 +10,4 @@ class Moondream(PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.vision_encoder = VisionEncoder()
-        self.text_model = TextModel(config)
+        self.text_model = TextModel(config, None)
