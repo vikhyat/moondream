@@ -21,12 +21,15 @@ tokenizer = Tokenizer.from_pretrained(model_id)
 text_model.tokenizer = tokenizer
 
 
-def moondream(img, prompt):
+def moondream(img, prompt, max_tokens):
     image_embeds = vision_encoder(img)
     streamer = TextIteratorStreamer(text_model.tokenizer, skip_special_tokens=True)
     thread = Thread(
         target=text_model.answer_question,
-        kwargs={"image_embeds": image_embeds, "question": prompt, "streamer": streamer},
+        kwargs={
+            "image_embeds": image_embeds, "question": prompt,
+            "streamer": streamer, "max_new_tokens": max_tokens
+        },
     )
     thread.start()
 
@@ -45,12 +48,15 @@ with gr.Blocks() as demo:
         """
     )
     with gr.Row():
-        prompt = gr.Textbox(label="Input Prompt", placeholder="Type here...", scale=4)
+        with gr.Column(scale=4):
+            prompt = gr.Textbox(label="Input Prompt", placeholder="Type here...")
+            max_tokens = gr.Slider(label="Max tokens", minimum=128,
+                                   maximum=2048, value=128)
         submit = gr.Button("Submit")
     with gr.Row():
         img = gr.Image(type="pil", label="Upload an Image")
         output = gr.TextArea(label="Response", info="Please wait for a few seconds..")
-    submit.click(moondream, [img, prompt], output)
-    prompt.submit(moondream, [img, prompt], output)
+    submit.click(moondream, [img, prompt, max_tokens], output)
+    prompt.submit(moondream, [img, prompt, max_tokens], output)
 
 demo.queue().launch(debug=True)
