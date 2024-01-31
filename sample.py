@@ -2,7 +2,6 @@ import torch
 import argparse
 from PIL import Image
 from moondream import Moondream, detect_device
-from huggingface_hub import snapshot_download
 from queue import Queue
 from threading import Thread
 from transformers import (
@@ -32,15 +31,12 @@ if __name__ == "__main__":
     prompt = args.prompt
 
     model_id = "vikhyatk/moondream1"
-    moondream = Moondream.from_pretrained(model_id).to(device=device, dtype=dtype)
-    vision_encoder = moondream.vision_encoder
-    text_model = moondream.text_model
-
     tokenizer = Tokenizer.from_pretrained(model_id)
-    text_model.tokenizer = tokenizer
+    moondream = Moondream.from_pretrained(model_id).to(device=device, dtype=dtype)
+    moondream.eval()
 
     image = Image.open(image_path)
-    image_embeds = vision_encoder(image)
+    image_embeds = moondream.encode_image(image)
 
     if prompt is None:
         chat_history = ""
@@ -50,16 +46,14 @@ if __name__ == "__main__":
 
             result_queue = Queue()
 
-            streamer = TextIteratorStreamer(
-                text_model.tokenizer, skip_special_tokens=True
-            )
+            streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True)
 
             # Separate direct arguments from keyword arguments
-            thread_args = (image_embeds, question, chat_history)
+            thread_args = (image_embeds, question, tokenizer, chat_history)
             thread_kwargs = {"streamer": streamer, "result_queue": result_queue}
 
             thread = Thread(
-                target=text_model.answer_question,
+                target=moondream.answer_question,
                 args=thread_args,
                 kwargs=thread_kwargs,
             )
@@ -79,5 +73,5 @@ if __name__ == "__main__":
             chat_history += f"Question: {question}\n\nAnswer: {answer}\n\n"
     else:
         print(">", prompt)
-        answer = text_model.answer_question(image_embeds, prompt)
+        answer = moondream.answer_question(image_embeds, prompt)
         print(answer)
