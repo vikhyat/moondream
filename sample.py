@@ -73,5 +73,5 @@ if __name__ == "__main__":
             chat_history += f"Question: {question}\n\nAnswer: {answer}\n\n"
     else:
         print(">", prompt)
-        answer = moondream.answer_question(image_embeds, prompt)
+        answer = moondream.answer_question(image_embeds, prompt, tokenizer)
         print(answer)
