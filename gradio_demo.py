@@ -17,8 +17,7 @@ moondream = Moondream.from_pretrained(model_id).to(device=device, dtype=dtype)
 vision_encoder = moondream.vision_encoder
 text_model = moondream.text_model
 
-model_path = snapshot_download("vikhyatk/moondream1")
-tokenizer = Tokenizer.from_pretrained(f"{model_path}/tokenizer")
+tokenizer = Tokenizer.from_pretrained(model_id)
 text_model.tokenizer = tokenizer
 
 

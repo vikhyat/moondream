@@ -36,8 +36,7 @@ if __name__ == "__main__":
     vision_encoder = moondream.vision_encoder
     text_model = moondream.text_model
 
-    model_path = snapshot_download("vikhyatk/moondream1")
-    tokenizer = Tokenizer.from_pretrained(f"{model_path}/tokenizer")
+    tokenizer = Tokenizer.from_pretrained(model_id)
     text_model.tokenizer = tokenizer
 
     image = Image.open(image_path)
