@@ -1,5 +1,4 @@
 ﻿import time
-from matplotlib.pyplot import hist
 import uvicorn
 import argparse
 
