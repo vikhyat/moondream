@@ -4,8 +4,7 @@ import uvicorn
 import argparse
 
 import torch
-from transformers import AutoModelForCausalLM, LlamaTokenizer, PreTrainedModel, PreTrainedTokenizer, \
-    TextIteratorStreamer, CodeGenTokenizerFast as Tokenizer
+from transformers import TextIteratorStreamer, CodeGenTokenizerFast as Tokenizer
 from sse_starlette.sse import EventSourceResponse
 
 from loguru import logger
@@ -16,6 +15,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel, Field
 
+import requests
+import base64
+from PIL import Image
+from io import BytesIO
+import re
+from threading import Thread
+
+from moondream import Moondream, detect_device
+from contextlib import asynccontextmanager
 
 # 请求
 class TextContent(BaseModel):
@@ -65,17 +73,6 @@ class ChatCompletionResponse(BaseModel):
     choices: List[Union[ChatCompletionResponseChoice, ChatCompletionResponseStreamChoice]]
     created: Optional[int] = Field(default_factory=lambda: int(time.time()))
     usage: Optional[UsageInfo] = None
-
-
-import requests
-import base64
-from PIL import Image
-from io import BytesIO
-import re
-from threading import Thread
-
-from moondream import Moondream, detect_device
-from contextlib import asynccontextmanager
 
 # 图片输入处理
 def process_img(input_data):
