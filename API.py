@@ -201,8 +201,7 @@ def generate_stream_moondream(params: dict):
         kwargs=gen_kwargs,
     )
     
-    input_ids = [tokenizer.bos_token_id]
-    input_echo_len = len(torch.tensor(input_ids, dtype=torch.long)[0])
+    input_echo_len = 0
     total_len = 0
     # 启动推理
     thread.start()
@@ -211,8 +210,7 @@ def generate_stream_moondream(params: dict):
         clean_text = re.sub("<$|END$", "", new_text)
         buffer += clean_text
         yield {
-            "text": buffer,
-            # 返回生成的文本
+            "text": buffer.strip("<END"),
             "usage": {
                 "prompt_tokens": input_echo_len,
                 "completion_tokens": total_len - input_echo_len,
@@ -221,7 +219,6 @@ def generate_stream_moondream(params: dict):
             }
     generated_ret ={
         "text": buffer.strip("<END"),
-        # 生成的文本
         "usage": {
             "prompt_tokens": input_echo_len,
             "completion_tokens": total_len - input_echo_len,
