@@ -1,3 +1,4 @@
+import argparse
 import torch
 import re
 import gradio as gr
@@ -5,11 +6,19 @@ from moondream import Moondream, detect_device
 from threading import Thread
 from transformers import TextIteratorStreamer, CodeGenTokenizerFast as Tokenizer
 
-device, dtype = detect_device()
-if device != torch.device("cpu"):
-    print("Using device:", device)
-    print("If you run into issues, pass the `--cpu` flag to this script.")
-    print()
+parser = argparse.ArgumentParser()
+parser.add_argument("--cpu", action="store_true")
+args = parser.parse_args()
+
+if args.cpu:
+    device = torch.device("cpu")
+    dtype = torch.float32
+else:
+    device, dtype = detect_device()
+    if device != torch.device("cpu"):
+        print("Using device:", device)
+        print("If you run into issues, pass the `--cpu` flag to this script.")
+        print()
 
 model_id = "vikhyatk/moondream1"
 tokenizer = Tokenizer.from_pretrained(model_id)
@@ -50,7 +59,7 @@ with gr.Blocks() as demo:
         submit = gr.Button("Submit")
     with gr.Row():
         img = gr.Image(type="pil", label="Upload an Image")
-        output = gr.TextArea(label="Response", info="Please wait for a few seconds..")
+        output = gr.TextArea(label="Response")
     submit.click(answer_question, [img, prompt], output)
     prompt.submit(answer_question, [img, prompt], output)
 

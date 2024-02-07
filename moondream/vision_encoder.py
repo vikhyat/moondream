@@ -80,23 +80,18 @@ class VisionProjection(nn.Module):
         model_dim = 2048
         hidden_dim = model_dim * 4
 
-        self.mlp1 = MLP(image_embedding_dim, hidden_dim, model_dim)
-        self.mlp2 = MLP(model_dim, hidden_dim, model_dim)
-        self.ln = nn.LayerNorm(model_dim)
+        self.mlp = MLP(image_embedding_dim, hidden_dim, model_dim)
 
     @property
     def device(self):
-        return self.mlp1.fc1.weight.device
+        return self.mlp.fc1.weight.device
 
     def forward(self, x):
-        x = self.mlp1(x)
-        x = self.ln(x)
-        x = x + self.mlp2(x)
-        return x
+        return self.mlp(x)
 
 
-class VisionTower(nn.Module):
-    def __init__(self):
+class VisionEncoder(nn.Module):
+    def __init__(self) -> None:
         super().__init__()
 
         self.encoder = ModelHolder(
@@ -109,17 +104,6 @@ class VisionTower(nn.Module):
 
         self.projection = VisionProjection()
 
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.projection(x)
-        return x
-
-
-class VisionEncoder(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-        self.model = VisionTower()
         self.preprocess = Compose(
             [
                 Resize(size=(378, 378), interpolation=InterpolationMode.BICUBIC),
@@ -131,20 +115,22 @@ class VisionEncoder(nn.Module):
 
     @property
     def device(self):
-        return self.model.projection.mlp1.fc1.weight.device
+        return self.projection.mlp.fc1.weight.device
 
     @property
     def dtype(self):
-        return self.model.projection.mlp1.fc1.weight.dtype
+        return self.projection.mlp.fc1.weight.dtype
 
     def __call__(self, image: Image) -> torch.Tensor:
         with torch.no_grad():
-            image_vec = (
+            x = (
                 self.preprocess(image.convert("RGB"))
                 .unsqueeze(0)
                 .to(self.device, dtype=self.dtype)
             )
-            image_vec = rearrange(
-                image_vec, "b c (h p1) (w p2) -> b (h w) (c p1 p2)", p1=14, p2=14
-            )
-            return self.model(image_vec)
+            x = rearrange(x, "b c (h p1) (w p2) -> b (h w) (c p1 p2)", p1=14, p2=14)
+
+            x = self.encoder(x)
+            x = self.projection(x)
+
+            return x
