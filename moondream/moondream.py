@@ -95,7 +95,7 @@ class Moondream(PreTrainedModel):
             prompt,
             eos_text="<END>",
             tokenizer=tokenizer,
-            max_new_tokens=128,
+            max_new_tokens=256,
             **kwargs,
         )[0]
         cleaned_answer = re.sub("<$", "", re.sub("END$", "", answer)).strip()
