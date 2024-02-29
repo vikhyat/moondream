@@ -85,6 +85,7 @@ class Moondream(PreTrainedModel):
         image_embeds,
         question,
         tokenizer,
+        max_new_tokens,
         chat_history="",
         result_queue=None,
         **kwargs,
