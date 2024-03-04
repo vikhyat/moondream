@@ -1,0 +1,11 @@
+{
+    "name": "moondream",
+    "short_name": "moondream",
+    "icons": [{
+        "src": "google-touch-icon.png",
+        "sizes": "512x512"
+    }],
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "display": "fullscreen"
+}
