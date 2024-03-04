@@ -42,9 +42,9 @@ def answer_question(img, prompt):
 
     buffer = ""
     for new_text in streamer:
-        clean_text = re.sub("<$|END$", "", new_text)
+        clean_text = re.sub("<$|<END$", "", new_text)
         buffer += clean_text
-        yield buffer.strip("<END")
+        yield buffer
 
 
 with gr.Blocks() as demo:
