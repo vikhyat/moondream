@@ -1,13 +1,10 @@
 import torch
 import argparse
 from PIL import Image
-from moondream import Moondream, detect_device
+from moondream import detect_device
 from queue import Queue
 from threading import Thread
-from transformers import (
-    TextIteratorStreamer,
-    CodeGenTokenizerFast as Tokenizer,
-)
+from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
 import re
 
 if __name__ == "__main__":
@@ -30,9 +27,11 @@ if __name__ == "__main__":
     image_path = args.image
     prompt = args.prompt
 
-    model_id = "vikhyatk/moondream1"
-    tokenizer = Tokenizer.from_pretrained(model_id)
-    moondream = Moondream.from_pretrained(model_id).to(device=device, dtype=dtype)
+    model_id = "vikhyatk/moondream2"
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision="2024-03-04")
+    moondream = AutoModelForCausalLM.from_pretrained(
+        model_id, revision="2024-03-04", trust_remote_code=True
+    ).to(device=device, dtype=dtype)
     moondream.eval()
 
     image = Image.open(image_path)
@@ -65,7 +64,7 @@ if __name__ == "__main__":
                 if not new_text.endswith("<") and not new_text.endswith("END"):
                     print(buffer, end="", flush=True)
                     buffer = ""
-            print(re.sub("<$", "", re.sub("END$", "", buffer)))
+            print(re.sub("<$|<END$", "", buffer))
 
             thread.join()
 

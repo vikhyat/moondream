@@ -1,5 +1,4 @@
 import torch
-from torch import nn
 from .vision_encoder import VisionEncoder
 from .configuration_moondream import MoondreamConfig
 from transformers import PreTrainedModel
@@ -98,7 +97,7 @@ class Moondream(PreTrainedModel):
             max_new_tokens=256,
             **kwargs,
         )[0]
-        cleaned_answer = re.sub("<$", "", re.sub("END$", "", answer)).strip()
+        cleaned_answer = re.sub("<$|<END$", "", answer).strip()
 
         # Use the result_queue to pass the result if it is provided
         if result_queue:

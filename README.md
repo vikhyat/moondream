@@ -2,63 +2,78 @@
 
 a tiny vision language model that kicks ass and runs anywhere
 
-## moondream1
+[Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk/moondream2) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2)
 
-1.6B parameter model built using SigLIP, Phi-1.5 and the LLaVA training dataset.
-Weights are licensed under CC-BY-SA due to using the LLaVA dataset. Try it out
-on [Hugging Face Spaces](https://huggingface.co/spaces/vikhyatk/moondream1)!
+## Benchmarks
 
-**Benchmarks**
+moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](https://huggingface.co/timm/ViT-SO400M-14-SigLIP-384) and [Phi 1.5](https://huggingface.co/microsoft/phi-1_5).
 
-| Model | Parameters | VQAv2 | GQA | TextVQA |
-| --- | --- | --- | --- | --- |
-| LLaVA-1.5 | 13.3B | 80.0 | 63.3 | 61.3 |
-| LLaVA-1.5 | 7.3B | 78.5 | 62.0 | 58.2 |
-| **moondream1** | 1.6B | 74.7 | 57.9 | 35.6 |
+| Model | VQAv2 | GQA | TextVQA | POPE | TallyQA |
+| --- | --- | --- | --- | --- | --- |
+| moondream1 | 74.7 | 57.9 | 35.6 | - | - |
+| **moondream2** (latest) | 74.2 | 58.5 | 36.4 | (coming soon) | (coming soon) |
 
-**Examples**
+## Examples
 
-| Image | Examples |
+| Image | Example |
 | --- | --- |
-| ![](assets/demo-1.jpg) | **What is the title of this book?**<br>The Little Book of Deep Learning<br><br>**What can you tell me about this book?**<br>The book in the image is titled "The Little Book of Deep Learning." It appears to be a guide or manual that provides information and instructions on the subject of deep learning. The book is described as being small and thin, making it easy to carry and read. It is set in a room with a view outside, suggesting that the person holding the book might be in a living or working space with a view. The content of the book is likely to be complex, as the title implies a focus on advanced concepts in deep learning.<br><br>**Where is the person standing?**<br> The person is standing on a balcony or deck, which is outside. |
-| ![](assets/demo-2.jpg) | **What type of food is the girl holding?**<br>The girl is holding a hamburger.<br><br>**What color is the woman's hair?**<br>The woman's hair is white.<br><br>**What is the girl doing in the image?**<br>The girl in the image is eating a hamburger. |
-| ![](assets/demo-3.jpg) | **What color is the train?**<br>The train is red.<br><br>**What is the bus doing in the image?**<br> The bus in the image is driving down a city street, passing through an intersection.<br><br>**What kind of public transportation is in the image?**<br>The image features a red train or trolley as the public transportation option. |
-| ![](assets/demo-4.jpg) | **What is the girl looking at?**<br>The girl is looking at her reflection in the mirror.<br><br>**What color is the woman's hair?**<br>The woman's hair is brown.<br><br>**What is the woman doing in the mirror?**<br>The woman is adjusting her hair in the mirror. |
-| ![](assets/demo-5.jpg) | **What might be the reason for the dog's aggressive behavior?**<br>The dog's aggressive behavior, including its growling, baring its teeth, and showing its sharp teeth, could be due to various reasons. It is possible that the dog is feeling threatened, scared, or defensive about something in its environment, such as another animal, a loud noise, or a person nearby. Alternatively, the dog might be reacting to a command it received from its owner, or it could be experiencing discomfort or pain, which is causing it to display aggressive behavior. It is essential to observe the dog's body language and context to determine the underlying cause of its aggressive behavior and respond accordingly to address its needs or concerns.<br><br>**What kind of dog is in the picture?**<br>The dog in the picture is a small, black and white chihuahua. |
+| ![](assets/demo-1.jpg) | **What is the girl doing?**<br>The girl is sitting at a table, eating a burger.<br><br>**What color is the girl's hair?**<br>White |
+| ![](assets/demo-2.jpg) | **What is this?**<br>A metal stand is positioned in the center of the image, with CPUs and wires visible. The background features a wall, and a black object is situated in the top left corner.<br><br>**What is behind the stand?**<br>A wall made of red bricks is visible behind the stand, which holds several electronic devices and wires. |
 
-**Usage**
+## Usage
 
-Clone this repository and install the dependencies:
+**Using transformers** (recommended)
+
+```bash
+pip install transformers timm einops
+```
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from PIL import Image
+
+model_id = "vikhyatk/moondream2"
+model = AutoModelForCausalLM.from_pretrained(
+    model_id, trust_remote_code=True, revision="2024-03-04"
+)
+tokenizer = AutoTokenizer.from_pretrained(model_id, revision="2024-03-04")
+
+image = Image.open('<IMAGE_PATH>')
+enc_image = model.encode_image(image)
+print(model.answer_question(enc_image, "Describe this image.", tokenizer))
+```
+
+The model is updated regularly, so we recommend pinning the model version to a
+specific release as shown above.
+
+**Using this repository**
+
+Clone this repository and install dependencies.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Use the `sample.py` script to run the model on CPU:
+`sample.py` provides a CLI interface for running the model. When the `--prompt` argument is not provided, the script will allow you to ask questions interactively.
 
 ```bash
 python sample.py --image [IMAGE_PATH] --prompt [PROMPT]
 ```
 
-When the `--prompt` argument is not provided, the script will allow you to ask
-questions interactively.
+Use `gradio_demo.py` script to start a Gradio interface for the model.
 
-**Gradio demo**
-
-Use the `gradio_demo.py` script to run the gradio app:
-
-```python
+```bash
 python gradio_demo.py
 ```
 
+`webcam_gradio_demo.py` provides a Gradio interface for the model that uses your webcam as input and performs inference in real-time.
+
+```bash
+python webcam_gradio_demo.py
+```
 
 **Limitations**
 
-* The model may generate inaccurate statements.
-* It may struggle to adhere to intricate or nuanced instructions.
-* It is primarily designed to understand English. Informal English, slang, and
-  non-English languages may not work well.
-* The model may not be free from societal biases. Users should be aware of this
-  and exercise caution and critical thinking when using the model.
-* The model may generate offensive, inappropriate, or hurtful content if it is
-  prompted to do so.
+* The model may generate inaccurate statements, and struggle to understand intricate or nuanced instructions.
+* The model may not be free from societal biases. Users should be aware of this and exercise caution and critical thinking when using the model.
+* The model may generate offensive, inappropriate, or hurtful content if it is prompted to do so.

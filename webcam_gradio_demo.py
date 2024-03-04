@@ -3,9 +3,9 @@ import torch
 import re
 import time
 import gradio as gr
-from moondream import Moondream, detect_device
+from moondream import detect_device
 from threading import Thread
-from transformers import TextIteratorStreamer, CodeGenTokenizerFast as Tokenizer
+from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cpu", action="store_true")
@@ -21,9 +21,11 @@ else:
         print("If you run into issues, pass the `--cpu` flag to this script.")
         print()
 
-model_id = "vikhyatk/moondream1"
-tokenizer = Tokenizer.from_pretrained(model_id)
-moondream = Moondream.from_pretrained(model_id).to(device=device, dtype=dtype)
+model_id = "vikhyatk/moondream2"
+tokenizer = AutoTokenizer.from_pretrained(model_id, revision="2024-03-04")
+moondream = AutoModelForCausalLM.from_pretrained(
+    model_id, trust_remote_code=True, revision="2024-03-04"
+).to(device=device, dtype=dtype)
 moondream.eval()
 
 
