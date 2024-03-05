@@ -28,9 +28,10 @@ if __name__ == "__main__":
     prompt = args.prompt
 
     model_id = "vikhyatk/moondream2"
-    tokenizer = AutoTokenizer.from_pretrained(model_id, revision="2024-03-04")
+    revision = "2024-03-05"
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
     moondream = AutoModelForCausalLM.from_pretrained(
-        model_id, revision="2024-03-04", trust_remote_code=True
+        model_id, revision=revision, trust_remote_code=True
     ).to(device=device, dtype=dtype)
     moondream.eval()
 
