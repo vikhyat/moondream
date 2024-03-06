@@ -1,8 +1,5 @@
 from transformers import PretrainedConfig
 
-from typing import Optional
-import math
-
 
 class PhiConfig(PretrainedConfig):
     model_type = "phi"

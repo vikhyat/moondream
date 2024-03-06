@@ -3,7 +3,7 @@ import torch
 import re
 import time
 import gradio as gr
-from moondream import detect_device
+from moondream import detect_device, LATEST_REVISION
 from threading import Thread
 from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
 
@@ -22,10 +22,9 @@ else:
         print()
 
 model_id = "vikhyatk/moondream2"
-revision = "2024-03-05"
-tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+tokenizer = AutoTokenizer.from_pretrained(model_id, revision=LATEST_REVISION)
 moondream = AutoModelForCausalLM.from_pretrained(
-    model_id, trust_remote_code=True, revision=revision
+    model_id, trust_remote_code=True, revision=LATEST_REVISION
 ).to(device=device, dtype=dtype)
 moondream.eval()
 
