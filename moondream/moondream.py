@@ -9,13 +9,16 @@ from .configuration_moondream import PhiConfig
 
 class Moondream(PreTrainedModel):
     config_class = MoondreamConfig
+    _supports_flash_attn_2 = True
 
     def __init__(self, config):
         super().__init__(config)
         self.vision_encoder = VisionEncoder()
 
         if type(config.phi_config) == dict:
-            phi_config = PhiConfig(**config.phi_config)
+            phi_config = PhiConfig(
+                **config.phi_config, attn_implementation=config._attn_implementation
+            )
         else:
             phi_config = config.phi_config
         self.text_model = PhiForCausalLM(phi_config)

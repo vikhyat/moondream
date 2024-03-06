@@ -31,8 +31,11 @@ if __name__ == "__main__":
     revision = "2024-03-05"
     tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
     moondream = AutoModelForCausalLM.from_pretrained(
-        model_id, revision=revision, trust_remote_code=True
-    ).to(device=device, dtype=dtype)
+        model_id,
+        revision=revision,
+        trust_remote_code=True,
+        torch_dtype=dtype,
+    ).to(device=device)
     moondream.eval()
 
     image = Image.open(image_path)
