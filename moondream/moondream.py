@@ -97,7 +97,7 @@ class Moondream(PreTrainedModel):
             prompt,
             eos_text="<END>",
             tokenizer=tokenizer,
-            max_new_tokens=256,
+            max_new_tokens=512,
             **kwargs,
         )[0]
         cleaned_answer = re.sub("<$|<END$", "", answer).strip()
@@ -107,3 +107,71 @@ class Moondream(PreTrainedModel):
             result_queue.put(cleaned_answer)
         else:
             return cleaned_answer
+
+    def batch_answer(
+        self,
+        images,
+        prompts,
+        tokenizer,
+        **kwargs,
+    ):
+        eos_tokens = tokenizer("<END>", add_special_tokens=False)[0].ids
+
+        image_embeds = self.encode_image(images)
+
+        templated_prompts = [
+            f"<image>\n\nQuestion: {prompt}\n\nAnswer: " for prompt in prompts
+        ]
+        prompt_embs = [
+            self.input_embeds(prompt, image_embed.unsqueeze(0), tokenizer)[0]
+            for prompt, image_embed in zip(templated_prompts, image_embeds)
+        ]
+
+        bos_emb = prompt_embs[0][0]
+        max_len = max([p.shape[0] for p in prompt_embs])
+
+        inputs_embeds = torch.cat(
+            [
+                torch.cat([bos_emb.repeat(max_len - p.shape[0], 1), p]).unsqueeze(0)
+                for p in prompt_embs
+            ],
+            dim=0,
+        )
+        attention_mask = torch.cat(
+            [
+                torch.cat(
+                    [
+                        torch.zeros(
+                            1,
+                            max_len - p.shape[0],
+                            device=self.device,
+                            dtype=torch.long,
+                        ),
+                        torch.ones(1, p.shape[0], device=self.device, dtype=torch.long),
+                    ],
+                    dim=1,
+                )
+                for p in prompt_embs
+            ],
+            dim=0,
+        )
+
+        generate_config = {
+            "eos_token_id": eos_tokens,
+            "bos_token_id": tokenizer.bos_token_id,
+            "pad_token_id": tokenizer.eos_token_id,
+            "max_new_tokens": 512,
+            **kwargs,
+        }
+
+        with torch.no_grad():
+            output_ids = self.text_model.generate(
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+                **generate_config,
+            )
+
+        return [
+            re.sub("<$|<END$", "", x).strip()
+            for x in tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+        ]

@@ -1,10 +1,10 @@
 import torch
 import argparse
 from PIL import Image
-from moondream import detect_device
+from moondream import Moondream, detect_device, LATEST_REVISION
 from queue import Queue
 from threading import Thread
-from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
+from transformers import TextIteratorStreamer, AutoTokenizer
 import re
 
 if __name__ == "__main__":
@@ -28,12 +28,10 @@ if __name__ == "__main__":
     prompt = args.prompt
 
     model_id = "vikhyatk/moondream2"
-    revision = "2024-03-05"
-    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
-    moondream = AutoModelForCausalLM.from_pretrained(
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=LATEST_REVISION)
+    moondream = Moondream.from_pretrained(
         model_id,
-        revision=revision,
-        trust_remote_code=True,
+        revision=LATEST_REVISION,
         torch_dtype=dtype,
     ).to(device=device)
     moondream.eval()

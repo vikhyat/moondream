@@ -121,13 +121,15 @@ class VisionEncoder(nn.Module):
     def dtype(self):
         return self.projection.mlp.fc1.weight.dtype
 
-    def __call__(self, image: Image) -> torch.Tensor:
+    def __call__(self, images) -> torch.Tensor:
+        if not isinstance(images, list):
+            images = [images]
+
         with torch.no_grad():
-            x = (
-                self.preprocess(image.convert("RGB"))
-                .unsqueeze(0)
-                .to(self.device, dtype=self.dtype)
-            )
+            x = torch.stack(
+                [self.preprocess(image.convert("RGB")) for image in images]
+            ).to(self.device, dtype=self.dtype)
+
             x = rearrange(x, "b c (h p1) (w p2) -> b (h w) (c p1 p2)", p1=14, p2=14)
 
             x = self.encoder(x)
