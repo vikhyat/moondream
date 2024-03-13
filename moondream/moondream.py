@@ -49,9 +49,11 @@ class Moondream(PreTrainedModel):
         else:
             assert prompt.count("<image>") == 1
             before, after = prompt.split("<image>")
-            embeds.append(text_emb(_tokenize(f"{before}<image>")))
+            if len(before) > 0:
+                embeds.append(text_emb(_tokenize(before)))
             embeds.append(image_embeds.to(self.device))
-            embeds.append(text_emb(_tokenize(f"</image>{after}")))
+            if len(after) > 0:
+                embeds.append(text_emb(_tokenize(after)))
 
         return torch.cat(embeds, dim=1)
 
