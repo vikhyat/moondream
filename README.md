@@ -8,17 +8,17 @@ a tiny vision language model that kicks ass and runs anywhere
 
 moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](https://huggingface.co/timm/ViT-SO400M-14-SigLIP-384) and [Phi 1.5](https://huggingface.co/microsoft/phi-1_5).
 
-| Model | VQAv2 | GQA | TextVQA | POPE | TallyQA |
+| Model | VQAv2 | GQA | TextVQA | TallyQA (simple) | TallyQA (full) |
 | --- | --- | --- | --- | --- | --- |
 | moondream1 | 74.7 | 57.9 | 35.6 | - | - |
-| **moondream2** (latest) | 75.4 | 59.8 | 43.1 | (coming soon) | (coming soon) |
+| **moondream2** (latest) | 76.8 | 60.6 | 46.4 | 79.6 | 73.3 |
 
 ## Examples
 
 | Image | Example |
 | --- | --- |
-| ![](assets/demo-1.jpg) | **What is the girl doing?**<br>The girl is eating a hamburger.<br><br>**What color is the girl's hair?**<br>White |
-| ![](assets/demo-2.jpg) | **What is this?**<br>A rack is present in the image, containing various electronic devices. A chair is situated on the left side, and a brick wall is visible in the background.<br><br>**What is behind the stand?**<br>A brick wall is visible behind the stand. |
+| ![](assets/demo-1.jpg) | **What is the girl doing?**<br>The girl is eating a hamburger.<br><br>**What color is the girl's hair?**<br>The girl's hair is white. |
+| ![](assets/demo-2.jpg) | **What is this?**<br>This is a computer server rack, specifically designed for holding multiple computer processors and other components. The rack has multiple shelves or tiers, each holding several processors, and it is placed on a carpeted floor. The rack is filled with various computer parts, including processors, wires, and other electronic devices.<br><br>**What is behind the stand?**<br>There is a brick wall behind the stand. |
 
 ## Usage
 
@@ -33,7 +33,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from PIL import Image
 
 model_id = "vikhyatk/moondream2"
-revision = "2024-03-06"
+revision = "2024-03-13"
 model = AutoModelForCausalLM.from_pretrained(
     model_id, trust_remote_code=True, revision=revision
 )

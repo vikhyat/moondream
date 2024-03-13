@@ -91,7 +91,7 @@ class Moondream(PreTrainedModel):
         result_queue=None,
         **kwargs,
     ):
-        prompt = f"<image>\n\n{chat_history}Question: {question}\n\nAnswer: "
+        prompt = f"<image>\n\n{chat_history}Question: {question}\n\nAnswer:"
         answer = self.generate(
             image_embeds,
             prompt,
@@ -120,7 +120,7 @@ class Moondream(PreTrainedModel):
         image_embeds = self.encode_image(images)
 
         templated_prompts = [
-            f"<image>\n\nQuestion: {prompt}\n\nAnswer: " for prompt in prompts
+            f"<image>\n\nQuestion: {prompt}\n\nAnswer:" for prompt in prompts
         ]
         prompt_embs = [
             self.input_embeds(prompt, image_embed.unsqueeze(0), tokenizer)[0]
