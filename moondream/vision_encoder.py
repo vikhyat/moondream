@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from PIL import Image
 from einops import rearrange
+import timm
 from torchvision.transforms.v2 import (
     Compose,
     Resize,
@@ -10,8 +10,6 @@ from torchvision.transforms.v2 import (
     ToDtype,
     Normalize,
 )
-import timm
-
 
 class VisualHolder(nn.Module):
     def __init__(self, model):
@@ -32,12 +30,10 @@ class ModelHolder(nn.Module):
 
 
 class LinearPatchEmbedding(nn.Module):
-    def __init__(self, conv):
+
+    def __init__(self):
         super().__init__()
         self.linear = nn.Linear(588, 1152)
-        self.linear.weight.data = conv.weight.data.view(1152, -1)
-        if conv.bias is not None:
-            self.linear.bias.data = conv.bias.data
 
     def forward(self, x):
         return self.linear(x)
@@ -97,9 +93,7 @@ class VisionEncoder(nn.Module):
         self.encoder = ModelHolder(
             VisualHolder(timm.create_model("vit_so400m_patch14_siglip_384"))
         )
-        self.encoder.model.visual.patch_embed = LinearPatchEmbedding(
-            self.encoder.model.visual.patch_embed.proj
-        )
+        self.encoder.model.visual.patch_embed = LinearPatchEmbedding()
         self.encoder.model.visual.attn_pool = nn.Identity()
 
         self.projection = VisionProjection()
