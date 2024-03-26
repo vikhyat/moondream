@@ -1,7 +1,7 @@
 import torch
+import torch.nn.functional as F
 from torch import nn
 from einops import rearrange
-import timm
 from torchvision.transforms.v2 import (
     Compose,
     Resize,
@@ -11,22 +11,84 @@ from torchvision.transforms.v2 import (
     Normalize,
 )
 
-class VisualHolder(nn.Module):
-    def __init__(self, model):
+
+class Attention(nn.Module):
+    def __init__(self, dim, num_heads=16):
         super().__init__()
-        self.visual = model
+        assert dim % num_heads == 0, "dim should be divisible by num_heads"
+
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+
+        self.qkv = nn.Linear(dim, dim * 3)
+        self.proj = nn.Linear(dim, dim)
+
+        torch.nn.init.kaiming_normal_(
+            self.qkv.weight, mode="fan_in", nonlinearity="relu"
+        )
+        torch.nn.init.kaiming_normal_(
+            self.proj.weight, mode="fan_in", nonlinearity="relu"
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, N, C = x.shape
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, self.head_dim)
+            .permute(2, 0, 3, 1, 4)
+        )
+        q, k, v = qkv.unbind(0)
+
+        x = F.scaled_dot_product_attention(q, k, v)
+
+        x = x.transpose(1, 2).reshape(B, N, C)
+        x = self.proj(x)
+        return x
+
+
+class VitBlock(nn.Module):
+    def __init__(self, embed_dim):
+        super().__init__()
+        self.attn = Attention(embed_dim)
+        self.mlp = MLP(embed_dim, 4304)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
 
     def forward(self, x):
-        return self.visual(x)
+        x = x + self.attn(self.norm1(x))
+        x = x + self.mlp(self.norm2(x))
+        return x
 
 
-class ModelHolder(nn.Module):
-    def __init__(self, model):
+class VisionTransformer(nn.Module):
+
+    def __init__(self):
         super().__init__()
-        self.model = model
+
+        embed_len = 729
+        embed_dim = 1152
+
+        self.patch_embed = LinearPatchEmbedding()
+        self.pos_embed = nn.Parameter(torch.randn(1, embed_len, embed_dim) * 0.02)
+        self.blocks = nn.Sequential(*[VitBlock(embed_dim) for _ in range(27)])
+        self.norm = nn.LayerNorm(embed_dim)
 
     def forward(self, x):
-        return self.model(x)
+        x = self.patch_embed(x)
+        x = x + self.pos_embed
+        for block in self.blocks:
+            x = block(x)
+        return self.norm(x)
+
+
+class EncoderWrapper(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.model = nn.ModuleDict({"visual": VisionTransformer()})
+
+    def forward(self, x):
+        return self.model["visual"](x)
 
 
 class LinearPatchEmbedding(nn.Module):
@@ -90,9 +152,8 @@ class VisionEncoder(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-        self.encoder = ModelHolder(
-            VisualHolder(timm.create_model("vit_so400m_patch14_siglip_384"))
-        )
+        self.encoder = EncoderWrapper()
+
         self.encoder.model.visual.patch_embed = LinearPatchEmbedding()
         self.encoder.model.visual.attn_pool = nn.Identity()
 
