@@ -107,13 +107,12 @@ class MLP(nn.Module):
         in_features: int,
         hidden_features: int = None,
         out_features: int = None,
-        act_layer: nn.Module = nn.GELU,
     ) -> None:
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_layer()
+        self.act = nn.GELU(approximate="tanh")
         self.fc2 = nn.Linear(hidden_features, out_features)
 
         torch.nn.init.kaiming_normal_(
@@ -153,10 +152,6 @@ class VisionEncoder(nn.Module):
         super().__init__()
 
         self.encoder = EncoderWrapper()
-
-        self.encoder.model.visual.patch_embed = LinearPatchEmbedding()
-        self.encoder.model.visual.attn_pool = nn.Identity()
-
         self.projection = VisionProjection()
 
         self.preprocess = Compose(
