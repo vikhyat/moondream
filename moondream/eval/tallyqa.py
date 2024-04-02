@@ -26,14 +26,18 @@ from .. import Moondream, detect_device
 BATCH_SIZE = 16
 DEVICE, DTYPE = detect_device()
 
-tallyqa_test = json.load(open("data/tallyqa/test.json"))
-
 model_id = "vikhyatk/moondream2"
 revision = "2024-03-06"
 tokenizer = AutoTokenizer.from_pretrained(
     model_id, revision=revision, trust_remote_code=True
 )
-model = Moondream.from_pretrained(model_id, revision=revision).to(DEVICE, DTYPE)
+model = Moondream.from_pretrained(
+    model_id,
+    revision=revision,
+    attn_implementation="flash_attention_2",
+    torch_dtype=DTYPE,
+    device_map={"": DEVICE},
+)
 model.eval()
 
 total = 0
@@ -42,6 +46,7 @@ correct = 0
 correct_simple = 0
 
 # Iterate over tallyqa_test in batches of BATCH_SIZE
+tallyqa_test = json.load(open("data/tallyqa/test.json"))
 for i in tqdm(range(0, len(tallyqa_test), BATCH_SIZE)):
     batch = tallyqa_test[i : i + BATCH_SIZE]
 

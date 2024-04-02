@@ -12,7 +12,9 @@ class Moondream(PreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.vision_encoder = VisionEncoder()
+        self.vision_encoder = VisionEncoder(
+            use_flash_attn=config._attn_implementation == "flash_attention_2"
+        )
 
         if type(config.phi_config) == dict:
             phi_config = PhiConfig(
