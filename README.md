@@ -11,14 +11,14 @@ moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](htt
 | Model | VQAv2 | GQA | TextVQA | TallyQA (simple) | TallyQA (full) |
 | --- | --- | --- | --- | --- | --- |
 | moondream1 | 74.7 | 57.9 | 35.6 | - | - |
-| **moondream2** (latest) | 76.8 | 60.6 | 46.4 | 79.6 | 73.3 |
+| **moondream2** (latest) | 77.7 | 61.7 | 49.7 | 80.1 | 74.2 |
 
 ## Examples
 
 | Image | Example |
 | --- | --- |
-| ![](assets/demo-1.jpg) | **What is the girl doing?**<br>The girl is eating a hamburger.<br><br>**What color is the girl's hair?**<br>The girl's hair is white. |
-| ![](assets/demo-2.jpg) | **What is this?**<br>This is a computer server rack, specifically designed for holding multiple computer processors and other components. The rack has multiple shelves or tiers, each holding several processors, and it is placed on a carpeted floor. The rack is filled with various computer parts, including processors, wires, and other electronic devices.<br><br>**What is behind the stand?**<br>There is a brick wall behind the stand. |
+| ![](assets/demo-1.jpg) | **What is the girl doing?**<br>The girl is sitting at a table and eating a large hamburger.<br><br>**What color is the girl's hair?**<br>The girl's hair is white. |
+| ![](assets/demo-2.jpg) | **What is this?**<br>The image features a computer server rack, which is a large metal structure designed to hold and organize multiple computer components, such as motherboards, cooling systems, and other peripherals. The rack is filled with various computer parts, including multiple computer chips, wires, and other electronic components. The rack is placed on a carpeted floor, and there is a couch in the background, suggesting that the setup is likely in a living or working space.<br><br>**What is behind the stand?**<br>There is a brick wall behind the stand. |
 
 ## Usage
 
@@ -33,7 +33,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from PIL import Image
 
 model_id = "vikhyatk/moondream2"
-revision = "2024-03-13"
+revision = "2024-04-02"
 model = AutoModelForCausalLM.from_pretrained(
     model_id, trust_remote_code=True, revision=revision
 )
