@@ -1,5 +1,5 @@
 # 🌔 moondream
-
+deployed locally, privacy focused, community oriented project
 a tiny vision language model that kicks ass and runs anywhere
 
 [Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk/moondream2) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2)
