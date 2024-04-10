@@ -1,5 +1,5 @@
 # 🌔 moondream
-deployed locally, privacy focused, community oriented\
+deployed locally, privacy focused, community oriented
 
 a tiny vision language model that kicks ass and runs anywhere
 
