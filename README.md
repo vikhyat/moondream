@@ -76,8 +76,7 @@ Clone this repository
 
 `git clone https://github.com/vikhyat/moondream.git`
 
-install dependencies.
-
+Install dependencies.
 ```bash
 pip install -r requirements.txt
 ```
