@@ -25,7 +25,7 @@ moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](htt
 **Using transformers** (recommended)
 
 ```bash
-pip install transformers timm einops
+pip install transformers einops
 ```
 
 ```python
