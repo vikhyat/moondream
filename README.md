@@ -81,16 +81,16 @@ Install dependencies.
 pip install -r requirements.txt
 ```
 
-`sample.py` provides a CLI interface for running the model. When the `--prompt` argument is not provided, the script will allow you to ask questions interactively.
-
-```bash
-python sample.py --image [IMAGE_PATH] --prompt [PROMPT]
-```
-
 Use `gradio_demo.py` script to start a Gradio interface for the model.
 
 ```bash
 python gradio_demo.py
+```
+
+`sample.py` provides a CLI interface for running the model. When the `--prompt` argument is not provided, the script will allow you to ask questions interactively.
+
+```bash
+python sample.py --image [IMAGE_PATH] --prompt [PROMPT]
 ```
 
 `webcam_gradio_demo.py` provides a Gradio interface for the model that uses your webcam as input and performs inference in real-time.
