@@ -88,6 +88,12 @@ Use `gradio_demo.py` script to start a Gradio interface for the model.
 python gradio_demo.py
 ```
 
+Use `--model` flag for models on your local machine.
+
+```bash
+python gradio_demo.py --model MODEL_PATH
+```
+
 `sample.py` provides a CLI interface for running the model. When the `--prompt` argument is not provided, the script will allow you to ask questions interactively.
 
 ```bash
