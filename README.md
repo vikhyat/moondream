@@ -5,6 +5,8 @@ a tiny vision language model that kicks ass and runs anywhere
 
 [Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk/moondream2) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2)
 
+![alt text](https://github.com/KPCOFGS/moondream_fork/blob/main/assets/sample_screenshot.png?raw=true)
+
 ## Benchmarks
 
 moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](https://huggingface.co/timm/ViT-SO400M-14-SigLIP-384) and [Phi 1.5](https://huggingface.co/microsoft/phi-1_5).
