@@ -73,7 +73,9 @@ answers = moondream.batch_answer(
 **Using this repository**
 
 Clone this repository
+
 `git clone https://github.com/vikhyat/moondream.git`
+
 install dependencies.
 
 ```bash
