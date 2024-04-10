@@ -126,6 +126,13 @@ class LinearPatchEmbedding(nn.Module):
         self.linear = nn.Linear(588, 1152)
 
     def forward(self, x):
+        b, c, hp1, wp2 = x.shape
+        p1, p2 = 14, 14
+        h, w = hp1 // p1, wp2 // p2
+        x = x.reshape(b, c, h, p1, w, p2)
+        x = x.permute(0, 2, 4, 1, 3, 5)
+        x = x.reshape(b, h * w, c * p1 * p2)
+
         return self.linear(x)
 
 
@@ -210,7 +217,6 @@ class VisionEncoder(nn.Module):
                 images = [self.preprocess(image.convert("RGB")) for image in images]
 
             x = torch.stack(images).to(self.device, dtype=self.dtype)
-            x = rearrange(x, "b c (h p1) (w p2) -> b (h w) (c p1 p2)", p1=14, p2=14)
 
             x = self.encoder(x)
             x = self.projection(x)
