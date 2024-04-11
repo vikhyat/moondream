@@ -1,0 +1,40 @@
+**Using from source**
+
+Clone this repository
+
+`git clone https://github.com/vikhyat/moondream.git`
+
+Install dependencies.
+```bash
+pip install -r requirements.txt
+```
+
+Use `gradio_demo.py` script to start a Gradio interface for the model.
+
+```bash
+python gradio_demo.py
+```
+
+Use `--model` flag for models on your local machine.
+
+```bash
+python gradio_demo.py --model MODEL_PATH
+```
+
+`sample.py` provides a CLI interface for running the model. When the `--prompt` argument is not provided, the script will allow you to ask questions interactively.
+
+```bash
+python sample.py --image [IMAGE_PATH] --prompt [PROMPT]
+```
+
+`webcam_gradio_demo.py` provides a Gradio interface for the model that uses your webcam as input and performs inference in real-time.
+
+```bash
+python webcam_gradio_demo.py
+```
+
+**Limitations**
+
+* The model may generate inaccurate statements, and struggle to understand intricate or nuanced instructions.
+* The model may not be free from societal biases. Users should be aware of this and exercise caution and critical thinking when using the model.
+* The model may generate offensive, inappropriate, or hurtful content if it is prompted to do so.
