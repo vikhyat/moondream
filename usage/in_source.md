@@ -1,10 +1,13 @@
 **Using from source**
 
 Clone this repository
+```bash
+git clone https://github.com/vikhyat/moondream.git
+```
 
-`git clone https://github.com/vikhyat/moondream.git`
-
-`cd moondream`
+```bash
+cd moondream
+```
 
 Install dependencies.
 ```bash
