@@ -71,7 +71,7 @@ answers = moondream.batch_answer(
 )
 ```
 
-**Using this repository**
+**Using from source**
 
 Clone this repository
 
