@@ -26,9 +26,9 @@ moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](htt
 
 ## Usage
 
- [**Using transformers**](usage/in_transformers.md) (recommended)
+ [**Using transformers library**](usage/in_transformers.md) (recommended)
 
- [**Using from source**](usage/in_source.md)
+ [**Using from source code**](usage/in_source.md)
 
 
 **Limitations**
