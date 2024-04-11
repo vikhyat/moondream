@@ -3,8 +3,6 @@
 Clone this repository
 ```bash
 git clone https://github.com/vikhyat/moondream.git
-```
-```bash
 cd moondream
 ```
 
