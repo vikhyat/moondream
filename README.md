@@ -30,6 +30,7 @@ moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](htt
 
  [**Using from source**](usage/in_source.md)
 
+
 **Limitations**
 
 * The model may generate inaccurate statements, and struggle to understand intricate or nuanced instructions.
