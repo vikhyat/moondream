@@ -32,9 +32,3 @@ python sample.py --image [IMAGE_PATH] --prompt [PROMPT]
 ```bash
 python webcam_gradio_demo.py
 ```
-
-**Limitations**
-
-* The model may generate inaccurate statements, and struggle to understand intricate or nuanced instructions.
-* The model may not be free from societal biases. Users should be aware of this and exercise caution and critical thinking when using the model.
-* The model may generate offensive, inappropriate, or hurtful content if it is prompted to do so.
