@@ -2,7 +2,7 @@
 
 a tiny vision language model that kicks ass and runs anywhere
 
-[Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2)
+[Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2) | [Discord](https://discord.com/invite/tRUdpjDQfH) | [Twitter/X](https://twitter.com/vikhyatk)
 
 ![alt text](https://github.com/KPCOFGS/moondream_fork/blob/main/assets/sample_screenshot.png?raw=true)
 
