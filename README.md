@@ -12,16 +12,9 @@ moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](htt
 
 | Model | VQAv2 | GQA | TextVQA | TallyQA (simple) | TallyQA (full) |
 | --- | --- | --- | --- | --- | --- |
-| moondream1 | 74.7 | 57.9 | 35.6 | - | - |
-| **moondream2** (latest) | 77.7 | 61.7 | 49.7 | 80.1 | 74.2 |
+| moondream1 | 74.7 | 57.9 | 35.6 | - | - | [Download moondream1 model](https://huggingface.co/vikhyatk/moondream1)
 
-## Downloading the model to local machine:
-
-[moondream2 model](https://huggingface.co/vikhyatk/moondream2) (Latest)
-
-[moondream1 model](https://huggingface.co/vikhyatk/moondream1)
-
-[moondream0 model](https://huggingface.co/vikhyatk/moondream0)
+| **moondream2** (latest) | 77.7 | 61.7 | 49.7 | 80.1 | 74.2 | [Download moondream2 model](https://huggingface.co/vikhyatk/moondream2)
 
 ## Examples
 
