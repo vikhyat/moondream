@@ -38,6 +38,6 @@ moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](htt
 * The model may generate offensive, inappropriate, or hurtful content if it is prompted to do so.
 
 ## License
-This project is licensed under the Apache License
+This project is licensed under the GNU GENERAL PUBLIC LICENSE
 
 See the [LICENSE](LICENSE) file for details.
