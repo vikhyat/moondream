@@ -4,8 +4,6 @@ a tiny vision language model that kicks ass and runs anywhere
 
 [Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk/moondream2) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2)
 
-deployed locally, privacy focused, community oriented
-
 ![alt text](https://github.com/KPCOFGS/moondream_fork/blob/main/assets/sample_screenshot.png?raw=true)
 
 ## Benchmarks
