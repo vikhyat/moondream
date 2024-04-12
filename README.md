@@ -17,7 +17,7 @@ moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](htt
 
 ## Downloading the model to local machine:
 
-[moondream2 model](https://huggingface.co/vikhyatk/moondream2)
+[moondream2 model](https://huggingface.co/vikhyatk/moondream2) (Latest)
 
 [moondream1 model](https://huggingface.co/vikhyatk/moondream1)
 
