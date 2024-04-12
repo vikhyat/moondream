@@ -2,7 +2,7 @@
 
 a tiny vision language model that kicks ass and runs anywhere
 
-[Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk/moondream2) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2)
+[Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2)
 
 ![alt text](https://github.com/KPCOFGS/moondream_fork/blob/main/assets/sample_screenshot.png?raw=true)
 
@@ -14,6 +14,11 @@ moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](htt
 | --- | --- | --- | --- | --- | --- |
 | moondream1 | 74.7 | 57.9 | 35.6 | - | - |
 | **moondream2** (latest) | 77.7 | 61.7 | 49.7 | 80.1 | 74.2 |
+
+## Downloading the model to local machine:
+[moondream2 model](https://huggingface.co/vikhyatk/moondream2)
+[moondream1 model](https://huggingface.co/vikhyatk/moondream1)
+[moondream0 model](https://huggingface.co/vikhyatk/moondream0)
 
 ## Examples
 
