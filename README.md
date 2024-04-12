@@ -10,14 +10,10 @@ a tiny vision language model that kicks ass and runs anywhere
 
 moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](https://huggingface.co/timm/ViT-SO400M-14-SigLIP-384) and [Phi 1.5](https://huggingface.co/microsoft/phi-1_5).
 
-| Model | VQAv2 | GQA | TextVQA | TallyQA (simple) | TallyQA (full) |
-| --- | --- | --- | --- | --- | --- |
-| moondream1 | 74.7 | 57.9 | 35.6 | - | - |
-| **moondream2** (latest) | 77.7 | 61.7 | 49.7 | 80.1 | 74.2 |
-
-[Download moondream1 model](https://huggingface.co/vikhyatk/moondream1)
-
-[Download moondream2 model](https://huggingface.co/vikhyatk/moondream2)
+| Model | VQAv2 | GQA | TextVQA | TallyQA (simple) | TallyQA (full) | Download |
+| --- | --- | --- | --- | --- | --- | --- |
+| moondream1 | 74.7 | 57.9 | 35.6 | - | - |  [Huggingface](https://huggingface.co/vikhyatk/moondream1) |
+| **moondream2** (latest) | 77.7 | 61.7 | 49.7 | 80.1 | 74.2 | [Huggingface](https://huggingface.co/vikhyatk/moondream2) |
 
 ## Examples
 
