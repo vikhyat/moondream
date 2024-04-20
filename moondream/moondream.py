@@ -16,12 +16,12 @@ class Moondream(PreTrainedModel):
             use_flash_attn=config._attn_implementation == "flash_attention_2"
         )
 
-        if type(config.phi_config) == dict:
+        if type(config.text_config) == dict:
             phi_config = PhiConfig(
-                **config.phi_config, attn_implementation=config._attn_implementation
+                **config.text_config, attn_implementation=config._attn_implementation
             )
         else:
-            phi_config = config.phi_config
+            phi_config = config.text_config
         self.text_model = PhiForCausalLM(phi_config)
 
     @property

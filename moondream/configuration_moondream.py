@@ -94,5 +94,5 @@ class MoondreamConfig(PretrainedConfig):
     model_type = "moondream1"
 
     def __init__(self, **kwargs):
-        self.phi_config = PhiConfig(**kwargs)
+        self.text_config = PhiConfig(**kwargs.pop("text_config", {}))
         super().__init__(**kwargs)
