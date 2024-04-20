@@ -208,16 +208,20 @@ class VisionEncoder(nn.Module):
         return self.projection.mlp.fc1.weight.dtype
 
     def __call__(self, images) -> torch.Tensor:
-        if not isinstance(images, list):
+        if not isinstance(images, list) and not isinstance(images, torch.Tensor):
             images = [images]
 
         with torch.no_grad():
             # Skip preprocess if images are already tensors
-            if not isinstance(images[0], torch.Tensor):
+            if not isinstance(images, torch.Tensor) and not isinstance(
+                images[0], torch.Tensor
+            ):
                 images = [self.preprocess(image.convert("RGB")) for image in images]
 
-            x = torch.stack(images).to(self.device, dtype=self.dtype)
+            if isinstance(images, list):
+                images = torch.stack(images)
 
+            x = images.to(self.device, dtype=self.dtype)
             x = self.encoder(x)
             x = self.projection(x)
 
