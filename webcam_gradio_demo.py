@@ -1,6 +1,5 @@
 import argparse
 import torch
-import re
 import time
 import gradio as gr
 from moondream import detect_device, LATEST_REVISION
@@ -45,9 +44,8 @@ def answer_question(img, prompt):
 
     buffer = ""
     for new_text in streamer:
-        clean_text = re.sub("<$|END$", "", new_text)
-        buffer += clean_text
-        yield buffer.strip("<END")
+        buffer += new_text
+        yield buffer
 
 with gr.Blocks() as demo:
     gr.Markdown("# 🌔 moondream")

@@ -5,7 +5,6 @@ from moondream import Moondream, detect_device, LATEST_REVISION
 from queue import Queue
 from threading import Thread
 from transformers import TextIteratorStreamer, AutoTokenizer
-import re
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -66,7 +65,7 @@ if __name__ == "__main__":
                 if not new_text.endswith("<") and not new_text.endswith("END"):
                     print(buffer, end="", flush=True)
                     buffer = ""
-            print(re.sub("<$|<END$", "", buffer))
+            print(buffer)
 
             thread.join()
 

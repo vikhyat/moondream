@@ -1,6 +1,5 @@
 import argparse
 import torch
-import re
 import gradio as gr
 from moondream import detect_device, LATEST_REVISION
 from threading import Thread
@@ -44,8 +43,7 @@ def answer_question(img, prompt):
 
     buffer = ""
     for new_text in streamer:
-        clean_text = re.sub("<$|<END$", "", new_text)
-        buffer += clean_text
+        buffer += new_text
         yield buffer
 
 
