@@ -58,6 +58,9 @@ class Moondream(PreTrainedModel):
 
         return torch.cat(embeds, dim=1)
 
+    def get_input_embeddings(self):
+        return self.text_model.get_input_embeddings()
+
     def generate(
         self,
         image_embeds,
