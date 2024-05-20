@@ -6,19 +6,17 @@ a tiny vision language model that kicks ass and runs anywhere
 
 ## Benchmarks
 
-moondream2 is a 1.86B parameter model initialized with weights from [SigLIP](https://huggingface.co/timm/ViT-SO400M-14-SigLIP-384) and [Phi 1.5](https://huggingface.co/microsoft/phi-1_5).
-
 | Model | VQAv2 | GQA | TextVQA | TallyQA (simple) | TallyQA (full) |
 | --- | --- | --- | --- | --- | --- |
 | moondream1 | 74.7 | 57.9 | 35.6 | - | - |
-| **moondream2** (latest) | 79.0 | 62.7 | 53.1 | 81.6 | 76.1 |
+| **moondream2** (latest) | 79.4 | 63.1 | 57.2 | 82.1 | 76.6 |
 
 ## Examples
 
 | Image | Example |
 | --- | --- |
 | ![](assets/demo-1.jpg) | **What is the girl doing?**<br>The girl is sitting at a table and eating a large hamburger.<br><br>**What color is the girl's hair?**<br>The girl's hair is white. |
-| ![](assets/demo-2.jpg) | **What is this?**<br>This is a computer server rack, which is a specialized piece of equipment used to support multiple computer systems simultaneously. The rack is designed to hold and manage the power supply, cooling system, and various components of the servers. In the image, the rack is filled with multiple computer servers, each connected to the rack and arranged in a manner that optimizes space and airflow. The rack is placed on a carpeted floor, indicating that it is likely in a room or workspace.<br><br>**What is behind the stand?**<br>Behind the stand, there is a brick wall. |
+| ![](assets/demo-2.jpg) | **What is this?**<br>This is a computer server rack, which is a device used to store and manage multiple computer servers. The rack is filled with various computer servers, each with their own dedicated space and power supply. The servers are connected to the rack via multiple cables, indicating that they are part of a larger system. The rack is placed on a carpeted floor, and there is a couch nearby, suggesting that the setup is in a living or entertainment area.<br><br>**What is behind the stand?**<br>Behind the stand, there is a brick wall. |
 
 ## Usage
 
@@ -33,7 +31,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from PIL import Image
 
 model_id = "vikhyatk/moondream2"
-revision = "2024-05-08"
+revision = "2024-05-20"
 model = AutoModelForCausalLM.from_pretrained(
     model_id, trust_remote_code=True, revision=revision
 )

@@ -29,7 +29,8 @@ class Moondream(PreTrainedModel):
         return self.text_model.device
 
     def encode_image(self, image):
-        return self.vision_encoder(image)
+        with torch.no_grad():
+            return self.vision_encoder(image)
 
     def input_embeds(self, prompt, image_embeds, tokenizer):
         def _tokenize(txt):
