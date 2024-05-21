@@ -1,4 +1,6 @@
 import torch
+
+from .helpers import PerceiverResampler
 from .vision_encoder import VisionEncoder
 from .configuration_moondream import MoondreamConfig
 from transformers import PreTrainedModel
@@ -12,9 +14,12 @@ class Moondream(PreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config)
+
         self.vision_encoder = VisionEncoder(
             use_flash_attn=config._attn_implementation == "flash_attention_2"
         )
+
+        self.resampler = PerceiverResampler(dim=self.vision_encoder.projection.model_dim)
 
         if type(config.text_config) == dict:
             phi_config = PhiConfig(
@@ -22,6 +27,7 @@ class Moondream(PreTrainedModel):
             )
         else:
             phi_config = config.text_config
+
         self.text_model = PhiForCausalLM(phi_config)
 
     @property
@@ -30,7 +36,12 @@ class Moondream(PreTrainedModel):
 
     def encode_image(self, image):
         with torch.no_grad():
-            return self.vision_encoder(image)
+
+            vision_encoding = self.vision_encoder(image)
+
+            vision_encoding = self.resampler(vision_encoding)
+
+            return vision_encoding
 
     def input_embeds(self, prompt, image_embeds, tokenizer):
         def _tokenize(txt):
