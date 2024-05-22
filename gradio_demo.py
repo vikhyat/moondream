@@ -4,6 +4,9 @@ import gradio as gr
 from moondream import detect_device, LATEST_REVISION
 from threading import Thread
 from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
+from PIL import ImageDraw
+import re
+from torchvision.transforms.v2 import Resize
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cpu", action="store_true")
@@ -22,8 +25,8 @@ else:
 model_id = "vikhyatk/moondream2"
 tokenizer = AutoTokenizer.from_pretrained(model_id, revision=LATEST_REVISION)
 moondream = AutoModelForCausalLM.from_pretrained(
-    model_id, trust_remote_code=True, revision=LATEST_REVISION
-).to(device=device, dtype=dtype)
+    model_id, trust_remote_code=True, revision=LATEST_REVISION, torch_dtype=dtype
+).to(device=device)
 moondream.eval()
 
 
@@ -47,11 +50,42 @@ def answer_question(img, prompt):
         yield buffer
 
 
+def extract_floats(text):
+    # Regular expression to match an array of four floating point numbers
+    pattern = r"\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]"
+    match = re.search(pattern, text)
+    if match:
+        # Extract the numbers and convert them to floats
+        return [float(num) for num in match.groups()]
+    return None  # Return None if no match is found
+
+
+def extract_bbox(text):
+    bbox = None
+    if extract_floats(text) is not None:
+        x1, y1, x2, y2 = extract_floats(text)
+        bbox = (x1, y1, x2, y2)
+    return bbox
+
+
+def process_answer(img, answer):
+    if extract_bbox(answer) is not None:
+        x1, y1, x2, y2 = extract_bbox(answer)
+        draw_image = Resize(768)(img)
+        width, height = draw_image.size
+        x1, x2 = int(x1 * width), int(x2 * width)
+        y1, y2 = int(y1 * height), int(y2 * height)
+        bbox = (x1, y1, x2, y2)
+        ImageDraw.Draw(draw_image).rectangle(bbox, outline="red", width=3)
+        return gr.update(visible=True, value=draw_image)
+
+    return gr.update(visible=False, value=None)
+
+
 with gr.Blocks() as demo:
     gr.Markdown(
         """
         # 🌔 moondream
-        ### A tiny vision language model. [GitHub](https://github.com/vikhyat/moondream)
         """
     )
     with gr.Row():
@@ -59,8 +93,12 @@ with gr.Blocks() as demo:
         submit = gr.Button("Submit")
     with gr.Row():
         img = gr.Image(type="pil", label="Upload an Image")
-        output = gr.TextArea(label="Response")
+        with gr.Column():
+            output = gr.Markdown(label="Response")
+            ann = gr.Image(visible=False, label="Annotated Image")
+
     submit.click(answer_question, [img, prompt], output)
     prompt.submit(answer_question, [img, prompt], output)
+    output.change(process_answer, [img, output], ann, show_progress=False)
 
 demo.queue().launch(debug=True)
