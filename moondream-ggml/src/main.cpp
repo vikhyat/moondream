@@ -888,23 +888,26 @@ REFERENCE: phi2 layer names from llama.cpp:
             { LLM_TENSOR_FFN_UP,             "blk.%d.ffn_up" },
 */
 bool moondream_load_model(const char * gguf_file_path, moondream_model * model) {
-    gguf_init_params init_params = {.no_alloc = true, .ctx = nullptr};
-    gguf_context * ctx = gguf_init_from_file(gguf_file_path, init_params);
-    int gguf_version = gguf_get_version(ctx);
-    size_t gguf_alignment = gguf_get_alignment(ctx);
-    size_t gguf_data_offset = gguf_get_data_offset(ctx);
-    
-    const char * model_arch = gguf_get_val_str(ctx, gguf_find_key(ctx, "general.architecture"));
+    ggml_context * ctx;
+    gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
+    gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
+    if(meta == NULL) {
+        return false;
+    }
+    int gguf_version = gguf_get_version(meta);
+    size_t gguf_alignment = gguf_get_alignment(meta);
+    size_t gguf_data_offset = gguf_get_data_offset(meta);
+    const char * model_arch = gguf_get_val_str(meta, gguf_find_key(meta, "general.architecture"));
     
     moondream_hparams hparams;
-    const char * model_name = gguf_get_val_str(ctx, gguf_find_key(ctx, "general.name"));
-    hparams.n_ctx_train = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("context_length")));
-    hparams.n_embd = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("embedding_length")));
-    hparams.n_rot = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("rope.dimension_count")));
-    hparams.n_layer = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("block_count")));
-    hparams.n_ff = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("block_count")));
-    hparams.n_head = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("attention.head_count")));
-    hparams.n_head_kv = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("attention.head_count_kv")));
+    const char * model_name = gguf_get_val_str(meta, gguf_find_key(meta, "general.name"));
+    hparams.n_ctx_train = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("context_length")));
+    hparams.n_embd = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("embedding_length")));
+    hparams.n_rot = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("rope.dimension_count")));
+    hparams.n_layer = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("block_count")));
+    hparams.n_ff = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("block_count")));
+    hparams.n_head = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count")));
+    hparams.n_head_kv = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count_kv")));
     
     // n_head_k and n_head_v are not specified, so calculate them according to the gguf documentation
     // "If not specified, it will be `n_embd / n_head`"
