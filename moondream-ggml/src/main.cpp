@@ -887,7 +887,7 @@ REFERENCE: phi2 layer names from llama.cpp:
             { LLM_TENSOR_FFN_DOWN,           "blk.%d.ffn_down" },
             { LLM_TENSOR_FFN_UP,             "blk.%d.ffn_up" },
 */
-bool moondream_load_model(const char * gguf_file_path, moondream_model * model) {
+bool moondream_load_model(const char * gguf_file_path, moondream_model & model) {
     ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
     gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
@@ -930,6 +930,89 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model * model) 
     printf("head count kv: %d\n", hparams.n_head_kv);
     printf("n_embd_head_k: %d\n", hparams.n_embd_head_k);
     printf("n_embd_head_v: %d\n", hparams.n_embd_head_v);
+    
+    ggml_tensor * cur = ggml_get_first_tensor(ctx);
+    if (cur == NULL) {
+        return false;
+    }
+    // first tensor doesn't have a name for some reason, but the second one is the token embedding
+    cur = ggml_get_next_tensor(ctx, cur);
+    if (cur == NULL) {
+        return false;
+    }
+    printf("found %s\n", cur->name);
+    model.tok_embd = cur; // token_embd.weight
+    
+    const int n_tensors_per_layer = 10;
+    for (int i = 0; i < hparams.n_layer; ++i) {
+        moondream_layer cur_layer;
+        for (int k = 0; k < n_tensors_per_layer; ++k) {
+            cur = ggml_get_next_tensor(ctx, cur);
+            printf("found %s\n", cur->name);
+            if (cur == NULL) {
+                return false;
+            }
+            switch (k) {
+                case 0: // attn_norm.weight
+                    cur_layer.attn_norm = cur;       
+                    break;
+                case 1: // attn_norm.bias
+                    cur_layer.attn_norm_b = cur;
+                    break;
+                case 2: // attn_qkv.weight
+                    cur_layer.wqkv = cur;
+                    break;
+                case 3: // attn_qkv.bias
+                    cur_layer.bqkv = cur;
+                    break;
+                case 4: // attn_output.weight
+                    cur_layer.wo = cur;
+                    break;
+                case 5: // attn_output.bias
+                    cur_layer.bo = cur;
+                    break;
+                case 6: // ffn_up.weight
+                    cur_layer.ffn_up = cur;
+                    break;
+                case 7: // ffn_up.bias
+                    cur_layer.ffn_up_b = cur;
+                    break;
+                case 8: // ffn_down.weight
+                    cur_layer.ffn_down = cur;
+                    break;
+                case 9: // ffn_down.bias
+                    cur_layer.ffn_down_b = cur;
+                    break;
+                default:
+                    return false;
+            }
+        }
+        model.layers.push_back(cur_layer);
+    }
+
+    const int n_output_layer_tensors = 4;
+    for (int i = 0; i < n_output_layer_tensors; ++i) {
+        cur = ggml_get_next_tensor(ctx, cur);
+        printf("found %s\n", cur->name);
+        switch (i) {
+            case 0: // output_norm.weight
+                model.output_norm = cur;
+                break;
+            case 1: // output_norm.bias
+                model.output_norm_b = cur;
+                break;
+            case 2: // output.weight
+                model.output = cur;
+                break;
+            case 3: // output.bias
+                model.output_b = cur;
+                break;
+            default:
+                return false;
+        }
+    }
+
+    model.hparams = hparams;
     return true;
 }
 
@@ -965,7 +1048,7 @@ int main(int argc, char * argv[]) {
     printf("mmproj path: %s\n", mmproj_path);
     
     moondream_model model;
-    bool result = moondream_load_model(text_model_path, &model);
+    bool result = moondream_load_model(text_model_path, model);
     if (result == false) {
         printf("could not load model\n");
     } else {
