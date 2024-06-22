@@ -5,6 +5,7 @@
 #include <fstream>
 #include <vector>
 #include "ggml/ggml.h"
+#include "ggml/ggml-backend.h"
 
 #define MD_TEXT_MODEL_FNAME "moondream2-text-model-f16.gguf"
 #define MD_MMPROJ_FNAME "moondream2-mmproj-f16.gguf"
@@ -13,6 +14,27 @@
 #define LLAMA_MAX_NODES   8192
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2
 #define MOONDREAM_ROPE_TYPE 2
+// Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
+//#define MOONDREAM_EXTRA_LOGS 
+
+/* start of llm enums */
+enum llm_ffn_op_type {
+    LLM_FFN_SILU,
+    LLM_FFN_GELU,
+    LLM_FFN_RELU,
+    LLM_FFN_RELU_SQR,
+};
+
+enum llm_ffn_gate_type {
+    LLM_FFN_SEQ,
+    LLM_FFN_PAR, // ffn_gate is parallel to ffn_up
+};
+
+enum llm_norm_type {
+    LLM_NORM,
+    LLM_NORM_RMS,
+};
+/* end of llm enums */
 
 struct moondream_layer {
     // normalization
@@ -122,14 +144,10 @@ struct moondream_cparams {
 };
 
 struct moondream_model {
-    moondream_hparams hparams;
-    moondream_cparams cparams;
-    std::vector<moondream_layer> layers;
     ggml_context * ctx;
-
-    // Tensors
+    moondream_hparams hparams;
+    std::vector<moondream_layer> layers;
     ggml_tensor * tok_embd;
-    
     ggml_tensor * output_norm;
     ggml_tensor * output_norm_b;
     ggml_tensor * output;
@@ -149,35 +167,6 @@ struct moondream_batch {
     int32_t ** seq_id;
     // If zero, the logits for the respective token will not be output
     //int8_t * logits;
-};
-
-/* NOTE:
- * Parts of moondream_context that have been used (outdated):
- * - inp_tokens
- * - inp_embd
- * - inp_pos
- * - inp_KQ_mask 
- */
-
-struct moondream_context {
-    moondream_cparams cparams;
-
-    int n_outputs;
-     // Number of tokens sampled
-    int32_t n_sample = 0;
-
-    // Input tensors
-    struct ggml_tensor * inp_tokens;    // I32 [n_batch]
-    struct ggml_tensor * inp_embd;      // F32 [n_embd, n_batch]
-    struct ggml_tensor * inp_pos;       // I32 [n_batch]
-    struct ggml_tensor * inp_out_ids;   // I32 [n_outputs]
-    struct ggml_tensor * inp_KQ_mask;   // F32 [kv_size, n_batch]
-    struct ggml_tensor * inp_K_shift;   // I32 [kv_size]
-    struct ggml_tensor * inp_mean;      // F32 [n_batch, n_batch]
-    struct ggml_tensor * inp_cls;       // I32 [n_batch]
-    struct ggml_tensor * inp_s_copy;    // I32 [kv_size]
-    struct ggml_tensor * inp_s_mask;    // F32 [1, n_kv]
-    struct ggml_tensor * inp_s_seq;     // I32 [n_kv, n_batch]
 };
 
 struct moondream_kv_cache {
@@ -202,9 +191,32 @@ struct moondream_kv_cache {
     std::vector<struct ggml_tensor *> k_l; // per layer
     std::vector<struct ggml_tensor *> v_l;
 
-    // TODO: there is some extra stuff that I've omitted, make sure that it's not necessary
-    // or add it if it is (i.e. ctxs and bufs)
+    ggml_context * ctx;
+    ggml_backend_buffer_t buf;
 };
+
+struct moondream_context {
+    ggml_context * ctx;
+    moondream_cparams cparams;
+    moondream_kv_cache kv_cache;
+    ggml_backend_t backend_cpu;
+    int n_outputs;
+     // Number of tokens sampled
+    int32_t n_sample = 0;
+    // Input tensors
+    ggml_tensor * inp_tokens;    // I32 [n_batch]
+    ggml_tensor * inp_embd;      // F32 [n_embd, n_batch]
+    ggml_tensor * inp_pos;       // I32 [n_batch]
+    ggml_tensor * inp_out_ids;   // I32 [n_outputs]
+    ggml_tensor * inp_KQ_mask;   // F32 [kv_size, n_batch]
+    ggml_tensor * inp_K_shift;   // I32 [kv_size]
+    ggml_tensor * inp_mean;      // F32 [n_batch, n_batch]
+    ggml_tensor * inp_cls;       // I32 [n_batch]
+    ggml_tensor * inp_s_copy;    // I32 [kv_size]
+    ggml_tensor * inp_s_mask;    // F32 [1, n_kv]
+    ggml_tensor * inp_s_seq;     // I32 [n_kv, n_batch]
+};
+
 
 // NOTE: skipping the usage of llm_build_cb (build callback) because I have a feeling
 // it won't be necessary, may need to revisit this though
@@ -261,25 +273,6 @@ ggml_tensor * build_inp_KQ_mask(
     ggml_set_input(mctx.inp_KQ_mask);
     return cparams.flash_attn ? ggml_cast(ctx, mctx.inp_KQ_mask, GGML_TYPE_F16) : mctx.inp_KQ_mask;
 };
-
-/* start of llm enums */
-enum llm_ffn_op_type {
-    LLM_FFN_SILU,
-    LLM_FFN_GELU,
-    LLM_FFN_RELU,
-    LLM_FFN_RELU_SQR,
-};
-
-enum llm_ffn_gate_type {
-    LLM_FFN_SEQ,
-    LLM_FFN_PAR, // ffn_gate is parallel to ffn_up
-};
-
-enum llm_norm_type {
-    LLM_NORM,
-    LLM_NORM_RMS,
-};
-/* end of llm enums */
 
 // Note build callback seems important for layer names so it might be needed here
 // What does cur mean? Can we find a more descriptive name for it?
@@ -560,105 +553,6 @@ ggml_tensor * llm_build_ffn(
     return cur;
 }
 
-/* 
-NOTE: llama.cpp has an llm_build_context struct which encapsulates all the cgraph build functions,
-we probably don't need that but we will need some of the member variables.
-
-Reference for convenience: 
-
-struct llm_build_context {
-    const llama_model    & model;
-          llama_context  & lctx;
-    const llama_hparams  & hparams;
-    const llama_cparams  & cparams;
-    const llama_batch    & batch;
-    const llama_kv_cache & kv_self;
-
-    const int64_t n_embd;
-    const int64_t n_layer;
-    const int64_t n_rot;
-    const int64_t n_ctx;       // user-specified context size (can be different from n_ctx_train)
-    const int64_t n_head;
-    const int64_t n_head_kv;
-    const int64_t n_embd_head_k;
-    const int64_t n_embd_k_gqa;
-    const int64_t n_embd_head_v;
-    const int64_t n_embd_v_gqa;
-    const int64_t n_expert;
-    const int64_t n_expert_used;
-
-    const float freq_base;
-    const float freq_scale;
-    const float ext_factor;
-    const float attn_factor;
-    const float beta_fast;
-    const float beta_slow;
-    const float norm_eps;
-    const float norm_rms_eps;
-
-    const int32_t n_tokens;
-    const int32_t n_kv;     // size of KV cache to consider (n_kv <= kv_self.size)
-    const int32_t n_outputs;
-    const int32_t kv_head;  // index of where we store new KV data in the cache
-    const int32_t n_ctx_orig;
-
-    const bool flash_attn;
-
-    const enum llama_pooling_type pooling_type;
-    const enum llama_rope_type    rope_type;
-
-    const llm_build_cb & cb;
-
-    std::vector<uint8_t> & buf_compute_meta;
-
-    struct ggml_context * ctx0 = nullptr;
-
-    // TODO: consider making the entire interface noexcept
-    llm_build_context(
-        llama_context  & lctx,
-    const llama_batch  & batch,
-    const llm_build_cb & cb,
-                  bool   worst_case) :
-        model            (lctx.model),
-        lctx             (lctx),
-        hparams          (model.hparams),
-        cparams          (lctx.cparams),
-        batch            (batch),
-        kv_self          (lctx.kv_self),
-        n_embd           (hparams.n_embd),
-        n_layer          (hparams.n_layer),
-        n_rot            (hparams.n_rot),
-        n_ctx            (cparams.n_ctx),
-        n_head           (hparams.n_head),
-        n_head_kv        (hparams.n_head_kv),
-        n_embd_head_k    (hparams.n_embd_head_k),
-        n_embd_k_gqa     (hparams.n_embd_k_gqa()),
-        n_embd_head_v    (hparams.n_embd_head_v),
-        n_embd_v_gqa     (hparams.n_embd_v_gqa()),
-        n_expert         (hparams.n_expert),
-        n_expert_used    (hparams.n_expert_used),
-        freq_base        (cparams.rope_freq_base),
-        freq_scale       (cparams.rope_freq_scale),
-        ext_factor       (cparams.yarn_ext_factor),
-        attn_factor      (cparams.yarn_attn_factor),
-        beta_fast        (cparams.yarn_beta_fast),
-        beta_slow        (cparams.yarn_beta_slow),
-        norm_eps         (hparams.f_norm_eps),
-        norm_rms_eps     (hparams.f_norm_rms_eps),
-        n_tokens         (batch.n_tokens),
-        n_kv             (worst_case ? kv_self.size : kv_self.n),
-        n_outputs        (worst_case ? n_tokens : lctx.n_outputs),
-        kv_head          (worst_case ? (kv_self.recurrent ? 0 : kv_self.size - n_tokens) : kv_self.head),
-        n_ctx_orig       (cparams.n_ctx_orig_yarn),
-        flash_attn       (cparams.flash_attn),
-        pooling_type     (cparams.pooling_type),
-        rope_type        (hparams.rope_type),
-        cb               (cb),
-        buf_compute_meta (lctx.buf_compute_meta) {
-            // all initializations should be done in init()
-        }
-*/
-
 // modification of llama.cpp build_phi2
 // ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/llama.cpp
 // currently wip, compiles but not tested
@@ -675,9 +569,6 @@ struct ggml_cgraph * build_phi2(
     moondream_context & mctx
 ) {
     // TODO: Fix all the inconsistent integer types
-
-    // NOTE: I think the model tensors have to be loaded before the cgraph is created,
-    // in other words, before this function is called
 
     struct ggml_cgraph * gf = ggml_new_graph_custom(ctx0, LLAMA_MAX_NODES, false);
 
@@ -866,27 +757,96 @@ struct ggml_cgraph * build_phi2(
 }
 #endif // MOONDREAM_BUILD_CGRAPH_WIP
 
-/*
-TODO: remove this later
-REFERENCE: phi2 layer names from llama.cpp:
+bool moondream_init_kv_cache(
+    moondream_kv_cache & kv_cache,
+    moondream_hparams & hparams, 
+    moondream_cparams & cparams, 
+    ggml_backend_t backend,
+    ggml_type type_k,
+    ggml_type type_v
+) {
+    // TODO: double check this
+    const uint32_t n_embd_k_gqa = hparams.n_embd_k_gqa;
+    const uint32_t n_embd_v_gqa = hparams.n_embd_v_gqa;
+    const int64_t n_layer = hparams.n_layer;
+    const uint32_t kv_size = cparams.n_ctx; 
+    
+    kv_cache.k_l.reserve(n_layer);
+    kv_cache.v_l.reserve(n_layer);
 
-        LLM_ARCH_PHI3,
-        {
-            { LLM_TENSOR_TOKEN_EMBD,         "token_embd" },
-            { LLM_TENSOR_OUTPUT_NORM,        "output_norm" },
-            { LLM_TENSOR_OUTPUT,             "output" },
-            { LLM_TENSOR_ROPE_FACTORS_LONG,  "rope_factors_long" },
-            { LLM_TENSOR_ROPE_FACTORS_SHORT, "rope_factors_short" },
-            { LLM_TENSOR_ATTN_NORM,          "blk.%d.attn_norm" },
-            { LLM_TENSOR_ATTN_QKV,           "blk.%d.attn_qkv" },
-            { LLM_TENSOR_ATTN_Q,             "blk.%d.attn_q" },
-            { LLM_TENSOR_ATTN_K,             "blk.%d.attn_k" },
-            { LLM_TENSOR_ATTN_V,             "blk.%d.attn_v" },
-            { LLM_TENSOR_ATTN_OUT,           "blk.%d.attn_output" },
-            { LLM_TENSOR_FFN_NORM,           "blk.%d.ffn_norm" },
-            { LLM_TENSOR_FFN_DOWN,           "blk.%d.ffn_down" },
-            { LLM_TENSOR_FFN_UP,             "blk.%d.ffn_up" },
-*/
+    ggml_init_params init_params = {
+        .mem_size = 2u * n_layer * ggml_tensor_overhead(),
+        .mem_buffer = NULL,
+        .no_alloc = true
+    };
+    ggml_context * ctx = ggml_init(init_params);
+    if (!ctx) {
+        printf("failed to initialize ggml_context for kv cache\n");
+        return false;
+    }
+
+    // Create k/v cache tensors for each attention layer but don't allocate memory for them.
+    for (int i = 0; i < n_layer; ++i) {
+        ggml_tensor * k = ggml_new_tensor_1d(ctx, type_k, n_embd_k_gqa * kv_size);
+        ggml_tensor * v = ggml_new_tensor_1d(ctx, type_v, n_embd_v_gqa * kv_size);
+        kv_cache.k_l.push_back(k);
+        kv_cache.v_l.push_back(v);
+    }
+    
+    // For the sake of simplicity, we're only using one buffer type right now,
+    // but this will probablly have to change in the future.
+    ggml_backend_buffer_type_t buft = ggml_backend_get_default_buffer_type(backend);
+    // Allocate memory for the k/v cache tensors.
+    ggml_backend_buffer_t buf = ggml_backend_alloc_ctx_tensors_from_buft(ctx, buft);
+    if (!buf) {
+        printf("failed to allocate ggml_backend_buffer for kv cache\n");
+        return false;
+    }
+    printf("succesfully allocated memory for moondream_kv_cache tensors\n");
+    // Initialize buffer to avoid NaNs in the padding.
+    ggml_backend_buffer_clear(buf, 0);
+
+    kv_cache.head = 0;
+    kv_cache.size = kv_size;
+    kv_cache.used = 0;
+    // Value tensor is only transposed when not using flash attention.
+    kv_cache.v_trans = !cparams.flash_attn; // TODO: double check this
+    kv_cache.type_k = type_k;
+    kv_cache.type_v = type_v;
+    kv_cache.ctx = ctx;
+    kv_cache.buf = buf;
+    return true;
+}
+
+bool moondream_init_context(
+    moondream_context & mctx,
+    moondream_hparams & hparams,
+    moondream_cparams & cparams, 
+    ggml_type type_k, 
+    ggml_type type_v
+) {
+    memcpy(&mctx.cparams, &cparams, sizeof(moondream_cparams));
+
+    mctx.backend_cpu = ggml_backend_cpu_init();
+    if (!mctx.backend_cpu) {
+        printf("failed to initialize cpu backend\n");
+        return false;
+    } 
+    printf("succesfully initialized cpu backend\n");
+    ggml_backend_cpu_set_n_threads(mctx.backend_cpu, cparams.n_threads);
+    
+    bool result = moondream_init_kv_cache(mctx.kv_cache, hparams, cparams, mctx.backend_cpu, type_k, type_v);
+    if (!result) {
+        printf("failed to initialize moondream_kv_cache\n");
+        return false;
+    }
+    printf("succesfully initialized moondream_kv_cache\n");
+
+    // TODO: equivalent of llama_output_reserve(), see llama.cpp line 11949
+    
+    return true;
+}
+
 bool moondream_load_model(const char * gguf_file_path, moondream_model & model) {
     ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
@@ -916,6 +876,9 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     //hparams.n_embd_head_k = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("attention.key_length")));
     hparams.n_embd_head_k = hparams.n_embd / hparams.n_head;
     hparams.n_embd_head_v = hparams.n_embd_head_k;
+    // Use the same values for GQA
+    hparams.n_embd_k_gqa = hparams.n_embd_head_k;
+    hparams.n_embd_v_gqa = hparams.n_embd_v_gqa;
 
     printf("loaded %s from %s\n", model_name, gguf_file_path);
     printf("gguf version: %d\n", gguf_version);
@@ -940,7 +903,9 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     if (cur == NULL) {
         return false;
     }
+#ifdef MOONDREAM_EXTRA_LOGS 
     printf("found %s\n", cur->name);
+#endif
     model.tok_embd = cur; // token_embd.weight
     
     const int n_tensors_per_layer = 10;
@@ -948,7 +913,9 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
         moondream_layer cur_layer;
         for (int k = 0; k < n_tensors_per_layer; ++k) {
             cur = ggml_get_next_tensor(ctx, cur);
+#ifdef MOONDREAM_EXTRA_LOGS 
             printf("found %s\n", cur->name);
+#endif
             if (cur == NULL) {
                 return false;
             }
@@ -993,7 +960,9 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     const int n_output_layer_tensors = 4;
     for (int i = 0; i < n_output_layer_tensors; ++i) {
         cur = ggml_get_next_tensor(ctx, cur);
+#ifdef MOONDREAM_EXTRA_LOGS 
         printf("found %s\n", cur->name);
+#endif
         switch (i) {
             case 0: // output_norm.weight
                 model.output_norm = cur;
@@ -1049,10 +1018,42 @@ int main(int argc, char * argv[]) {
     
     moondream_model model;
     bool result = moondream_load_model(text_model_path, model);
-    if (result == false) {
+    if (!result) {
         printf("could not load model\n");
     } else {
         printf("succesfully loaded model\n");
+    }
+
+    moondream_cparams cparams = {
+        .n_ctx = 512,
+        .n_batch = 1,
+        .n_ubatch = 1,
+        .n_seq_max = 512,
+        .n_threads = 4,
+        .n_threads_batch = 1,
+        // TODO: figure out what these shoud be
+        .rope_freq_base = 0.0f,
+        .rope_freq_scale = 0.0f,
+        .n_ctx_orig_yarn = 0, 
+        .yarn_ext_factor = 0.0f,
+        .yarn_attn_factor = 0.0f,
+        .yarn_beta_fast = 0.0f,
+        .yarn_beta_slow = 0.0f,
+        .defrag_thold = 0.0f,
+        // -----------------
+        .embeddings = true,
+        .causal_attn = true,
+        .offload_kqv = false,
+        .flash_attn = false
+    };
+    const ggml_type type_k = GGML_TYPE_F16;
+    const ggml_type type_v = GGML_TYPE_F16;
+    moondream_context mctx;
+    result = moondream_init_context(mctx, model.hparams, cparams, type_k, type_v);
+    if (!result) {
+        printf("failed to initialze moondream_context\n");
+    } else {
+        printf("succesfully initialized moondream_context\n");
     }
     return 0;
 }
