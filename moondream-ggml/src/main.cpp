@@ -164,7 +164,7 @@ struct moondream_batch {
     // The sequence to which the respective token belongs.
     int32_t ** seq_id;
     // If zero, the logits for the respective token will not be output.
-    //int8_t * logits;
+    int8_t * logits;
 };
 
 struct moondream_kv_cache {
@@ -748,6 +748,60 @@ ggml_cgraph * build_phi2(
     return gf;
 }
 
+bool moondream_init_batch(
+    moondream_batch & batch, 
+    int32_t n_tokens_alloc, 
+    int32_t n_embd, 
+    bool alloc_embd, 
+    int32_t n_seq_max
+) {
+    batch.n_tokens = 0;
+    if (alloc_embd) {
+        batch.embd = (float *)malloc(sizeof(float) * n_tokens_alloc * n_embd);
+        if (!batch.embd) {
+            printf("could not allocate memory for moondream_batch token embeddings\n");
+            return false;
+        }
+    } else {
+        batch.token = (int32_t *)malloc(sizeof(int32_t) * n_tokens_alloc);
+        if (!batch.token) {
+            printf("could not allocate memory for moondream_batch tokens\n");
+            return false;
+        }
+    }
+    batch.pos = (int32_t *)malloc(sizeof(int32_t) * n_tokens_alloc);
+    if (!batch.pos) {
+        printf("could not allocate memory for moondream_batch token positions\n");
+        return false;
+    }
+    /*batch.n_seq_id = (int32_t *)malloc(sizeof(int32_t) * n_tokens_alloc);
+    if (!batch.n_seq_id) {
+        printf("could not allocate memeory for moondream_batch n_seq_id\n");
+        return false;
+    }*/
+    // TODO: this could probably be allocated as a single chunk with the for loop
+    // setting pointers at (i * n_tokens_alloc * sizeof(int32_t)) strides.
+    batch.seq_id = (int32_t **)malloc(sizeof(int32_t *) * (n_tokens_alloc + 1));
+    if (!batch.seq_id) {
+        printf("could not allocated memory for moondream_batch seq_id\n");
+        return false;
+    }
+    for (int32_t i = 0; i < n_tokens_alloc; ++i) {
+        batch.seq_id[i] = (int32_t *)malloc(sizeof(int32_t) * n_seq_max);
+        if (!batch.seq_id) {
+            printf("could not allocate memory for moondream_batch seq_id[%d]\n", i);
+            return false;
+        }
+    }
+    batch.seq_id[n_tokens_alloc] = nullptr;
+    batch.logits = (int8_t *)malloc(sizeof(int8_t) * n_tokens_alloc);
+    if (!batch.logits) {
+        printf("coulld not allocate memory for moondream_batch logits\n");
+        return false;
+    }
+    return true;
+}
+
 bool moondream_init_kv_cache(
     moondream_kv_cache & kv_cache,
     moondream_hparams & hparams, 
@@ -1017,7 +1071,7 @@ int main(int argc, char * argv[]) {
         .n_ctx = 512,
         .n_batch = 1,
         .n_ubatch = 1,
-        .n_seq_max = 512,
+        .n_seq_max = 1,
         .n_threads = 4,
         .n_threads_batch = 1,
         // TODO: figure out what these shoud be
@@ -1044,5 +1098,13 @@ int main(int argc, char * argv[]) {
         return 1;
     }
     printf("succesfully initialized moondream_context\n");
+    
+    moondream_batch batch;
+    result = moondream_init_batch(batch, cparams.n_ctx, model.hparams.n_embd, true, 1);
+    if (!result) {
+        printf("failed to initialized moondream_batch\n");
+        return 1;
+    }
+    printf("succesfully initialized moondream_batch\n");
     return 0;
 }
