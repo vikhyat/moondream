@@ -12,7 +12,7 @@
 #define DATA_PATH_MAX_LEN 512
 #define ARCH_PREFIX(t) ("phi2." t)
 #define LLAMA_MAX_NODES   8192
-// Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2
+// Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
 //#define MOONDREAM_EXTRA_LOGS 
@@ -37,61 +37,56 @@ enum llm_norm_type {
 /* end of llm enums */
 
 struct moondream_layer {
-    // normalization
-    struct ggml_tensor * attn_norm;
-    struct ggml_tensor * attn_norm_b;
-    struct ggml_tensor * attn_norm_2;
-    struct ggml_tensor * attn_norm_2_b;
-    struct ggml_tensor * attn_q_norm;
-    struct ggml_tensor * attn_q_norm_b;
-    struct ggml_tensor * attn_k_norm;
-    struct ggml_tensor * attn_k_norm_b;
-    struct ggml_tensor * attn_out_norm;
-    struct ggml_tensor * attn_out_norm_b;
-    struct ggml_tensor * attn_q_a_norm;
-    struct ggml_tensor * attn_kv_a_norm;
-
-    // attention
-    struct ggml_tensor * wq;
-    struct ggml_tensor * wk;
-    struct ggml_tensor * wv;
-    struct ggml_tensor * wo;
-    struct ggml_tensor * wqkv;
-    struct ggml_tensor * wq_a;
-    struct ggml_tensor * wq_b;
-    struct ggml_tensor * wkv_a_mqa;
-    struct ggml_tensor * wkv_b;
-
-    // attention bias
-    struct ggml_tensor * bq;
-    struct ggml_tensor * bk;
-    struct ggml_tensor * bv;
-    struct ggml_tensor * bo;
-    struct ggml_tensor * bqkv;
-
-    // normalization
-    struct ggml_tensor * ffn_norm;
-    struct ggml_tensor * ffn_norm_b;
-    struct ggml_tensor * layer_out_norm;
-    struct ggml_tensor * layer_out_norm_b;
-    struct ggml_tensor * ffn_norm_exps;
-
-    // ff
-    struct ggml_tensor * ffn_gate; // w1
-    struct ggml_tensor * ffn_down; // w2
-    struct ggml_tensor * ffn_up;   // w3
-
-    // ff bias
-    struct ggml_tensor * ffn_gate_b = nullptr;
-    struct ggml_tensor * ffn_down_b = nullptr; // b2
-    struct ggml_tensor * ffn_up_b = nullptr; // b3
-    struct ggml_tensor * ffn_act;
+    // Normalization
+    ggml_tensor * attn_norm;
+    ggml_tensor * attn_norm_b;
+    ggml_tensor * attn_norm_2;
+    ggml_tensor * attn_norm_2_b;
+    ggml_tensor * attn_q_norm;
+    ggml_tensor * attn_q_norm_b;
+    ggml_tensor * attn_k_norm;
+    ggml_tensor * attn_k_norm_b;
+    ggml_tensor * attn_out_norm;
+    ggml_tensor * attn_out_norm_b;
+    ggml_tensor * attn_q_a_norm;
+    ggml_tensor * attn_kv_a_norm;
+    // Attention
+    ggml_tensor * wq;
+    ggml_tensor * wk;
+    ggml_tensor * wv;
+    ggml_tensor * wo;
+    ggml_tensor * wqkv;
+    ggml_tensor * wq_a;
+    ggml_tensor * wq_b;
+    ggml_tensor * wkv_a_mqa;
+    ggml_tensor * wkv_b;
+    // Attention bias
+    ggml_tensor * bq;
+    ggml_tensor * bk;
+    ggml_tensor * bv;
+    ggml_tensor * bo;
+    ggml_tensor * bqkv;
+    // Normalization
+    ggml_tensor * ffn_norm;
+    ggml_tensor * ffn_norm_b;
+    ggml_tensor * layer_out_norm;
+    ggml_tensor * layer_out_norm_b;
+    ggml_tensor * ffn_norm_exps;
+    // Feed forward
+    ggml_tensor * ffn_gate; // w1
+    ggml_tensor * ffn_down; // w2
+    ggml_tensor * ffn_up;   // w3
+    // Feed forward bias
+    ggml_tensor * ffn_gate_b = nullptr;
+    ggml_tensor * ffn_down_b = nullptr; // b2
+    ggml_tensor * ffn_up_b = nullptr; // b3
+    ggml_tensor * ffn_act;
 };
 
 struct moondream_hparams {
     int n_embd;
     int n_ff;
-    int n_layer; // I think this is the same as n_block
+    int n_layer;
     int n_rot;
     int n_ctx_train;
     int n_head;
@@ -113,12 +108,15 @@ struct moondream_hparams {
 };
 
 struct moondream_cparams {
-    uint32_t n_ctx; // context size used during inference
+    // Context size used during inference.
+    uint32_t n_ctx;
     uint32_t n_batch;
     uint32_t n_ubatch;
     uint32_t n_seq_max;
-    uint32_t n_threads; // number of threads to use for generation
-    uint32_t n_threads_batch; // number of threads to use for batch processing
+    // Number of threads to use for generation.
+    uint32_t n_threads;
+    // Number of threads to use for batch processing.
+    uint32_t n_threads_batch;
 
     float rope_freq_base;
     float rope_freq_scale;
@@ -157,15 +155,15 @@ struct moondream_model {
 // Arrays must have size of n_tokens
 struct moondream_batch {
     int32_t n_tokens;
-    // The token ids of the input (used when embd is NULL)
+    // The token ids of the input (used when embd is NULL).
     int32_t * token;
-    // The token embeddings (used when token is NULL)
+    // The token embeddings (used when token is NULL).
     float * embd;
-    // The positions of the respective tokens in the sequence
+    // The positions of the respective tokens in the sequence.
     int32_t * pos;
-    // The sequence to which the respective token belongs
+    // The sequence to which the respective token belongs.
     int32_t ** seq_id;
-    // If zero, the logits for the respective token will not be output
+    // If zero, the logits for the respective token will not be output.
     //int8_t * logits;
 };
 
@@ -173,22 +171,22 @@ struct moondream_kv_cache {
     bool has_shift = false;
     bool do_defrag = false;
     bool do_copy = false;
-    // whether or not the value tensor is transposed
+    // Whether or not the value tensor is transposed.
     bool v_trans = true;
 
     uint32_t head = 0;
     uint32_t size = 0;
     uint32_t used = 0;
 
-    // computed before each graph build
-    // what does it mean though?
+    // Computed before each graph build.
+    // What does it mean though?
     uint32_t n = 0;
 
     ggml_type type_k = GGML_TYPE_F16;
     ggml_type type_v = GGML_TYPE_F16;
     
-    // per layer k and v caches
-    std::vector<struct ggml_tensor *> k_l; // per layer
+    // k and v caches for each layer.
+    std::vector<struct ggml_tensor *> k_l;
     std::vector<struct ggml_tensor *> v_l;
 
     ggml_context * ctx;
@@ -201,7 +199,7 @@ struct moondream_context {
     moondream_kv_cache kv_cache;
     ggml_backend_t backend_cpu;
     int n_outputs;
-     // Number of tokens sampled
+     // Number of tokens sampled.
     int32_t n_sample = 0;
     // Input tensors
     ggml_tensor * inp_tokens;    // I32 [n_batch]
@@ -232,7 +230,7 @@ ggml_tensor * llm_build_inp_embd(
     
     // If batch has tokens (integers) then set inp_tokens to the input and 
     // take the embeddings from tok_embd, otherwise use the token embeddings
-    // (inp_embd) and set them as the input
+    // (inp_embd) and set them as the input.
     if (batch.token) {
         mctx.inp_tokens = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, batch.n_tokens);
         ggml_set_input(mctx.inp_tokens);
@@ -283,7 +281,7 @@ ggml_tensor * llm_build_norm(
     ggml_tensor * mw,
     ggml_tensor * mb,
     llm_norm_type type,
-    int il // What does il mean?
+    int il
 ) {
     switch(type) {
         case LLM_NORM:
@@ -294,11 +292,11 @@ ggml_tensor * llm_build_norm(
             break;
     }
     
-    // weight
+    // Weight
     if (mw) {
         cur = ggml_mul(ctx, cur, mw);
     }
-    // bias
+    // Bias
     if (mb) {
         cur = ggml_add(ctx, cur, mb);
     }
@@ -326,28 +324,26 @@ void llm_build_kv_store(
     GGML_ASSERT(kv.size == n_ctx);
 
     // NOTE: I think this creates a view into the key cache, copies the key for the current head
-    // into it, then builds it into the graph, idk why the build is necessary here though
+    // into it, then builds it into the graph, idk why the build is necessary here though.
     ggml_tensor * k_cache_view = ggml_view_1d(
         ctx, kv.k_l[il], n_tokens*n_embd_k_gqa, 
-        // why are there parentheses around ggml_row_size?
+        // Why are there parentheses around ggml_row_size?
         (ggml_row_size(kv.k_l[il]->type, n_embd_k_gqa))*kv_head
     );
     ggml_build_forward_expand(graph, ggml_cpy(ctx, k_cur, k_cache_view));
 
-    // What does ne stand for?
-    // Apparently it's the number of elements... per element maybe?
     assert(v_cur->ne[0] == n_embd_v_gqa && v_cur->ne[1] == n_tokens);
 
     ggml_tensor * v_cache_view = nullptr;
     if (cparams.flash_attn) {
         v_cache_view = ggml_view_1d(
             ctx, kv.v_l[il], n_tokens*n_embd_v_gqa, 
-            // why are there parantheses around kv_head?
+            // Why are there parantheses around kv_head?
             (kv_head)*ggml_row_size(kv.v_l[il]->type, n_embd_v_gqa)
         );
     } else {
         // TODO: figure out exactly what view 2d is doing under the hood
-        // NOTE: the v cache is transposed when not using flash attention
+        // The v cache is transposed when not using flash attention.
         v_cache_view = ggml_view_2d(
             ctx, kv.v_l[il], n_tokens, n_embd_v_gqa, 
             (n_ctx)*ggml_element_size(kv.v_l[il]),
@@ -397,7 +393,7 @@ ggml_tensor * llm_build_kqv(
         // llama uses GGML_UNUSED here but I'm not sure what it does
         // see llama.cpp line 6989 for more details
 
-        // split cached v into n_head heads (not transposed)
+        // Split cached v into n_head heads (not transposed).
         ggml_tensor * v = ggml_view_3d(
             ctx, kv.v_l[il], 
             n_embd_head_v, n_kv, n_head_kv,
@@ -406,18 +402,18 @@ ggml_tensor * llm_build_kqv(
             0
         );
         cur = ggml_flash_attn_ext(ctx, q, k, v, kq_mask, kq_scale, hparams.f_max_alibi_bias);
-        // for phi2 the KQ multiplication must be done with F32 precision, otherwise we get NaNs
-        // ref: https://github.com/ggerganov/llama.cpp/pull/4490#issuecomment-1859055847
+        // For phi2 the KQ multiplication must be done with F32 precision, otherwise we get NaNs.
+        // Ref: https://github.com/ggerganov/llama.cpp/pull/4490#issuecomment-1859055847
         ggml_flash_attn_ext_set_prec(cur, GGML_PREC_F32);
         cur = ggml_reshape_2d(ctx, cur, n_embd_head_v*n_head, n_tokens);
     } else {
         ggml_tensor * kq = ggml_mul_mat(ctx, k, q);
-        // for phi2 the KQ multiplication must be done with F32 precision, otherwise we get NaNs
-        // ref: https://github.com/ggerganov/llama.cpp/pull/4490#issuecomment-1859055847
+        // For phi2 the KQ multiplication must be done with F32 precision, otherwise we get NaNs.
+        // Ref: https://github.com/ggerganov/llama.cpp/pull/4490#issuecomment-1859055847
         ggml_mul_mat_set_prec(kq, GGML_PREC_F32);
         kq = ggml_soft_max_ext(ctx, kq, kq_mask, kq_scale, hparams.f_max_alibi_bias);
         GGML_ASSERT(kv.size == n_ctx);
-        // split cached v into n_head heads
+        // Split cached v into n_head heads.
         ggml_tensor * v = ggml_view_3d(
             ctx, kv.v_l[il], 
             n_kv, n_embd_head_v, n_head_kv,
@@ -428,7 +424,7 @@ ggml_tensor * llm_build_kqv(
         // TODO: go over caching and clarify what's happening
         ggml_tensor * kqv = ggml_mul_mat(ctx, v, kq);
         ggml_tensor * kqv_merged = ggml_permute(ctx, kqv, 0, 2, 1, 3);
-        // make contiguous, with new shape
+        // Make contiguous, with new shape.
         cur = ggml_cont_2d(ctx, kqv_merged, n_embd_head_v*n_head, n_tokens);
     }
     
@@ -460,8 +456,8 @@ ggml_tensor * llm_build_kv(
     float kq_scale,
     int il
 ) {
-    // these nodes are added to the graph together so that they are not reordered
-    // by doing so, the number of splits in the graph is reduced
+    // These nodes are added to the graph together so that they are not reordered. 
+    // By doing so, the number of splits in the graph is reduced
     ggml_build_forward_expand(graph, q_cur);
     ggml_build_forward_expand(graph, k_cur);
     ggml_build_forward_expand(graph, v_cur);
@@ -492,7 +488,7 @@ ggml_tensor * llm_build_ffn(
     ggml_tensor * down,
     ggml_tensor * down_b,
     ggml_tensor * act_scales,
-    // NOTE: these flags might not be necessary if they don't vary for phi2 models
+    // NOTE: these flags might not be necessary if they don't vary for phi2 models.
     llm_ffn_op_type type_op,
     llm_ffn_gate_type type_gate,
     int il
@@ -553,12 +549,10 @@ ggml_tensor * llm_build_ffn(
     return cur;
 }
 
-// modification of llama.cpp build_phi2
-// ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/llama.cpp
-// currently wip, compiles but not tested
-#define MOONDREAM_BUILD_CGRAPH_WIP
-#ifdef MOONDREAM_BUILD_CGRAPH_WIP
-struct ggml_cgraph * build_phi2(
+// Modification of llama.cpp build_phi2.
+// Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/llama.cpp
+// Currently wip, compiles but not tested.
+ggml_cgraph * build_phi2(
     ggml_context * ctx0, 
     moondream_model & model,
     // Can hparams be removed since it's also in moondream_model?
@@ -581,8 +575,6 @@ struct ggml_cgraph * build_phi2(
     // NOTE: llama.cpp has some additional initialization logic for n_outputs
     const int n_outputs = mctx.n_outputs;
 
-    // TODO: think about where to put this since it isn't in moondream_batch
-    // also figure out where it comes from in the first place
     // NOTE: llama.cpp has some additional initialization logic for n_kv which may be relevant
     // REF:
     // n_kv (worst_case ? kv_self.size : kv_self.n)
@@ -607,10 +599,10 @@ struct ggml_cgraph * build_phi2(
     const float beta_fast = cparams.yarn_beta_fast;
     const float beta_slow = cparams.yarn_beta_slow;
 
-    struct ggml_tensor * cur;
-    struct ggml_tensor * attn_norm_output;
-    struct ggml_tensor * ffn_output;
-    struct ggml_tensor * inpL;
+    ggml_tensor * cur;
+    ggml_tensor * attn_norm_output;
+    ggml_tensor * ffn_output;
+    ggml_tensor * inpL;
 
     // TODO: implement llm_build_inp_embd (see llama.cpp line 6654) - done but needs check
     //inpL = llm_build_inp_embd(ctx0, lctx, hparams, batch, model.tok_embd, cb);
@@ -620,11 +612,11 @@ struct ggml_cgraph * build_phi2(
     // TODO: implement build_inp_pos (see llama.cpp line 7346)
     // inp_pos - contains the positions
     // NOTE: using a version of llm_build_inp_embd that doesn't use build cb - done but needs check
-    struct ggml_tensor * inp_pos = build_inp_pos(ctx0, mctx, batch);
+    ggml_tensor * inp_pos = build_inp_pos(ctx0, mctx, batch);
 
     // TODO: implement build_inp_KQ_mask (see llama.cpp line 7371) - done but needs check
     // KQ_mask (mask for 1 head, it will be broadcasted to all heads)
-    struct ggml_tensor * KQ_mask = build_inp_KQ_mask(ctx0, mctx, batch, cparams, n_kv);
+    ggml_tensor * KQ_mask = build_inp_KQ_mask(ctx0, mctx, batch, cparams, n_kv);
 
     for (int il = 0; il < n_layer; ++il) {
         // TODO: implement llm_build_norm (see llama.cpp line 6728) - done but needs check
@@ -638,7 +630,7 @@ struct ggml_cgraph * build_phi2(
 
         //cb(attn_norm_output, "attn_norm", il);
 
-        // self-attention
+        // Self-attention
         {
             struct ggml_tensor * Qcur = nullptr;
             struct ggml_tensor * Kcur = nullptr;
@@ -688,8 +680,8 @@ struct ggml_cgraph * build_phi2(
             );
             //cb(Qcur, "Qcur", il);
 
-            // with phi2, we scale the Q to avoid precision issues
-            // ref: https://github.com/ml-explore/mlx-examples/blob/08e862336ade809bc37d1035f94b359e7d1a5152/phi2/phi2.py#L64-L66
+            // With phi2, we scale the Q to avoid precision issues.
+            // Ref: https://github.com/ml-explore/mlx-examples/blob/08e862336ade809bc37d1035f94b359e7d1a5152/phi2/phi2.py#L64-L66
             Qcur = ggml_scale(ctx0, Qcur, 1.0f/sqrtf(float(n_embd_head)));
             //cb(Qcur, "Qcur", il);
 
@@ -709,14 +701,14 @@ struct ggml_cgraph * build_phi2(
 
         if (il == n_layer - 1) {
             // TODO: implement build_inp_out_ids (see llama.cpp line 7464) - done but needs check
-            // skip computing output for unused tokens
-            struct ggml_tensor * inp_out_ids = build_inp_out_ids(ctx0, mctx, n_outputs);
+            // Skip computing output for unused tokens.
+            ggml_tensor * inp_out_ids = build_inp_out_ids(ctx0, mctx, n_outputs);
             cur = ggml_get_rows(ctx0, cur, inp_out_ids);
             inpL = ggml_get_rows(ctx0, inpL, inp_out_ids);
             attn_norm_output = ggml_get_rows(ctx0, attn_norm_output, inp_out_ids);
         }
 
-        // FF
+        // Feed forward
         {
             // TODO: implement llm_build_ffn (see llama.cpp line 6760) - done but needs check
             ffn_output = llm_build_ffn(
@@ -755,7 +747,6 @@ struct ggml_cgraph * build_phi2(
     ggml_build_forward_expand(gf, cur);
     return gf;
 }
-#endif // MOONDREAM_BUILD_CGRAPH_WIP
 
 bool moondream_init_kv_cache(
     moondream_kv_cache & kv_cache,
@@ -869,14 +860,10 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     hparams.n_head = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count")));
     hparams.n_head_kv = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count_kv")));
     
-    // n_head_k and n_head_v are not specified, so calculate them according to the gguf documentation
-    // "If not specified, it will be `n_embd / n_head`"
-    // TODO: remove these commented lines later, just keeping them as a reference for now
-    //hparams.n_embd_head_k = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("attention.value_length")));
-    //hparams.n_embd_head_k = gguf_get_val_u32(ctx, gguf_find_key(ctx, ARCH_PREFIX("attention.key_length")));
+    // Calculate n_head_k and n_head_v because they are not specified.
     hparams.n_embd_head_k = hparams.n_embd / hparams.n_head;
     hparams.n_embd_head_v = hparams.n_embd_head_k;
-    // Use the same values for GQA
+    // Use the same values for GQA.
     hparams.n_embd_k_gqa = hparams.n_embd_head_k;
     hparams.n_embd_v_gqa = hparams.n_embd_v_gqa;
 
@@ -898,7 +885,9 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     if (cur == NULL) {
         return false;
     }
-    // first tensor doesn't have a name for some reason, but the second one is the token embedding
+    // For some reason the first tensor doesn't have a name, but the second one is the token embedding,
+    // so we just skip over the first one and start with the token embedding.
+    // Note that this may be incorrect.
     cur = ggml_get_next_tensor(ctx, cur);
     if (cur == NULL) {
         return false;
@@ -997,18 +986,18 @@ int main(int argc, char * argv[]) {
         return 1;
     }
 
-    // resolve text model file path
+    // Resolve text model file path.
     const char * text_model_fname = MD_TEXT_MODEL_FNAME;
     const size_t text_model_fname_length = strlen(text_model_fname);
-    // add 1 to give space for null-terminator in concatenated string
+    // Add 1 to give space for null-terminator in concatenated string.
     const size_t text_model_path_length = data_path_length + text_model_fname_length + 1;
     char text_model_path[text_model_path_length];
     snprintf(text_model_path, text_model_path_length, "%s%s", data_path, text_model_fname); 
 
-    // resolve mmproj file path
+    // Resolve mmproj file path.
     const char * mmproj_fname = MD_MMPROJ_FNAME;
     const size_t mmproj_fname_length = strlen(mmproj_fname);
-    // add 1 to give space for null-terminator in concatenated string
+    // Add 1 to give space for null-terminator in concatenated string.
     const size_t mmproj_path_length = data_path_length + text_model_fname_length + 1;
     char mmproj_path[text_model_path_length];
     snprintf(mmproj_path, mmproj_path_length, "%s%s", data_path, mmproj_fname); 
@@ -1020,9 +1009,9 @@ int main(int argc, char * argv[]) {
     bool result = moondream_load_model(text_model_path, model);
     if (!result) {
         printf("could not load model\n");
-    } else {
-        printf("succesfully loaded model\n");
+        return 1;
     }
+    printf("succesfully loaded model\n");
 
     moondream_cparams cparams = {
         .n_ctx = 512,
@@ -1052,8 +1041,8 @@ int main(int argc, char * argv[]) {
     result = moondream_init_context(mctx, model.hparams, cparams, type_k, type_v);
     if (!result) {
         printf("failed to initialze moondream_context\n");
-    } else {
-        printf("succesfully initialized moondream_context\n");
+        return 1;
     }
+    printf("succesfully initialized moondream_context\n");
     return 0;
 }
