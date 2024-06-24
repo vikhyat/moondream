@@ -95,6 +95,7 @@ struct moondream_hparams {
     int n_embd_k_gqa;
     int n_embd_head_v;
     int n_embd_v_gqa;
+    int n_vocab;
     
     float f_norm_eps;
     float f_norm_rms_eps;
@@ -213,6 +214,8 @@ struct moondream_context {
     ggml_tensor * inp_s_copy;    // I32 [kv_size]
     ggml_tensor * inp_s_mask;    // F32 [1, n_kv]
     ggml_tensor * inp_s_seq;     // I32 [n_kv, n_batch]
+    // Memory buffers used to evaluate the model.
+    std::vector<uint8_t> compute_buffer;
 };
 
 
@@ -553,18 +556,24 @@ ggml_tensor * llm_build_ffn(
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/llama.cpp
 // Currently wip, compiles but not tested.
 ggml_cgraph * build_phi2(
-    ggml_context * ctx0, 
     moondream_model & model,
-    // Can hparams be removed since it's also in moondream_model?
-    moondream_hparams & hparams, 
-    moondream_cparams & cparams,
     moondream_batch & batch,
-    moondream_kv_cache & kv_cache, // TODO: add this to moondream_model or moondream_ctx
     moondream_context & mctx
 ) {
+    moondream_hparams & hparams = model.hparams;
+    moondream_cparams & cparams = mctx.cparams;
+    moondream_kv_cache & kv_cache = mctx.kv_cache;
+
+    ggml_init_params build_ctx_params = {
+        .mem_size = mctx.compute_buffer.size(),
+        .mem_buffer = mctx.compute_buffer.data(),
+        .no_alloc = true
+    };
+    ggml_context * ctx0 = ggml_init(build_ctx_params);
+
     // TODO: Fix all the inconsistent integer types
 
-    struct ggml_cgraph * gf = ggml_new_graph_custom(ctx0, LLAMA_MAX_NODES, false);
+    ggml_cgraph * gf = ggml_new_graph_custom(ctx0, LLAMA_MAX_NODES, false);
 
     const int rope_type = MOONDREAM_ROPE_TYPE;
     int n_rot = hparams.n_rot;
@@ -587,8 +596,7 @@ ggml_cgraph * build_phi2(
     const int64_t n_layer = hparams.n_layer;
     const int64_t n_embd = hparams.n_embd;
     const int64_t n_embd_head = hparams.n_embd_head_v;
-    //const int64_t n_embd_gqa  = hparams.n_embd_v_gqa();
-    const int64_t n_embd_gqa = n_embd_head;
+    const int64_t n_embd_gqa = hparams.n_embd_v_gqa;
     GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
 
     const uint32_t n_ctx_orig = cparams.n_ctx_orig_yarn;
@@ -670,7 +678,7 @@ ggml_cgraph * build_phi2(
             //cb(Qcur, "Qcur", il);
             //cb(Kcur, "Kcur", il);
             //cb(Vcur, "Vcur", il);
-
+            
             Qcur = ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens);
             Kcur = ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens);
 
@@ -745,6 +753,7 @@ ggml_cgraph * build_phi2(
     cur = ggml_add(ctx0, cur, model.output_b);
     //cb(cur, "result_output", -1);
     ggml_build_forward_expand(gf, cur);
+    ggml_free(ctx0);
     return gf;
 }
 
@@ -799,6 +808,7 @@ bool moondream_init_batch(
         printf("coulld not allocate memory for moondream_batch logits\n");
         return false;
     }
+    
     return true;
 }
 
@@ -871,7 +881,9 @@ bool moondream_init_context(
     ggml_type type_v
 ) {
     memcpy(&mctx.cparams, &cparams, sizeof(moondream_cparams));
-
+    
+    // For the sake of simplicity, we're only using one buffer type right now,
+    // but this will probablly have to change in the future.
     mctx.backend_cpu = ggml_backend_cpu_init();
     if (!mctx.backend_cpu) {
         printf("failed to initialize cpu backend\n");
@@ -887,8 +899,13 @@ bool moondream_init_context(
     }
     printf("succesfully initialized moondream_kv_cache\n");
 
+    // Buffer used to store the computation graph and the tensor meta data.
+    mctx.compute_buffer.resize(
+        ggml_tensor_overhead() * LLAMA_MAX_NODES + ggml_graph_overhead_custom(LLAMA_MAX_NODES, false)
+    );
+
     // TODO: equivalent of llama_output_reserve(), see llama.cpp line 11949
-    
+
     return true;
 }
 
@@ -917,23 +934,30 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     // Calculate n_head_k and n_head_v because they are not specified.
     hparams.n_embd_head_k = hparams.n_embd / hparams.n_head;
     hparams.n_embd_head_v = hparams.n_embd_head_k;
-    // Use the same values for GQA.
-    hparams.n_embd_k_gqa = hparams.n_embd_head_k;
-    hparams.n_embd_v_gqa = hparams.n_embd_v_gqa;
+    // TODO: verify that the GQA hparams are correct. Reference llama.cpp lines 1922 and 1926.
+    hparams.n_embd_k_gqa = hparams.n_embd_head_k * hparams.n_head_kv;
+    hparams.n_embd_v_gqa = hparams.n_embd_head_v * hparams.n_head_kv;
+    // Old GQA hparams for reference:
+    // hparams.n_embd_k_gqa = hparams.n_embd_head_k;
+    // hparams.n_embd_v_gqa = hparams.n_embd_v_gqa;
+    // TODO: determine this dynamically from the GGUF file instead of hardcoding it
+    hparams.n_vocab = 51200;
 
     printf("loaded %s from %s\n", model_name, gguf_file_path);
-    printf("gguf version: %d\n", gguf_version);
-    printf("gguf alignment: %ld\n", gguf_alignment);
-    printf("gguf data offset: %ld\n", gguf_data_offset);
-    printf("model architecture: %s\n", model_arch);
-    printf("context length: %d\n", hparams.n_ctx_train);
-    printf("embedding length: %d\n", hparams.n_embd);
-    printf("block count: %d\n", hparams.n_layer);
-    printf("feed forward length: %d\n", hparams.n_ff);
-    printf("head count: %d\n", hparams.n_head);
-    printf("head count kv: %d\n", hparams.n_head_kv);
+    printf("gguf_version: %d\n", gguf_version);
+    printf("gguf_alignment: %ld\n", gguf_alignment);
+    printf("gguf_data_offset: %ld\n", gguf_data_offset);
+    printf("model_arch: %s\n", model_arch);
+    printf("n_ctx_train: %d\n", hparams.n_ctx_train);
+    printf("n_embd: %d\n", hparams.n_embd);
+    printf("n_layer: %d\n", hparams.n_layer);
+    printf("n_ff: %d\n", hparams.n_ff);
+    printf("n_head: %d\n", hparams.n_head);
+    printf("n_head_kv: %d\n", hparams.n_head_kv);
     printf("n_embd_head_k: %d\n", hparams.n_embd_head_k);
     printf("n_embd_head_v: %d\n", hparams.n_embd_head_v);
+    printf("n_embd_k_gqa: %d\n", hparams.n_embd_k_gqa);
+    printf("n_embd_v_gqa: %d\n", hparams.n_embd_v_gqa);
     
     ggml_tensor * cur = ggml_get_first_tensor(ctx);
     if (cur == NULL) {
@@ -1024,6 +1048,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
         }
     }
 
+    model.ctx = ctx;
     model.hparams = hparams;
     return true;
 }
@@ -1072,7 +1097,7 @@ int main(int argc, char * argv[]) {
         .n_batch = 1,
         .n_ubatch = 1,
         .n_seq_max = 1,
-        .n_threads = 4,
+        .n_threads = 1,
         .n_threads_batch = 1,
         // TODO: figure out what these shoud be
         .rope_freq_base = 0.0f,
@@ -1100,11 +1125,43 @@ int main(int argc, char * argv[]) {
     printf("succesfully initialized moondream_context\n");
     
     moondream_batch batch;
-    result = moondream_init_batch(batch, cparams.n_ctx, model.hparams.n_embd, true, 1);
+    result = moondream_init_batch(batch, cparams.n_ctx, model.hparams.n_embd, false, cparams.n_seq_max);
     if (!result) {
         printf("failed to initialized moondream_batch\n");
         return 1;
     }
+    batch.n_tokens = 1;
     printf("succesfully initialized moondream_batch\n");
+    
+    // Set batch tokens to some dummy ID for testing.
+    for (int i = 0; i < cparams.n_ctx; ++i) {
+        batch.token[i] = (model.hparams.n_vocab / 2) + i;
+    }
+    printf("set batch tokens\n");
+
+// Token generation is not working yet because tensor backend buffers need to be set during the cgraph
+// build step. Uncomment the following line to compile this section and see the runtime error.
+//#define MOONDREAM_WIP_GEN_STEPS
+#ifdef MOONDREAM_WIP_GEN_STEPS
+    int n_gen = 128;
+    for (int i = 0; i < n_gen; ++i) {
+        ggml_cgraph * phi2_cgraph = build_phi2(model, batch, mctx);
+        printf("built graph\n");
+        // ggml_backend_tensor_set() produces the following error:
+        // GGML_ASSERT: ../dependencies/ggml/src/ggml-backend.c:224: buf != NULL && "tensor buffer not set"
+        // Somewhere during moondream_init_context() or build_phi2(), a step was skipped where the 
+        // backend buffers for the moondream_context tensors was supposed to be set.
+        // I think the build callback is where the backend for each tensor is set.
+        ggml_backend_tensor_set(
+            mctx.inp_tokens, batch.token, 0, batch.n_tokens * ggml_element_size(mctx.inp_tokens)
+        );
+        /*for (int k = 0; k < batch.n_tokens; ++k) {
+            ggml_set_i32_1d(mctx.inp_tokens, k, (int32_t)batch.token[i]);
+            printf("%d\n", k);
+        }*/
+        printf("generation step %d\n", i);
+    }
+#endif
+    
     return 0;
 }
