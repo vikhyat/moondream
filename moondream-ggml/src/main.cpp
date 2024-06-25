@@ -11,7 +11,7 @@
 #define MD_MMPROJ_FNAME "moondream2-mmproj-f16.gguf"
 #define DATA_PATH_MAX_LEN 512
 #define ARCH_PREFIX(t) ("phi2." t)
-#define LLAMA_MAX_NODES   8192
+#define LLAMA_MAX_NODES 8192
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
@@ -198,7 +198,7 @@ struct moondream_context {
     ggml_context * ctx;
     moondream_cparams cparams;
     moondream_kv_cache kv_cache;
-    ggml_backend_t backend_cpu;
+    ggml_backend_t backend_cpu = nullptr;
     int n_outputs;
      // Number of tokens sampled.
     int32_t n_sample = 0;
@@ -216,6 +216,7 @@ struct moondream_context {
     ggml_tensor * inp_s_seq;     // I32 [n_kv, n_batch]
     // Memory buffers used to evaluate the model.
     std::vector<uint8_t> compute_buffer;
+    ggml_backend_sched_t sched = nullptr;
 };
 
 
@@ -752,6 +753,7 @@ ggml_cgraph * build_phi2(
 
     cur = ggml_add(ctx0, cur, model.output_b);
     //cb(cur, "result_output", -1);
+    
     ggml_build_forward_expand(gf, cur);
     ggml_free(ctx0);
     return gf;
@@ -876,7 +878,8 @@ bool moondream_init_kv_cache(
 bool moondream_init_context(
     moondream_context & mctx,
     moondream_hparams & hparams,
-    moondream_cparams & cparams, 
+    moondream_cparams & cparams,
+    moondream_model & model,
     ggml_type type_k, 
     ggml_type type_v
 ) {
@@ -903,6 +906,27 @@ bool moondream_init_context(
     mctx.compute_buffer.resize(
         ggml_tensor_overhead() * LLAMA_MAX_NODES + ggml_graph_overhead_custom(LLAMA_MAX_NODES, false)
     );
+
+    // Initialize scheduler with worst-case graph.
+    ggml_backend_buffer_type_t backend_cpu_buft = ggml_backend_get_default_buffer_type(mctx.backend_cpu);
+    mctx.sched = ggml_backend_sched_new(&mctx.backend_cpu, &backend_cpu_buft, 1, LLAMA_MAX_NODES, false);
+    int32_t dummy_token = 0;
+    moondream_batch dummy_batch = {
+        .n_tokens = cparams.n_ctx, // narrowing conversion
+        .token = &dummy_token,
+        .embd = nullptr,
+        .pos = nullptr,
+        .seq_id = nullptr,
+        .logits = nullptr
+    };
+    ggml_cgraph * gf = build_phi2(model, dummy_batch, mctx);
+    if (!ggml_backend_sched_reserve(mctx.sched, gf)) {
+        printf("failed to reserve buffers for compute graph\n");
+        return false;
+    }
+    printf("succesfully reserved buffers for compute graph\n");
+    /*size_t buf_size = ggml_backend_sched_get_buffer_size(mctx.sched, mctx.backend_cpu);
+    printf("backend buf size %zu\n", buf_size);*/
 
     // TODO: equivalent of llama_output_reserve(), see llama.cpp line 11949
 
@@ -1117,7 +1141,7 @@ int main(int argc, char * argv[]) {
     const ggml_type type_k = GGML_TYPE_F16;
     const ggml_type type_v = GGML_TYPE_F16;
     moondream_context mctx;
-    result = moondream_init_context(mctx, model.hparams, cparams, type_k, type_v);
+    result = moondream_init_context(mctx, model.hparams, cparams, model, type_k, type_v);
     if (!result) {
         printf("failed to initialze moondream_context\n");
         return 1;
@@ -1139,27 +1163,18 @@ int main(int argc, char * argv[]) {
     }
     printf("set batch tokens\n");
 
-// Token generation is not working yet because tensor backend buffers need to be set during the cgraph
-// build step. Uncomment the following line to compile this section and see the runtime error.
-//#define MOONDREAM_WIP_GEN_STEPS
+#define MOONDREAM_WIP_GEN_STEPS
 #ifdef MOONDREAM_WIP_GEN_STEPS
     int n_gen = 128;
     for (int i = 0; i < n_gen; ++i) {
-        ggml_cgraph * phi2_cgraph = build_phi2(model, batch, mctx);
+        ggml_cgraph * gf = build_phi2(model, batch, mctx);
         printf("built graph\n");
-        // ggml_backend_tensor_set() produces the following error:
-        // GGML_ASSERT: ../dependencies/ggml/src/ggml-backend.c:224: buf != NULL && "tensor buffer not set"
-        // Somewhere during moondream_init_context() or build_phi2(), a step was skipped where the 
-        // backend buffers for the moondream_context tensors was supposed to be set.
-        // I think the build callback is where the backend for each tensor is set.
+        ggml_backend_sched_alloc_graph(mctx.sched, gf);
         ggml_backend_tensor_set(
             mctx.inp_tokens, batch.token, 0, batch.n_tokens * ggml_element_size(mctx.inp_tokens)
         );
-        /*for (int k = 0; k < batch.n_tokens; ++k) {
-            ggml_set_i32_1d(mctx.inp_tokens, k, (int32_t)batch.token[i]);
-            printf("%d\n", k);
-        }*/
         printf("generation step %d\n", i);
+        break;
     }
 #endif
     
