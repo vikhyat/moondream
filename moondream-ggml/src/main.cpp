@@ -11,6 +11,7 @@
 #define MD_MMPROJ_FNAME "moondream2-mmproj-f16.gguf"
 #define DATA_PATH_MAX_LEN 512
 #define ARCH_PREFIX(t) ("phi2." t)
+#define TOK_PREFIX(t) ("tokenizer.ggml." t)
 #define LLAMA_MAX_NODES 8192
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
@@ -142,9 +143,25 @@ struct moondream_cparams {
     //void * cb_eval_user_data;
 };
 
+struct moondream_vocab {
+    int64_t bos_token_id;
+    int64_t eos_token_id;
+    int64_t unknown_token_id;
+    int64_t separator_token_id;
+    int64_t padding_token_id;
+    int n_tokens;
+    int n_merges;
+    const char ** tokens;
+    const float * scores;
+    const int32_t * token_type;
+    const char ** merges;
+    const char ** added_tokens;
+};
+
 struct moondream_model {
     ggml_context * ctx;
     moondream_hparams hparams;
+    moondream_vocab vocab;
     std::vector<moondream_layer> layers;
     ggml_tensor * tok_embd;
     ggml_tensor * output_norm;
@@ -945,6 +962,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     size_t gguf_data_offset = gguf_get_data_offset(meta);
     const char * model_arch = gguf_get_val_str(meta, gguf_find_key(meta, "general.architecture"));
     
+    /* Start of hparams load. */
     moondream_hparams hparams;
     const char * model_name = gguf_get_val_str(meta, gguf_find_key(meta, "general.name"));
     hparams.n_ctx_train = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("context_length")));
@@ -954,35 +972,62 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     hparams.n_ff = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("block_count")));
     hparams.n_head = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count")));
     hparams.n_head_kv = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count_kv")));
-    
+    hparams.f_norm_eps = gguf_get_val_f32(
+        meta, gguf_find_key(meta, ARCH_PREFIX("attention.layer_norm_epsilon"))
+    );
+    hparams.f_norm_rms_eps = 0.0f; // Not present in file.
     // Calculate n_head_k and n_head_v because they are not specified.
     hparams.n_embd_head_k = hparams.n_embd / hparams.n_head;
     hparams.n_embd_head_v = hparams.n_embd_head_k;
     // TODO: verify that the GQA hparams are correct. Reference llama.cpp lines 1922 and 1926.
     hparams.n_embd_k_gqa = hparams.n_embd_head_k * hparams.n_head_kv;
     hparams.n_embd_v_gqa = hparams.n_embd_head_v * hparams.n_head_kv;
-    // Old GQA hparams for reference:
-    // hparams.n_embd_k_gqa = hparams.n_embd_head_k;
-    // hparams.n_embd_v_gqa = hparams.n_embd_v_gqa;
     // TODO: determine this dynamically from the GGUF file instead of hardcoding it
     hparams.n_vocab = 51200;
-
-    printf("loaded %s from %s\n", model_name, gguf_file_path);
-    printf("gguf_version: %d\n", gguf_version);
-    printf("gguf_alignment: %ld\n", gguf_alignment);
-    printf("gguf_data_offset: %ld\n", gguf_data_offset);
-    printf("model_arch: %s\n", model_arch);
-    printf("n_ctx_train: %d\n", hparams.n_ctx_train);
-    printf("n_embd: %d\n", hparams.n_embd);
-    printf("n_layer: %d\n", hparams.n_layer);
-    printf("n_ff: %d\n", hparams.n_ff);
-    printf("n_head: %d\n", hparams.n_head);
-    printf("n_head_kv: %d\n", hparams.n_head_kv);
-    printf("n_embd_head_k: %d\n", hparams.n_embd_head_k);
-    printf("n_embd_head_v: %d\n", hparams.n_embd_head_v);
-    printf("n_embd_k_gqa: %d\n", hparams.n_embd_k_gqa);
-    printf("n_embd_v_gqa: %d\n", hparams.n_embd_v_gqa);
+    model.hparams = hparams;
+    /* End of hparams load. */
     
+    /* Start of vocab load. */
+    moondream_vocab vocab;
+    const char * tokenizer_model_name = gguf_get_val_str(meta, gguf_find_key(meta, TOK_PREFIX("model")));
+    vocab.bos_token_id = (int64_t)gguf_get_val_u32(meta, gguf_find_key(meta, TOK_PREFIX("bos_token_id")));
+    vocab.eos_token_id = (int64_t)gguf_get_val_u32(meta, gguf_find_key(meta, TOK_PREFIX("eos_token_id")));
+    vocab.unknown_token_id = (int64_t)gguf_get_val_u32(
+        meta, gguf_find_key(meta, TOK_PREFIX("unknown_token_id"))
+    );
+    vocab.separator_token_id = -1;
+    vocab.padding_token_id = -1;
+    const int tokens_key_id = gguf_find_key(meta, TOK_PREFIX("tokens"));
+    vocab.n_tokens = gguf_get_arr_n(meta, tokens_key_id);
+    if (vocab.n_tokens != hparams.n_vocab) {
+        printf("expected gguf vocab size to be %d but got %d\n", hparams.n_vocab, vocab.n_tokens);
+        return false;
+    }
+    vocab.tokens = (const char **)malloc(sizeof(char *) * vocab.n_tokens);
+    if (!vocab.tokens) {
+        printf("failed to allocate memory for vocab token strings\n");
+        return false;
+    }
+    for (int i = 0; i < vocab.n_tokens; ++i) {
+        vocab.tokens[i] = gguf_get_arr_str(meta, tokens_key_id, i);
+    }
+    vocab.scores = nullptr; // Scores are not present.
+    vocab.token_type = (const int32_t *)gguf_get_arr_data(meta, gguf_find_key(meta, TOK_PREFIX("token_type")));
+    const int merges_key_id = gguf_find_key(meta, TOK_PREFIX("merges"));
+    vocab.n_merges = gguf_get_arr_n(meta, merges_key_id);
+    vocab.merges = (const char **)malloc(sizeof(char *) * vocab.n_merges);
+    if (!vocab.merges) {
+        printf("failed to allocate memory for vocab merges\n");
+        return false;
+    }
+    for ( int i = 0; i < vocab.n_merges; ++i) {
+        vocab.merges[i] = gguf_get_arr_str(meta, merges_key_id, i);
+    }
+    vocab.added_tokens = nullptr; // No added tokens.
+    model.vocab = vocab;
+    /* End of vocab load. */
+
+    /* Start of tensors load. */
     ggml_tensor * cur = ggml_get_first_tensor(ctx);
     if (cur == NULL) {
         return false;
@@ -1071,9 +1116,37 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
                 return false;
         }
     }
-
     model.ctx = ctx;
-    model.hparams = hparams;
+    /* End of tensors load. */
+    
+    printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
+    printf("gguf_version: %d\n", gguf_version);
+    printf("gguf_alignment: %ld\n", gguf_alignment);
+    printf("gguf_data_offset: %ld\n", gguf_data_offset);
+    printf("model_arch: %s\n", model_arch);
+    printf("------------\nHyperparameters\n------------\n");
+    printf("n_ctx_train: %d\n", hparams.n_ctx_train);
+    printf("n_embd: %d\n", hparams.n_embd);
+    printf("n_layer: %d\n", hparams.n_layer);
+    printf("n_ff: %d\n", hparams.n_ff);
+    printf("n_head: %d\n", hparams.n_head);
+    printf("n_head_kv: %d\n", hparams.n_head_kv);
+    printf("n_embd_head_k: %d\n", hparams.n_embd_head_k);
+    printf("n_embd_head_v: %d\n", hparams.n_embd_head_v);
+    printf("n_embd_k_gqa: %d\n", hparams.n_embd_k_gqa);
+    printf("n_embd_v_gqa: %d\n", hparams.n_embd_v_gqa);
+    printf("n_vocab: %d\n", hparams.n_vocab);
+    printf("------------\nVocab\n------------\n");
+    printf("tokenizer_model_name: %s\n", tokenizer_model_name);
+    printf("bos_token_id: %ld\n", vocab.bos_token_id);
+    printf("eos_token_id: %ld\n", vocab.eos_token_id);
+    printf("unkown_token_id: %ld\n", vocab.separator_token_id);
+    printf("separator_token_id: %ld\n", vocab.separator_token_id);
+    printf("padding_token_id: %ld\n", vocab.padding_token_id);
+    printf("n_tokens: %d\n", vocab.n_tokens);
+    printf("n_merges: %d\n", vocab.n_merges);
+    printf("------------\n");
+
     return true;
 }
 
@@ -1167,12 +1240,19 @@ int main(int argc, char * argv[]) {
 #ifdef MOONDREAM_WIP_GEN_STEPS
     int n_gen = 128;
     for (int i = 0; i < n_gen; ++i) {
+        batch.n_tokens += 1;
         ggml_cgraph * gf = build_phi2(model, batch, mctx);
         printf("built graph\n");
+        
         ggml_backend_sched_alloc_graph(mctx.sched, gf);
         ggml_backend_tensor_set(
             mctx.inp_tokens, batch.token, 0, batch.n_tokens * ggml_element_size(mctx.inp_tokens)
         );
+        
+        ggml_backend_cpu_set_n_threads(mctx.backend_cpu, mctx.cparams.n_threads); 
+        ggml_backend_sched_graph_compute(mctx.sched, gf);
+
+        ggml_backend_sched_reset(mctx.sched);
         printf("generation step %d\n", i);
         break;
     }
