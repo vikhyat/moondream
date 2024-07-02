@@ -3,9 +3,15 @@
 #include <cassert>
 #include <cmath>
 #include <fstream>
+#include <random>
 #include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <queue>
 #include "ggml/ggml.h"
 #include "ggml/ggml-backend.h"
+#include "unicode.h"
 
 #define MD_TEXT_MODEL_FNAME "moondream2-text-model-f16.gguf"
 #define MD_MMPROJ_FNAME "moondream2-mmproj-f16.gguf"
@@ -16,9 +22,17 @@
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
-//#define MOONDREAM_EXTRA_LOGS 
+#define MOONDREAM_EXTRA_LOGS 
 
-/* start of llm enums */
+/* Start of helpers. */
+static size_t utf8_len(char src) {
+    const size_t lookup[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 4 };
+    uint8_t highbits = static_cast<uint8_t>(src) >> 4;
+    return lookup[highbits];
+}
+/* End of helpers. */
+
+/* Start of llm enums. */
 enum llm_ffn_op_type {
     LLM_FFN_SILU,
     LLM_FFN_GELU,
@@ -35,7 +49,7 @@ enum llm_norm_type {
     LLM_NORM,
     LLM_NORM_RMS,
 };
-/* end of llm enums */
+/* End of llm enums. */
 
 struct moondream_layer {
     // Normalization
@@ -136,11 +150,6 @@ struct moondream_cparams {
     bool causal_attn;
     bool offload_kqv;
     bool flash_attn;
-
-    //enum llama_pooling_type pooling_type;
-
-    //ggml_backend_sched_eval_callback cb_eval;
-    //void * cb_eval_user_data;
 };
 
 struct moondream_vocab {
@@ -156,6 +165,8 @@ struct moondream_vocab {
     const int32_t * token_type;
     const char ** merges;
     const char ** added_tokens;
+    std::unordered_map<std::string, int32_t> token_to_id;
+    std::map<std::pair<std::string, std::string>, int> bpe_ranks;
 };
 
 struct moondream_model {
@@ -950,6 +961,242 @@ bool moondream_init_context(
     return true;
 }
 
+struct llm_symbol {
+    using index = int;
+    index prev;
+    index next;
+    const char * text;
+    size_t n;
+};
+
+struct llm_bigram_bpe {
+    struct comparator {
+        bool operator()(const llm_bigram_bpe & l, const llm_bigram_bpe & r) const {
+            return l.rank > r.rank || (l.rank == r.rank && l.left > r.left);
+        }
+    };
+    using queue_storage = std::vector<llm_bigram_bpe>;
+    using queue = std::priority_queue<llm_bigram_bpe, queue_storage, comparator>;
+    llm_symbol::index left;
+    llm_symbol::index right;
+    std::string text;
+    int rank;
+    size_t size;
+};
+
+static int vocab_find_bpe_rank(
+    const moondream_vocab & vocab, const std::string & token_left, const std::string & token_right
+) {
+    assert(token_left.find(' ') == std::string::npos);
+    assert(token_left.find('\n') == std::string::npos);   
+    assert(token_right.find(' ') == std::string::npos);
+    assert(token_right.find('\n') == std::string::npos);
+    auto r = vocab.bpe_ranks.find(
+        std::make_pair(token_left, token_right)
+    );
+    if (r == vocab.bpe_ranks.end()) {
+        return -1;
+    }
+    return r->second;
+}
+
+static void add_new_bigram(
+    const moondream_vocab & vocab, 
+    const llm_symbol * symbols,
+    int left, 
+    int right, 
+    llm_bigram_bpe::queue & work_queue
+) {
+    if (left == -1 || right == -1) { return; }
+
+    std::string left_token = std::string(symbols[left].text, symbols[left].n);
+    std::string right_token = std::string(symbols[right].text, symbols[right].n);
+    
+    int rank_found = -1;
+    rank_found = vocab_find_bpe_rank(vocab, left_token, right_token);
+    //printf("left: %s, right: %s, rank found: %d\n", left_token.c_str(), right_token.c_str(), rank_found);
+    if (rank_found < 0) { return; }
+
+    llm_bigram_bpe bigram;
+    bigram.left = left;
+    bigram.right = right;
+    bigram.text = left_token + right_token;
+    bigram.size = left_token.size() + right_token.size();
+    bigram.rank = rank_found;
+    work_queue.push(bigram);
+}
+
+// token_ids should point to a buffer with `sizeof(int32_t) * text_len` bytes because text_len
+// is the maximum number of tokens.
+bool moondream_tokenize(
+    moondream_vocab & vocab, 
+    const char * text,
+    size_t text_len,
+    int32_t * token_ids_output,
+    size_t * n_token_ids_output
+) {
+    if (!text || text[0] == '\0') {
+        printf("could not tokenize text because text is NULL or empty");
+        return false;
+    }
+    if (!token_ids_output) {
+        printf("could not tokenize text because pointer to output buffer for token ids is NULL\n");
+        return false;
+    }
+    if (!n_token_ids_output) {
+        printf("could not tokenize text because pointer to n_token_ids_output is NULL\n");
+        return false;
+    }
+    
+    // Moondream 2 uses BPE tokenizer.
+    printf(
+        "%s%s\n",
+        "WARNING: defaulting to gpt2 pre-tokenizer because the pre-tokenizer was not specified, ",
+        "this may degrade output quality"
+    );
+
+    std::vector<std::string> word_collection = unicode_regex_split(
+        text, 
+        {"'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)"}
+    );
+
+    const size_t symbol_buf_size = sizeof(llm_symbol) * text_len;
+    llm_symbol * symbols = (llm_symbol *)malloc(symbol_buf_size);
+    if (!symbols) {
+        printf("failed to allocate memory for symbols buffer during tokenization\n");
+        return false;
+    }
+    llm_symbol * symbols_final = (llm_symbol *)malloc(symbol_buf_size);
+    if (!symbols_final) {
+        printf("failed to allocate memory for symbols_final buffer during tokenization\n");
+        free(symbols);
+        return false;
+    }
+    int n_symbols = 0;
+    int n_symbols_final = 0;
+
+    for (auto & word : word_collection) {
+        llm_bigram_bpe::queue work_queue = llm_bigram_bpe::queue();
+        const int symbols_cur_word_start_idx = n_symbols;
+        size_t char_offset = 0;
+        
+        while (char_offset < word.size()) {
+            llm_symbol cur_symbol;
+            cur_symbol.text = word.c_str() + char_offset;
+            cur_symbol.n = std::min(word.size() - char_offset, (size_t) ::utf8_len(word[char_offset]));
+            char_offset += cur_symbol.n;
+            cur_symbol.prev = n_symbols - 1;
+            cur_symbol.next = char_offset == word.size() ? -1 : n_symbols + 1;
+            symbols[n_symbols] = cur_symbol;
+            ++n_symbols;
+        }
+
+#ifdef MOONDREAM_EXTRA_LOGS
+        for (int j = symbols_cur_word_start_idx; j < n_symbols; ++j) {
+            llm_symbol cur_symbol = symbols[j];
+            std::string sym_text = std::string(cur_symbol.text, cur_symbol.n);
+            printf("(DEBUG) symbols[%d]: %s\n", j, sym_text.c_str());
+        }
+#endif // MOONDREAM_EXTRA_LOGS
+
+        for (int k = symbols_cur_word_start_idx + 1; k < n_symbols; ++k) {
+            add_new_bigram(vocab, symbols, k - 1, k, work_queue);
+        }
+
+        // Build token(s).
+        while (!work_queue.empty()) {
+            llm_bigram_bpe bigram = work_queue.top();
+            work_queue.pop();
+            llm_symbol & left_symbol = symbols[bigram.left];
+            llm_symbol & right_symbol = symbols[bigram.right];
+            if (left_symbol.n == 0 || right_symbol.n == 0) { continue; }
+            
+            std::string left_token = std::string(left_symbol.text, left_symbol.n);
+            std::string right_token = std::string(right_symbol.text, right_symbol.n);
+            // Skip bigram if it's outdated.
+            if (left_token + right_token != bigram.text) { continue; }
+
+            // Merge right symbol into left symbol.
+            left_symbol.n += right_symbol.n;
+            right_symbol.n = 0;
+            left_symbol.next = right_symbol.next;
+            // Remove the right symbol from the chain.
+            left_symbol.next = right_symbol.next;
+            if (right_symbol.next >= 0) {
+                symbols[right_symbol.next].prev = bigram.left;
+            }
+
+            // Left side of current symbol.
+            add_new_bigram(vocab, symbols, left_symbol.prev, bigram.left, work_queue);
+            // Right side of current symbol.
+            add_new_bigram(vocab, symbols, bigram.left, left_symbol.next, work_queue);
+        }
+
+        // Add the finished tokens to the final list keeping correct order for next and prev.
+        int cur_symbol_idx = symbols_cur_word_start_idx;
+        while (cur_symbol_idx >= 0) {
+            llm_symbol cur_symbol = symbols[cur_symbol_idx];
+            // Prepare cur_symbol_idx for the next iteration of the loop. 
+            cur_symbol_idx = cur_symbol.next;
+            // Skip zero length symbols.
+            if (cur_symbol.n <= 0) { continue; }
+            const int prev_idx = n_symbols_final - 1;
+            cur_symbol.prev = prev_idx;
+            cur_symbol.next = -1;
+            symbols_final[n_symbols_final] = cur_symbol;
+            
+            if (prev_idx >= 0) {
+                // Update the next index of the previous symbol.
+                symbols_final[prev_idx].next = n_symbols_final;
+            }
+            ++n_symbols_final;
+        }
+    }
+
+#ifdef MOONDREAM_EXTRA_LOGS
+    for (int k = 0; k < n_symbols_final; ++k) {
+        llm_symbol f = symbols_final[k];
+        std::string sym_final = std::string(f.text, f.n);
+        printf("(DEBUG) symbols_final[%d] %s\n", k, sym_final.c_str());
+    }
+#endif // MOONDREAM_EXTRA_LOGS
+
+    size_t token_ids_output_offset = 0;
+    if (n_symbols_final >= 0) {
+        int cur_symbol_idx = 0;
+        while (cur_symbol_idx >= 0) {
+            llm_symbol & cur_symbol = symbols_final[cur_symbol_idx];
+            // Prepare cur_symbol_idx for the next iteration of the loop. 
+            cur_symbol_idx = cur_symbol.next;
+            // Skip zero length symbols.
+            if (cur_symbol.n == 0) { continue; }
+        
+            const std::string token_str = std::string(cur_symbol.text, cur_symbol.n);
+            const auto token = vocab.token_to_id.find(token_str);
+            if (token == vocab.token_to_id.end()) {
+                for (auto k = token_str.begin(); k != token_str.end(); ++k) {
+                    std::string byte_str(1, *k);
+                    auto token_multibyte = vocab.token_to_id.find(byte_str);
+                    if (token_multibyte == vocab.token_to_id.end()) {
+                        printf("byte note found in vocab\n");
+                        free(symbols);
+                        free(symbols_final);
+                        return false;
+                    }
+                    token_ids_output[token_ids_output_offset++] = (*token_multibyte).second;
+                }
+            } else {
+                token_ids_output[token_ids_output_offset++] = (*token).second;
+            }
+        }
+    }
+
+    free(symbols);
+    free(symbols_final);
+    *n_token_ids_output = token_ids_output_offset;
+    return true;
+}
+
 bool moondream_load_model(const char * gguf_file_path, moondream_model & model) {
     ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
@@ -989,6 +1236,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     
     /* Start of vocab load. */
     moondream_vocab vocab;
+    // NOTE: the pre-tokenizer is missing, this might degrade generation quality.
     const char * tokenizer_model_name = gguf_get_val_str(meta, gguf_find_key(meta, TOK_PREFIX("model")));
     vocab.bos_token_id = (int64_t)gguf_get_val_u32(meta, gguf_find_key(meta, TOK_PREFIX("bos_token_id")));
     vocab.eos_token_id = (int64_t)gguf_get_val_u32(meta, gguf_find_key(meta, TOK_PREFIX("eos_token_id")));
@@ -1010,6 +1258,8 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     }
     for (int i = 0; i < vocab.n_tokens; ++i) {
         vocab.tokens[i] = gguf_get_arr_str(meta, tokens_key_id, i);
+        std::string token_str(vocab.tokens[i]);
+        vocab.token_to_id[token_str] = i;
     }
     vocab.scores = nullptr; // Scores are not present.
     vocab.token_type = (const int32_t *)gguf_get_arr_data(meta, gguf_find_key(meta, TOK_PREFIX("token_type")));
@@ -1020,8 +1270,17 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
         printf("failed to allocate memory for vocab merges\n");
         return false;
     }
-    for ( int i = 0; i < vocab.n_merges; ++i) {
+    for (int i = 0; i < vocab.n_merges; ++i) {
         vocab.merges[i] = gguf_get_arr_str(meta, merges_key_id, i);
+        std::string word = vocab.merges[i];
+        std::string first;
+        std::string second;
+        const size_t pos = word.find(' ', 1);
+        if (pos != std::string::npos) {
+            first = word.substr(0, pos);
+            second = word.substr(pos + 1);
+        }
+        vocab.bpe_ranks.emplace(std::make_pair(first, second), i);
     }
     vocab.added_tokens = nullptr; // No added tokens.
     model.vocab = vocab;
@@ -1040,7 +1299,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
         return false;
     }
 #ifdef MOONDREAM_EXTRA_LOGS 
-    printf("found %s\n", cur->name);
+    printf("(DEBUG) found %s\n", cur->name);
 #endif
     model.tok_embd = cur; // token_embd.weight
     
@@ -1050,7 +1309,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
         for (int k = 0; k < n_tensors_per_layer; ++k) {
             cur = ggml_get_next_tensor(ctx, cur);
 #ifdef MOONDREAM_EXTRA_LOGS 
-            printf("found %s\n", cur->name);
+            printf("(DEBUG) found %s\n", cur->name);
 #endif
             if (cur == NULL) {
                 return false;
@@ -1097,7 +1356,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     for (int i = 0; i < n_output_layer_tensors; ++i) {
         cur = ggml_get_next_tensor(ctx, cur);
 #ifdef MOONDREAM_EXTRA_LOGS 
-        printf("found %s\n", cur->name);
+        printf("(DEBUG) found %s\n", cur->name);
 #endif
         switch (i) {
             case 0: // output_norm.weight
@@ -1188,7 +1447,28 @@ int main(int argc, char * argv[]) {
         return 1;
     }
     printf("succesfully loaded model\n");
+    
+    const char * prompt = "What is the girl doing?";
+    size_t prompt_len = strlen(prompt);
+    printf("prompt_len: %zu\n", prompt_len);
+    int32_t token_ids[prompt_len];
+    size_t n_token_ids = 0;
+    result = moondream_tokenize(model.vocab, prompt, prompt_len, token_ids, &n_token_ids);
+    if (!result) {
+        printf("failed to tokenize prompt\n");
+        return 1;
+    }
+    printf("n_token_ids: %zu\n", n_token_ids);
+    printf("token_ids: ");
+    for (int i = 0; i < n_token_ids; ++i) {
+        printf("%d ", token_ids[i]);
+    }
+    printf("\n");
 
+// Valgrind shows a bunch of memory errors in this section.
+// I'm temporarily omitting it in order to test the new implemented tokenization.
+//#define MOONDREAM_WIP_MEM_DEBUGGING
+#ifdef MOONDREAM_WIP_MEM_DEBUGGING
     moondream_cparams cparams = {
         .n_ctx = 512,
         .n_batch = 1,
@@ -1236,8 +1516,6 @@ int main(int argc, char * argv[]) {
     }
     printf("set batch tokens\n");
 
-#define MOONDREAM_WIP_GEN_STEPS
-#ifdef MOONDREAM_WIP_GEN_STEPS
     int n_gen = 128;
     for (int i = 0; i < n_gen; ++i) {
         batch.n_tokens += 1;
@@ -1245,18 +1523,21 @@ int main(int argc, char * argv[]) {
         printf("built graph\n");
         
         ggml_backend_sched_alloc_graph(mctx.sched, gf);
+        printf("alloc graph\n");
         ggml_backend_tensor_set(
             mctx.inp_tokens, batch.token, 0, batch.n_tokens * ggml_element_size(mctx.inp_tokens)
         );
+        printf("set backend tensor\n");
         
         ggml_backend_cpu_set_n_threads(mctx.backend_cpu, mctx.cparams.n_threads); 
-        ggml_backend_sched_graph_compute(mctx.sched, gf);
+        printf("set n threads\n");
+        /*ggml_backend_sched_graph_compute(mctx.sched, gf);
+        printf("graph computed\n");*/
 
         ggml_backend_sched_reset(mctx.sched);
         printf("generation step %d\n", i);
         break;
     }
 #endif
-    
     return 0;
 }
