@@ -160,11 +160,9 @@ struct moondream_vocab {
     int64_t padding_token_id;
     int n_tokens;
     int n_merges;
-    const char ** tokens;
     const float * scores;
     const int32_t * token_type;
-    const char ** merges;
-    const char ** added_tokens;
+    std::vector<std::string> id_to_token;
     std::unordered_map<std::string, int32_t> token_to_id;
     std::map<std::pair<std::string, std::string>, int> bpe_ranks;
 };
@@ -1251,28 +1249,17 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
         printf("expected gguf vocab size to be %d but got %d\n", hparams.n_vocab, vocab.n_tokens);
         return false;
     }
-    vocab.tokens = (const char **)malloc(sizeof(char *) * vocab.n_tokens);
-    if (!vocab.tokens) {
-        printf("failed to allocate memory for vocab token strings\n");
-        return false;
-    }
     for (int i = 0; i < vocab.n_tokens; ++i) {
-        vocab.tokens[i] = gguf_get_arr_str(meta, tokens_key_id, i);
-        std::string token_str(vocab.tokens[i]);
+        std::string token_str = gguf_get_arr_str(meta, tokens_key_id, i);
+        vocab.id_to_token.emplace_back(token_str);
         vocab.token_to_id[token_str] = i;
     }
     vocab.scores = nullptr; // Scores are not present.
     vocab.token_type = (const int32_t *)gguf_get_arr_data(meta, gguf_find_key(meta, TOK_PREFIX("token_type")));
     const int merges_key_id = gguf_find_key(meta, TOK_PREFIX("merges"));
     vocab.n_merges = gguf_get_arr_n(meta, merges_key_id);
-    vocab.merges = (const char **)malloc(sizeof(char *) * vocab.n_merges);
-    if (!vocab.merges) {
-        printf("failed to allocate memory for vocab merges\n");
-        return false;
-    }
     for (int i = 0; i < vocab.n_merges; ++i) {
-        vocab.merges[i] = gguf_get_arr_str(meta, merges_key_id, i);
-        std::string word = vocab.merges[i];
+        std::string word = gguf_get_arr_str(meta, merges_key_id, i);
         std::string first;
         std::string second;
         const size_t pos = word.find(' ', 1);
@@ -1282,7 +1269,6 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
         }
         vocab.bpe_ranks.emplace(std::make_pair(first, second), i);
     }
-    vocab.added_tokens = nullptr; // No added tokens.
     model.vocab = vocab;
     /* End of vocab load. */
 
@@ -1405,7 +1391,8 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     printf("n_tokens: %d\n", vocab.n_tokens);
     printf("n_merges: %d\n", vocab.n_merges);
     printf("------------\n");
-
+    
+    gguf_free(meta);
     return true;
 }
 
@@ -1539,5 +1526,6 @@ int main(int argc, char * argv[]) {
         break;
     }
 #endif
+    ggml_free(model.ctx);
     return 0;
 }
