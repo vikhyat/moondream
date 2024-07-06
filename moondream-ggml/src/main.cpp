@@ -825,7 +825,8 @@ bool moondream_init_batch(
     }*/
     // TODO: this could probably be allocated as a single chunk with the for loop
     // setting pointers at (i * n_tokens_alloc * sizeof(int32_t)) strides.
-    batch.seq_id = (int32_t **)malloc(sizeof(int32_t *) * (n_tokens_alloc + 1));
+    // TODO: re-enable seq_id allocation if necessary.
+    /*batch.seq_id = (int32_t **)malloc(sizeof(int32_t *) * (n_tokens_alloc + 1));
     if (!batch.seq_id) {
         printf("could not allocated memory for moondream_batch seq_id\n");
         return false;
@@ -837,7 +838,8 @@ bool moondream_init_batch(
             return false;
         }
     }
-    batch.seq_id[n_tokens_alloc] = nullptr;
+    batch.seq_id[n_tokens_alloc] = nullptr;*/
+    batch.seq_id = nullptr;
     batch.logits = (int8_t *)malloc(sizeof(int8_t) * n_tokens_alloc);
     if (!batch.logits) {
         printf("coulld not allocate memory for moondream_batch logits\n");
@@ -845,6 +847,15 @@ bool moondream_init_batch(
     }
     
     return true;
+}
+
+void moondream_free_batch(moondream_batch & batch) {
+    if (batch.token) { free(batch.token); }
+    if (batch.embd) { free(batch.embd); }
+    if (batch.pos) { free(batch.pos); }
+    // TODO: free each seq_id if seq_id allocation is re-enabled.
+    //if (batch.seq_id) { free(batch.seq_id); }
+    if (batch.logits) { free(batch.logits); }
 }
 
 bool moondream_init_kv_cache(
@@ -1513,7 +1524,7 @@ int main(int argc, char * argv[]) {
     }
     printf("succesfully initialized moondream_context\n");
  
-//#define MOONDREAM_GEN_LOOP
+#define MOONDREAM_GEN_LOOP
 #ifdef MOONDREAM_GEN_LOOP
     moondream_batch batch;
     result = moondream_init_batch(batch, cparams.n_ctx, model.hparams.n_embd, false, cparams.n_seq_max);
@@ -1550,10 +1561,11 @@ int main(int argc, char * argv[]) {
 
         ggml_backend_sched_reset(mctx.sched);
         printf("generation step %d\n", i);
-        break;
     }
 #endif // MOONDREAM_GEN_LOOP
     
+    moondream_free_batch(batch);
+    printf("freed moondream_batch\n");
     moondream_free_context(mctx);
     printf("freed moondream_context\n");
     ggml_free(model.ctx);
