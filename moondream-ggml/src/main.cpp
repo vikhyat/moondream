@@ -1189,6 +1189,7 @@ bool moondream_tokenize(
 #endif // MOONDREAM_EXTRA_LOGS
 
     size_t token_ids_output_offset = 0;
+    //token_ids_output[token_ids_output_offset++] = vocab.bos_token_id; 
     if (n_symbols_final >= 0) {
         int cur_symbol_idx = 0;
         while (cur_symbol_idx >= 0) {
@@ -1209,9 +1210,20 @@ bool moondream_tokenize(
                         free(symbols);
                         free(symbols_final);
                         return false;
+                    } else if (token_ids_output_offset >= text_len) {
+                        printf("exceeded maximum number of tokens in token id output buffer\n");
+                        free(symbols);
+                        free(symbols_final);
+                        return false;
+                    } else {
+                        token_ids_output[token_ids_output_offset++] = (*token_multibyte).second;
                     }
-                    token_ids_output[token_ids_output_offset++] = (*token_multibyte).second;
                 }
+            } else if (token_ids_output_offset >= text_len) {
+                printf("exceed maximum number of tokens in token id output buffer\n");
+                free(symbols);
+                free(symbols_final);
+                return false;
             } else {
                 token_ids_output[token_ids_output_offset++] = (*token).second;
             }
@@ -1228,22 +1240,22 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
     gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
-    if(meta == NULL) {
+    if (meta == NULL) {
         return false;
     }
     int gguf_version = gguf_get_version(meta);
     size_t gguf_alignment = gguf_get_alignment(meta);
     size_t gguf_data_offset = gguf_get_data_offset(meta);
     const char * model_arch = gguf_get_val_str(meta, gguf_find_key(meta, "general.architecture"));
+    const char * model_name = gguf_get_val_str(meta, gguf_find_key(meta, "general.name"));
     
     /* Start of hparams load. */
     moondream_hparams hparams;
-    const char * model_name = gguf_get_val_str(meta, gguf_find_key(meta, "general.name"));
     hparams.n_ctx_train = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("context_length")));
     hparams.n_embd = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("embedding_length")));
     hparams.n_rot = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("rope.dimension_count")));
     hparams.n_layer = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("block_count")));
-    hparams.n_ff = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("block_count")));
+    hparams.n_ff = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("feed_forward_length")));
     hparams.n_head = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count")));
     hparams.n_head_kv = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count_kv")));
     hparams.f_norm_eps = gguf_get_val_f32(
@@ -1500,7 +1512,7 @@ int main(int argc, char * argv[]) {
         .n_batch = 1,
         .n_ubatch = 1,
         .n_seq_max = 1,
-        .n_threads = 1,
+        .n_threads = 8,
         .n_threads_batch = 1,
         // TODO: figure out what these shoud be
         .rope_freq_base = 10000.0f,
@@ -1530,7 +1542,7 @@ int main(int argc, char * argv[]) {
     /* End of moondream_context init. */
 
     /* Start of prompt tokenization. */
-    const char * prompt = "Describe this image.";
+    const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
     size_t prompt_len = strlen(prompt);
     printf("prompt_len: %zu\n", prompt_len);
     int32_t token_ids[prompt_len];
@@ -1562,22 +1574,21 @@ int main(int argc, char * argv[]) {
     printf("succesfully initialized moondream_batch\n");
     /* End of moondream_batch initialization. */
 
+    printf("------------\n");
     std::string response = "";
     int n_gen = 128;
     for (int i = 0; i < n_gen; ++i) {
         ggml_cgraph * gf = build_phi2(model, batch, mctx);
-        printf("built graph\n");
         
         result = ggml_backend_sched_alloc_graph(mctx.sched, gf);
         if (!result) {
             printf("failed to allocate graph for ggml_backend_sched_t\n");
             return 1;
         }
-        printf("alloc graph\n");
+        
         ggml_backend_tensor_set(
             mctx.inp_tokens, batch.token, 0, batch.n_tokens * ggml_element_size(mctx.inp_tokens)
         );
-        printf("set backend tensor\n");
         
         const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
         if (compute_status != GGML_STATUS_SUCCESS) {
@@ -1585,30 +1596,34 @@ int main(int argc, char * argv[]) {
             return 1;
         }
         ggml_backend_sched_synchronize(mctx.sched);
-        printf("graph computed\n");
 
         // Extract logits and sample.
         ggml_tensor * logits = gf->nodes[gf->n_nodes - 1];
         const int logits_n_dims = ggml_n_dims(logits);
         const int64_t logits_n_elements = ggml_nelements(logits);
-        printf("logits n_dims: %d\n", logits_n_dims);
-        printf("logits n_elements %ld\n", logits_n_elements);
+        printf("logits_n_dims: %d, logits_n_elements: %ld\n", logits_n_dims, logits_n_elements);
         const size_t logits_size = logits_n_elements * sizeof(float);
         float * host_logits = (float *)malloc(logits_size);
         ggml_backend_tensor_get(logits, host_logits, 0, logits_size);
         const int sampled_token_id = sample_top_logit(host_logits, logits_n_elements);
         std::string sampled_token_str = model.vocab.id_to_token[sampled_token_id];
         response += sampled_token_str;
-        printf("sampled_token_id: %d\n", sampled_token_id);
-        printf("sampled_token_str: %s\n", sampled_token_str.c_str());
-        printf("reponse:\n%s\n", response.c_str());
+        printf("sampled_token_id: %d, sampled_token_str: %s\n", sampled_token_id, sampled_token_str.c_str());
+        printf("response: %s\n", response.c_str());
         batch.token[batch.n_tokens] = sampled_token_id;
+        
         ++mctx.n_sample;
         ++batch.n_tokens;
+        ++mctx.kv_cache.head;
+        // Ensure kv cache head points to a valid index.
+        if (mctx.kv_cache.head >= mctx.kv_cache.size) {
+            mctx.kv_cache.size = 0;
+        }
+
         free(host_logits);
-        
         ggml_backend_sched_reset(mctx.sched);
-        printf("generation step %d\n", i);
+        printf("generation step %d\n------------\n", i);
+        //break;
     }
     
     moondream_free_batch(batch);
