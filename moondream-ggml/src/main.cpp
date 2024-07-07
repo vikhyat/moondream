@@ -22,7 +22,7 @@
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
-//#define MOONDREAM_EXTRA_LOGS 
+#define MOONDREAM_EXTRA_LOGS 
 
 /* Start of helpers. */
 static size_t utf8_len(char src) {
@@ -100,6 +100,32 @@ struct moondream_layer {
     ggml_tensor * ffn_down_b = nullptr; // b2
     ggml_tensor * ffn_up_b = nullptr;   // b3
     ggml_tensor * ffn_act = nullptr;
+};
+
+struct moondream_mmproj_layer {
+    // Attention
+    ggml_tensor * k_w = nullptr;
+    ggml_tensor * k_b = nullptr;
+    ggml_tensor * q_w = nullptr;
+    ggml_tensor * q_b = nullptr;
+    ggml_tensor * v_w = nullptr;
+    ggml_tensor * v_b = nullptr;
+    ggml_tensor * o_w = nullptr;
+    ggml_tensor * o_b = nullptr;
+
+    // Layernorm 1 
+    ggml_tensor * ln_1_w = nullptr;
+    ggml_tensor * ln_1_b = nullptr;
+
+    // Feed forward
+    ggml_tensor * ff_i_w = nullptr;
+    ggml_tensor * ff_i_b = nullptr;
+    ggml_tensor * ff_o_w = nullptr;
+    ggml_tensor * ff_o_b = nullptr;
+
+    // Layernorm 2
+    ggml_tensor * ln_2_w = nullptr;
+    ggml_tensor * ln_2_b = nullptr;
 };
 
 struct moondream_hparams {
@@ -200,6 +226,16 @@ struct moondream_model {
 struct moondream_mmproj_model {
     ggml_context * ctx = nullptr;
     moondream_mmproj_hparams hparams;
+    std::vector<moondream_mmproj_layer> layers;
+    ggml_tensor * mm_0_w = nullptr;
+    ggml_tensor * mm_0_b = nullptr;
+    ggml_tensor * mm_2_w = nullptr;
+    ggml_tensor * mm_2_b = nullptr;
+    ggml_tensor * pos_embd = nullptr;
+    ggml_tensor * patch_embd = nullptr;
+    ggml_tensor * patch_bias = nullptr;
+    ggml_tensor * post_ln_w = nullptr;
+    ggml_tensor * post_ln_b = nullptr;
 };
 
 // Arrays must have size of n_tokens
@@ -1355,12 +1391,12 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
         moondream_layer cur_layer;
         for (int k = 0; k < n_tensors_per_layer; ++k) {
             cur = ggml_get_next_tensor(ctx, cur);
-#ifdef MOONDREAM_EXTRA_LOGS 
-            printf("(DEBUG) found %s\n", cur->name);
-#endif
             if (cur == NULL) {
                 return false;
             }
+#ifdef MOONDREAM_EXTRA_LOGS 
+            printf("(DEBUG) found %s\n", cur->name);
+#endif
             switch (k) {
                 case 0: // attn_norm.weight
                     cur_layer.attn_norm = cur;       
@@ -1402,6 +1438,9 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     const int n_output_layer_tensors = 4;
     for (int i = 0; i < n_output_layer_tensors; ++i) {
         cur = ggml_get_next_tensor(ctx, cur);
+        if (cur == NULL) {
+            return false;
+        }
 #ifdef MOONDREAM_EXTRA_LOGS 
         printf("(DEBUG) found %s\n", cur->name);
 #endif
@@ -1422,9 +1461,10 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
                 return false;
         }
     }
-    model.ctx = ctx;
     /* End of tensors load. */
-    
+  
+    model.ctx = ctx;
+
     printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
     printf("gguf_version: %d\n", gguf_version);
     printf("gguf_alignment: %ld\n", gguf_alignment);
@@ -1500,9 +1540,128 @@ bool moondream_load_mmproj_model(const char * gguf_file_path, moondream_mmproj_m
     }
     hparams.image_std = (float *)gguf_get_arr_data(meta, image_std_key_id);
     model.hparams = hparams;
-    model.ctx = ctx;
     /* End of hparams load. */
 
+    /* Start of tensors load. */
+    // For some reason the first tensor doesn't have a name, so we skip over it.
+    ggml_tensor * cur = ggml_get_first_tensor(ctx);
+    if (cur == NULL) {
+        return false;
+    }
+    // Load tensors that don't repeat for each layer.
+    const int n_non_repeating_tensors = 9;
+    for (int i = 0; i < n_non_repeating_tensors; ++i) {
+        cur = ggml_get_next_tensor(ctx, cur);
+        if (cur == NULL) {
+            return false;
+        }
+#ifdef MOONDREAM_EXTRA_LOGS 
+        printf("(DEBUG) found %s\n", cur->name);
+#endif
+        switch (i) {
+            case 0: // mm.0.weight
+                model.mm_0_w = cur;
+                break;
+            case 1: // mm.0.bias
+                model.mm_0_b = cur;
+                break;
+            case 2: // mm.2.weight
+                model.mm_2_w = cur;
+                break;
+            case 3: // mm.2.bias
+                model.mm_2_b = cur;
+                break;
+            case 4:  // v.position_embd.weight
+                model.pos_embd = cur;
+                break;
+            case 5: // v.patch_embd.weight
+                model.patch_embd = cur;
+                break;
+            case 6: // v.patch_embd.bias
+                model.patch_bias = cur;
+                break;
+            case 7: // v.post_ln.weight
+                model.post_ln_w = cur;
+                break;
+            case 8: // v.post_ln.bias
+                model.post_ln_b = cur;
+                break;
+            default:
+                return false;
+        }
+    }
+
+    // Load tensors for each layer.
+    const int n_tensors_per_layer = 16;
+    for (int i = 0; i < hparams.n_layer; ++i) {
+        moondream_mmproj_layer cur_layer;
+        for (int k = 0; k < n_tensors_per_layer; ++k) {
+            cur = ggml_get_next_tensor(ctx, cur);
+            if (cur == NULL) {
+                return false;
+            }
+#ifdef MOONDREAM_EXTRA_LOGS 
+            printf("(DEBUG) found %s\n", cur->name);
+#endif
+            switch (k) {
+                case 0: // attn_q.weight
+                    cur_layer.q_w = cur;
+                    break;
+                case 1: // attn_q.bias
+                    cur_layer.q_b = cur;
+                    break;
+                case 2: // attn_k.weight
+                    cur_layer.k_w = cur;
+                    break;
+                case 3: // attn_k.bias
+                    cur_layer.k_b = cur;
+                    break;
+                case 4: // attn_v.weight
+                    cur_layer.v_w = cur;
+                    break;
+                case 5: // attn_v.bias
+                    cur_layer.v_b = cur;
+                    break;
+                case 6: // attn_out.weight
+                    cur_layer.o_w = cur;
+                    break;
+                case 7: // attn_out.bias
+                    cur_layer.o_b = cur;
+                    break;
+                case 8: // ln1.weight
+                    cur_layer.ln_1_w = cur;
+                    break;
+                case 9: // ln1.bias
+                    cur_layer.ln_1_b = cur;
+                    break;
+                case 10: // ffn_down.weight
+                    cur_layer.ff_o_w = cur;
+                    break;
+                case 11: // ffn_down.bias
+                    cur_layer.ff_o_b = cur;
+                    break;
+                case 12: // ffn_up.weight
+                    cur_layer.ff_i_w = cur;
+                    break;
+                case 13: // ffn_up.bias
+                    cur_layer.ff_i_b = cur;
+                    break;
+                case 14: // ln2.weight
+                    cur_layer.ln_2_w = cur;
+                    break;
+                case 15: // ln2.bias
+                    cur_layer.ln_2_b = cur;
+                    break;
+                default:
+                    return false;
+            }
+        }
+        model.layers.push_back(cur_layer);
+    }
+    /* End of tensors load. */
+    
+    model.ctx = ctx;
+    
     printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
     printf("gguf_version: %d\n", gguf_version);
     printf("gguf_alignment: %ld\n", gguf_alignment);
