@@ -127,6 +127,20 @@ struct moondream_hparams {
     float f_max_alibi_bias;
 };
 
+struct moondream_mmproj_hparams {
+    uint32_t image_size;
+    uint32_t patch_size;
+    uint32_t n_embd;
+    uint32_t n_ff;
+    uint32_t n_proj;
+    uint32_t n_head;
+    uint32_t n_layer;
+    float f_norm_eps;
+    bool use_gelu;
+    float * image_mean;
+    float * image_std;
+};
+
 struct moondream_cparams {
     // Context size used during inference.
     uint32_t n_ctx;
@@ -181,6 +195,11 @@ struct moondream_model {
     ggml_tensor * output_norm_b = nullptr;
     ggml_tensor * output = nullptr;
     ggml_tensor * output_b = nullptr;
+};
+
+struct moondream_mmproj_model {
+    ggml_context * ctx = nullptr;
+    moondream_mmproj_hparams hparams;
 };
 
 // Arrays must have size of n_tokens
@@ -1439,6 +1458,75 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     return true;
 }
 
+bool moondream_load_mmproj_model(const char * gguf_file_path, moondream_mmproj_model & model) {
+    ggml_context * ctx;
+    gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
+    gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
+    if (meta == NULL) {
+        return false;
+    }
+    
+    int gguf_version = gguf_get_version(meta);
+    size_t gguf_alignment = gguf_get_alignment(meta);
+    size_t gguf_data_offset = gguf_get_data_offset(meta);
+    const char * model_arch = gguf_get_val_str(meta, gguf_find_key(meta, "general.architecture"));
+    const char * model_name = gguf_get_val_str(meta, gguf_find_key(meta, "general.name"));
+
+    /* Start of hparams load. */
+    moondream_mmproj_hparams hparams;
+    hparams.image_size = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.image_size"));
+    hparams.patch_size = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.patch_size"));
+    hparams.n_embd = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.embedding_length"));
+    hparams.n_ff = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.feed_forward_length"));
+    hparams.n_proj = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.projection_dim"));
+    hparams.n_head = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.attention.head_count"));
+    hparams.n_layer = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.block_count"));
+    hparams.f_norm_eps = gguf_get_val_f32(meta, gguf_find_key(meta, "clip.vision.attention.layer_norm_epsilon"));
+    hparams.use_gelu = gguf_get_val_bool(meta, gguf_find_key(meta, "clip.use_gelu"));
+    
+    const int image_mean_key_id = gguf_find_key(meta, "clip.vision.image_mean");
+    const int n_image_mean = gguf_get_arr_n(meta, image_mean_key_id);
+    if (n_image_mean  != 3) {
+        printf("expected n_image_mean = 3 but got n_image_mean = %d\n", n_image_mean);
+        return false;
+    }
+    hparams.image_mean = (float *)gguf_get_arr_data(meta, image_mean_key_id);
+
+    const int image_std_key_id = gguf_find_key(meta, "clip.vision.image_std");
+    const int n_image_std = gguf_get_arr_n(meta, image_std_key_id);
+    if (n_image_std != 3) {
+        printf("expected n_image_std = 3 but got n_image_std = %d\n", n_image_std);
+        return false;
+    }
+    hparams.image_std = (float *)gguf_get_arr_data(meta, image_std_key_id);
+    model.hparams = hparams;
+    model.ctx = ctx;
+    /* End of hparams load. */
+
+    printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
+    printf("gguf_version: %d\n", gguf_version);
+    printf("gguf_alignment: %ld\n", gguf_alignment);
+    printf("gguf_data_offset: %ld\n", gguf_data_offset);
+    printf("model_arch: %s\n", model_arch);
+    printf("mem_size: %lf GiB\n", bytes_to_gib(ggml_get_mem_size(model.ctx)));
+    printf("------------\nMMPROJ Hyperparameters\n------------\n");
+    printf("image_size: %u\n", hparams.image_size);
+    printf("patch_size: %u\n", hparams.patch_size);
+    printf("n_embd: %u\n", hparams.n_embd);
+    printf("n_ff: %u\n", hparams.n_ff);
+    printf("n_proj: %u\n", hparams.n_proj);
+    printf("n_head: %u\n", hparams.n_head);
+    printf("n_layer: %u\n", hparams.n_layer);
+    printf("f_norm_eps: %f\n", hparams.f_norm_eps);
+    printf("n_head: %u\n", hparams.n_head);
+    printf("image_mean: %f %f %f\n", hparams.image_mean[0], hparams.image_mean[1], hparams.image_mean[2]);
+    printf("image_std: %f %f %f\n", hparams.image_std[0], hparams.image_std[1], hparams.image_std[2]);
+    printf("------------\n");
+
+    gguf_free(meta);
+    return true;
+}
+
 static int sample_top_logit(const float * logits, const int n_logits) {
     if (n_logits <= 0) {
         printf("cannot sample when n_logits <= 0");
@@ -1500,10 +1588,18 @@ int main(int argc, char * argv[]) {
     moondream_model model;
     bool result = moondream_load_model(text_model_path, model);
     if (!result) {
-        printf("could not load model\n");
+        printf("could not load text model\n");
         return 1;
     }
-    printf("succesfully loaded model\n");
+    printf("succesfully loaded text model\n");
+    
+    moondream_mmproj_model mmproj_model;
+    result = moondream_load_mmproj_model(mmproj_path, mmproj_model);
+    if (!result) {
+        printf("could not load mmproj model\n");
+        return 1;
+    }
+    printf("succesfully loaded mmproj model\n");
     /* End of moondream_model load. */
 
     /* Start of moondream_context init. */
