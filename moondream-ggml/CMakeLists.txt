@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_subdirectory(./dependencies/ggml)
 
-set(SOURCES src/main.cpp src/unicode_data.cpp src/unicode.cpp)
+set(SOURCES src/moondream.cpp src/unicode_data.cpp src/unicode.cpp)
 
 add_executable(moondream_ggml ${SOURCES})
 
