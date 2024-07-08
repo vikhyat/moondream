@@ -324,6 +324,8 @@ struct moondream_context {
 
 struct moondream_mmproj_context {
     ggml_context * ctx = nullptr;
+    ggml_backend_t backend_cpu = nullptr;
+    ggml_backend_buffer_type_t backend_cpu_buft = nullptr;
     std::vector<uint8_t> compute_buffer;
     ggml_backend_sched_t sched = nullptr;
 };
@@ -662,7 +664,6 @@ ggml_tensor * llm_build_ffn(
 
 // Modification of llama.cpp build_phi2.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/llama.cpp
-// Currently wip, compiles but not tested.
 ggml_cgraph * build_phi2(
     moondream_model & model,
     moondream_batch & batch,
@@ -902,7 +903,7 @@ ggml_cgraph * build_clip(
     };
     ggml_context * ctx0 = ggml_init(build_ctx_params);
     ggml_cgraph * gf = ggml_new_graph(ctx0);
-    
+
     ggml_tensor * inp_raw = ggml_new_tensor_4d(ctx0, GGML_TYPE_F32, image_size, image_size, 3, batch_size);
     ggml_set_name(inp_raw, "inp_raw");
     ggml_set_input(inp_raw);
@@ -963,7 +964,7 @@ ggml_cgraph * build_clip(
         // Layernorm 2
         cur = ggml_norm(ctx0, cur, eps);
         cur = ggml_add(ctx0, ggml_mul(ctx0, cur, model.layers[il].ln_2_w), model.layers[il].ln_2_b);
-        
+
         // Feed forward
         cur = ggml_mul_mat(ctx0, model.layers[il].ff_i_w, cur);
         cur = ggml_add(ctx0, cur, model.layers[il].ff_i_b);
@@ -1154,6 +1155,7 @@ bool moondream_init_context(
     }
     printf("succesfully initialized cpu backend\n");
     ggml_backend_cpu_set_n_threads(mctx.backend_cpu, cparams.n_threads);
+    mctx.backend_cpu_buft = ggml_backend_get_default_buffer_type(mctx.backend_cpu);
     
     bool result = moondream_init_kv_cache(mctx.kv_cache, hparams, cparams, mctx.backend_cpu, type_k, type_v);
     if (!result) {
@@ -1168,12 +1170,11 @@ bool moondream_init_context(
         + ggml_graph_overhead_custom(LLAMA_MAX_NODES, false);
 #ifdef MOONDREAM_EXTRA_LOGS
     const double compute_buf_size_gib = bytes_to_gib(compute_buf_size);
-    printf("new_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
-#endif // MOONDREAM_EXTRA_LOGS   
+    printf("new compute_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
+#endif // MOONDREAM_EXTRA_LOGS
     mctx.compute_buffer.resize(compute_buf_size);
     
     // Initialize scheduler with worst-case graph.
-    mctx.backend_cpu_buft = ggml_backend_get_default_buffer_type(mctx.backend_cpu);
     mctx.sched = ggml_backend_sched_new(&mctx.backend_cpu, &mctx.backend_cpu_buft, 1, LLAMA_MAX_NODES, false);
     int32_t dummy_token = 0;
     moondream_batch dummy_batch;
@@ -1193,6 +1194,52 @@ bool moondream_init_context(
 
     // TODO: equivalent of llama_output_reserve(), see llama.cpp line 11949
 
+    return true;
+}
+
+// WIP implementation of mmproj context initializaton.
+// Currently fails with:
+// GGML_ASSERT: ggml/src/ggml-backend.c:1431: node_backend_id != -1
+bool moondream_init_mmproj_context(
+    moondream_mmproj_context & mctx, 
+    moondream_mmproj_model & model, 
+    int n_threads
+) {
+    mctx.backend_cpu = ggml_backend_cpu_init();
+    if (!mctx.backend_cpu) {
+        printf("failed to initialize mmproj cpu backend\n");
+        return false;
+    }
+    printf("succesfully initialized mmproj cpu backend\n");
+    ggml_backend_cpu_set_n_threads(mctx.backend_cpu, n_threads);
+    mctx.backend_cpu_buft = ggml_backend_get_default_buffer_type(mctx.backend_cpu);
+    //const size_t compute_buf_size = GGML_DEFAULT_GRAPH_SIZE * ggml_tensor_overhead() + ggml_graph_overhead();
+    // TODO: figure out a way to dynamically determine the number of required nodes because LLAMA_MAX_NODES
+    // is probably overkill for the clip graph.
+    const size_t compute_buf_size = 
+        ggml_tensor_overhead() * LLAMA_MAX_NODES 
+        + ggml_graph_overhead_custom(LLAMA_MAX_NODES, false);
+#ifdef MOONDREAM_EXTRA_LOGS
+    const double compute_buf_size_gib = bytes_to_gib(compute_buf_size);
+    printf("new mmproj compute_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
+#endif // MOONDREAM_EXTRA_LOGS
+    mctx.compute_buffer.resize(compute_buf_size);
+    
+    // Initialize scheduler.
+    moondream_mmproj_batch dummy_batch;
+    ggml_cgraph * gf = build_clip(model, dummy_batch, mctx);
+    if (!gf) {
+        printf("failed to build mmrpoj compute graph\n");
+        return false;
+    }
+    printf("n_nodes: %d\n", gf->n_nodes);
+    printf("built mmproj graph\n");
+    mctx.sched = ggml_backend_sched_new(&mctx.backend_cpu, &mctx.backend_cpu_buft, 1, gf->n_nodes, false);
+    if (!ggml_backend_sched_reserve(mctx.sched, gf)) {
+        printf("failed to reserve buffers for mmproj compute graph\n");
+        return false;
+    }
+    printf("succesfully reserved buffers for mmproj compute graph\n");
     return true;
 }
 
@@ -1686,7 +1733,7 @@ bool moondream_load_mmproj_model(const char * gguf_file_path, moondream_mmproj_m
     hparams.use_gelu = gguf_get_val_bool(meta, gguf_find_key(meta, "clip.use_gelu"));
     
     const char * proj_type_str = gguf_get_val_str(meta, gguf_find_key(meta, "clip.projector_type"));
-    if (strncmp(proj_type_str, "mlp", 3)) {
+    if (strncmp(proj_type_str, "mlp", 3) == 0) {
         hparams.proj_type = PROJECTOR_TYPE_MLP;
     } else {
         hparams.proj_type = PROJECTOR_TYPE_UNKNOWN;
@@ -1802,17 +1849,18 @@ bool moondream_load_mmproj_model(const char * gguf_file_path, moondream_mmproj_m
                 case 9: // ln1.bias
                     cur_layer.ln_1_b = cur;
                     break;
+                // Are ffn_down and ffn_up reversed? Usually the first ff layer projects to a higher dim.
                 case 10: // ffn_down.weight
-                    cur_layer.ff_o_w = cur;
-                    break;
-                case 11: // ffn_down.bias
-                    cur_layer.ff_o_b = cur;
-                    break;
-                case 12: // ffn_up.weight
                     cur_layer.ff_i_w = cur;
                     break;
-                case 13: // ffn_up.bias
+                case 11: // ffn_down.bias
                     cur_layer.ff_i_b = cur;
+                    break;
+                case 12: // ffn_up.weight
+                    cur_layer.ff_o_w = cur;
+                    break;
+                case 13: // ffn_up.bias
+                    cur_layer.ff_o_b = cur;
                     break;
                 case 14: // ln2.weight
                     cur_layer.ln_2_w = cur;
@@ -1920,7 +1968,9 @@ int main(int argc, char * argv[]) {
         return 1;
     }
     printf("succesfully loaded text model\n");
-    
+    /* End of moondream_model load. */
+
+    /* Start of moondream_mmproj_model load. */
     moondream_mmproj_model mmproj_model;
     result = moondream_load_mmproj_model(mmproj_path, mmproj_model);
     if (!result) {
@@ -1928,7 +1978,19 @@ int main(int argc, char * argv[]) {
         return 1;
     }
     printf("succesfully loaded mmproj model\n");
-    /* End of moondream_model load. */
+    /* End of moondream_mmproj_model load. */
+
+    /* Start of moondream_mmproj_context init. */
+    /*
+    moondream_mmproj_context mmproj_ctx;
+    result = moondream_init_mmproj_context(mmproj_ctx, mmproj_model, 8);
+    if (!result) {
+        printf("failed to initialze moondream_mmproj_context\n");
+        return 1;
+    }
+    printf("succesfully initialized moondream_context\n");
+    */
+    /* End of moondream_mmproj_context init. */
 
     /* Start of moondream_context init. */
     moondream_cparams cparams = {
