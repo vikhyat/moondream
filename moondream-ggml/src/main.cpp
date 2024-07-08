@@ -22,7 +22,7 @@
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
-#define MOONDREAM_EXTRA_LOGS 
+//#define MOONDREAM_EXTRA_LOGS 
 
 /* Start of helpers. */
 static size_t utf8_len(char src) {
@@ -35,6 +35,14 @@ static double bytes_to_gib(size_t n_bytes) {
     return static_cast<double>(n_bytes) / (1024.0 * 1024.0 * 1024.0);
 }
 /* End of helpers. */
+
+enum projector_type {
+    PROJECTOR_TYPE_MLP,
+    PROJECTOR_TYPE_MLP_NORM,
+    PROJECTOR_TYPE_LDP,
+    PROJECTOR_TYPE_LDPV2,
+    PROJECTOR_TYPE_UNKNOWN,
+};
 
 /* Start of llm enums. */
 enum llm_ffn_op_type {
@@ -163,6 +171,7 @@ struct moondream_mmproj_hparams {
     uint32_t n_layer;
     float f_norm_eps;
     bool use_gelu;
+    projector_type proj_type;
     float * image_mean;
     float * image_std;
 };
@@ -253,6 +262,11 @@ struct moondream_batch {
     int8_t * logits = nullptr;
 };
 
+// Batch for mmproj/clip input.
+struct moondream_mmproj_batch{
+    float * images = nullptr;
+};
+
 struct moondream_kv_cache {
     bool has_shift = false;
     bool do_defrag = false;
@@ -308,10 +322,16 @@ struct moondream_context {
     ggml_backend_sched_t sched = nullptr;
 };
 
+struct moondream_mmproj_context {
+    ggml_context * ctx = nullptr;
+    std::vector<uint8_t> compute_buffer;
+    ggml_backend_sched_t sched = nullptr;
+};
+
 // NOTE: skipping the usage of llm_build_cb (build callback) because I have a feeling
 // it won't be necessary, may need to revisit this though
 ggml_tensor * llm_build_inp_embd(
-    ggml_context * ctx, 
+    ggml_context * ctx,
     moondream_context & mctx,
     const moondream_hparams & hparams,
     const moondream_batch & batch,
@@ -843,6 +863,147 @@ ggml_cgraph * build_phi2(
     //cb(cur, "result_output", -1);
     
     ggml_build_forward_expand(gf, cur);
+    ggml_free(ctx0);
+    return gf;
+}
+
+// Modification of llama.cpp/examples/llava/clip.pp clip_image_build_graph.
+// Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/examples/llava/clip.cpp
+ggml_cgraph * build_clip(
+    moondream_mmproj_model & model,
+    moondream_mmproj_batch & batch,
+    moondream_mmproj_context & mctx
+) {
+    moondream_mmproj_hparams & hparams = model.hparams;
+    // TODO: find some way to do narrowing conversions safely. 
+    // Maybe convert all unsigned ints to signed ints when hyperparameters are loaded
+    // and do a max val check there. We can't keep them as unsigned ints because most of
+    // the ggml API calls take signed ints and we don't want to scatter narrowing conversions
+    // everywhere.
+    const int image_size = hparams.image_size;
+    const int patch_size = hparams.patch_size;
+    const int num_patches_per_side = image_size / patch_size;
+    const int num_patches = num_patches_per_side * num_patches_per_side;
+    const int num_positions = num_patches; /* + (ctx->has_class_embedding ? 1 : 0); */
+    const int n_embd = hparams.n_embd;
+    const int n_head = hparams.n_head;
+    const int n_head_qkv = n_embd / n_head;
+    const int n_layer = hparams.n_layer;
+    const float eps = hparams.f_norm_eps; 
+    
+    // TODO: move this into moondream_mmproj_batch struct.
+    const int batch_size = 1;
+    assert(batch_size == 1);
+
+    ggml_init_params build_ctx_params = {
+        mctx.compute_buffer.size(),
+        mctx.compute_buffer.data(),
+        true
+    };
+    ggml_context * ctx0 = ggml_init(build_ctx_params);
+    ggml_cgraph * gf = ggml_new_graph(ctx0);
+    
+    ggml_tensor * inp_raw = ggml_new_tensor_4d(ctx0, GGML_TYPE_F32, image_size, image_size, 3, batch_size);
+    ggml_set_name(inp_raw, "inp_raw");
+    ggml_set_input(inp_raw);
+
+    ggml_tensor * inp = ggml_conv_2d(ctx0, model.patch_embd, inp_raw, patch_size, patch_size, 0, 0, 1, 1);
+    inp = ggml_reshape_3d(ctx0, inp, num_patches, n_embd, batch_size);
+    inp = ggml_cont(ctx0, ggml_permute(ctx0, inp, 1, 0, 2, 3));
+    if (model.patch_bias != nullptr) {
+        inp = ggml_add(ctx0, inp, model.patch_bias);
+    }
+
+    ggml_tensor * embeddings = inp;
+    // NOTE: skipped class embeddings.
+    ggml_tensor * positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_positions);
+    ggml_set_name(positions, "positions");
+    ggml_set_input(positions);
+    embeddings = ggml_add(ctx0, embeddings, ggml_get_rows(ctx0, model.pos_embd, positions));
+    // NOTE: skipped pre-layernorm.
+    
+    for (int il = 0; il < n_layer - 1; ++il) {
+        // embeddings = residual, cur = hidden_states
+        ggml_tensor * cur = embeddings;
+
+        // Layernorm 1
+        cur = ggml_norm(ctx0, cur, eps);
+        cur = ggml_add(ctx0, ggml_mul(ctx0, cur, model.layers[il].ln_1_w), model.layers[il].ln_1_b);
+
+        // Self-attention
+        ggml_tensor * Q = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].q_w, cur), model.layers[il].q_b);
+        Q = ggml_scale_inplace(ctx0, Q, 1.0f / sqrt((float)n_head_qkv));
+        Q = ggml_reshape_4d(ctx0, Q, n_head_qkv, n_head, num_positions, batch_size);
+        Q = ggml_cont(ctx0, ggml_permute(ctx0, Q, 0, 2, 1, 3));
+        Q = ggml_reshape_3d(ctx0, Q, n_head_qkv, num_positions, n_head * batch_size);
+
+        ggml_tensor * K = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].k_w, cur), model.layers[il].k_b);
+        K = ggml_reshape_4d(ctx0, K, n_head_qkv, n_head, num_positions, batch_size);
+        K = ggml_cont(ctx0, ggml_permute(ctx0, K, 0, 2, 1, 3));
+        K = ggml_reshape_3d(ctx0, K, n_head_qkv, num_positions, n_head * batch_size);
+
+        ggml_tensor * V = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].v_w, cur), model.layers[il].v_b);
+        V = ggml_reshape_4d(ctx0, V, n_head_qkv, n_head, num_positions, batch_size);
+        V = ggml_cont(ctx0, ggml_permute(ctx0, V, 1, 2, 0, 3));
+        V = ggml_reshape_3d(ctx0, V, num_positions, n_head_qkv, n_head * batch_size);
+
+        ggml_tensor * KQ = ggml_mul_mat(ctx0, K, Q);
+        KQ = ggml_soft_max_inplace(ctx0, KQ);
+        ggml_tensor * KQV = ggml_mul_mat(ctx0, V, KQ);
+        KQV = ggml_reshape_4d(ctx0, KQV, n_head_qkv, num_positions, n_head, batch_size);
+        KQV = ggml_permute(ctx0, KQV, 0, 2, 1, 3);
+
+        cur = ggml_cont_3d(ctx0, KQV, n_embd, num_positions, batch_size);
+        cur = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].o_w, cur), model.layers[il].o_b);
+        // Add the residual.
+        cur = ggml_add(ctx0, cur, embeddings);
+        // embeddings = residual, cur = hidden_states
+        embeddings = cur;
+    
+        // Layernorm 2
+        cur = ggml_norm(ctx0, cur, eps);
+        cur = ggml_add(ctx0, ggml_mul(ctx0, cur, model.layers[il].ln_2_w), model.layers[il].ln_2_b);
+        
+        // Feed forward
+        cur = ggml_mul_mat(ctx0, model.layers[il].ff_i_w, cur);
+        cur = ggml_add(ctx0, cur, model.layers[il].ff_i_b);
+        if (hparams.use_gelu) {
+            cur = ggml_gelu_inplace(ctx0, cur);
+        } else {
+            cur = ggml_gelu_quick_inplace(ctx0, cur);
+        }
+        cur = ggml_mul_mat(ctx0, model.layers[il].ff_o_w, cur);
+        cur = ggml_add(ctx0, cur, model.layers[il].ff_o_b);
+
+        // Add the resiudal.
+        cur = ggml_add(ctx0, embeddings, cur);
+        embeddings = cur;
+    }
+
+    // Post-layernorm
+    embeddings = ggml_norm(ctx0, embeddings, eps);
+    ggml_set_name(embeddings, "post_ln");
+    embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
+
+    // LLaVa projector
+    embeddings = ggml_reshape_2d(ctx0, embeddings, embeddings->ne[0], embeddings->ne[1]);
+    ggml_tensor * patches = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_patches);
+    ggml_set_name(patches, "patches");
+    ggml_set_input(patches);
+    embeddings = ggml_get_rows(ctx0, embeddings, patches);
+    if (hparams.proj_type == PROJECTOR_TYPE_MLP) {
+        embeddings = ggml_mul_mat(ctx0, model.mm_0_w, embeddings);
+        embeddings = ggml_add(ctx0, embeddings, model.mm_0_b);
+        embeddings = ggml_gelu(ctx0, embeddings);
+        embeddings = ggml_mul_mat(ctx0, model.mm_2_w, embeddings);
+        embeddings = ggml_add(ctx0, embeddings, model.mm_2_b);
+    } else {
+        printf("unimplemented projector type, only the MLP projector type is implemented\n");
+        ggml_free(ctx0);
+        return nullptr;
+    }
+
+    ggml_build_forward_expand(gf, embeddings);
     ggml_free(ctx0);
     return gf;
 }
@@ -1524,6 +1685,13 @@ bool moondream_load_mmproj_model(const char * gguf_file_path, moondream_mmproj_m
     hparams.f_norm_eps = gguf_get_val_f32(meta, gguf_find_key(meta, "clip.vision.attention.layer_norm_epsilon"));
     hparams.use_gelu = gguf_get_val_bool(meta, gguf_find_key(meta, "clip.use_gelu"));
     
+    const char * proj_type_str = gguf_get_val_str(meta, gguf_find_key(meta, "clip.projector_type"));
+    if (strncmp(proj_type_str, "mlp", 3)) {
+        hparams.proj_type = PROJECTOR_TYPE_MLP;
+    } else {
+        hparams.proj_type = PROJECTOR_TYPE_UNKNOWN;
+    }
+
     const int image_mean_key_id = gguf_find_key(meta, "clip.vision.image_mean");
     const int n_image_mean = gguf_get_arr_n(meta, image_mean_key_id);
     if (n_image_mean  != 3) {
@@ -1680,6 +1848,7 @@ bool moondream_load_mmproj_model(const char * gguf_file_path, moondream_mmproj_m
     printf("n_head: %u\n", hparams.n_head);
     printf("image_mean: %f %f %f\n", hparams.image_mean[0], hparams.image_mean[1], hparams.image_mean[2]);
     printf("image_std: %f %f %f\n", hparams.image_std[0], hparams.image_std[1], hparams.image_std[2]);
+    printf("proj_type_str: %s\n", proj_type_str);
     printf("------------\n");
 
     gguf_free(meta);
@@ -1885,6 +2054,8 @@ int main(int argc, char * argv[]) {
     printf("freed moondream_batch\n");
     moondream_free_context(mctx);
     printf("freed moondream_context\n");
+    ggml_free(mmproj_model.ctx);
+    printf("freed mmproj model ggml_context\n");
     ggml_free(model.ctx);
     printf("freed model ggml_context\n");
     return 0;
