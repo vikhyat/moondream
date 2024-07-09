@@ -13,13 +13,18 @@
         let
             inherit (nixpkgs) lib;
             pkgs = import nixpkgs { inherit system; };
+            python = (pkgs.python311.withPackages (ps: with ps; [ pybind11 ]));
         in {
             devShells.default = pkgs.mkShell {
                 name = "moondream-ggml";
                 buildInputs = with pkgs; [
+                    python
                     gcc
                     cmake
                 ];
+                shellHook = ''
+                    export PYTHONPATH=${python}/lib/${python.executable}/site-packages
+                '';
             };
         }
     );
