@@ -27,5 +27,5 @@ make
 ```
 4. Run executable with data path argument
 ```
-./moondream_ggml ../../data/
+./moondream_ggml_exe ../../data/
 ```

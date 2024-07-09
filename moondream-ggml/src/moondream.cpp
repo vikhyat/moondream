@@ -2017,6 +2017,8 @@ void moondream_cleanup_api_state(void) {
     printf("freed model ggml_context\n");
 }
 
+
+#ifndef MOONDREAM_LIBRARY_BUILD
 int main(int argc, char * argv[]) {
     if (argc < 2) {
         printf("incorrect number of arguments\n");
@@ -2160,3 +2162,4 @@ int main(int argc, char * argv[]) {
     moondream_cleanup_api_state();
     return 0;
 }
+#endif // MOONDREAM_LIBRARY_BUILD
