@@ -29,7 +29,7 @@ cmake ..
 ```
 make
 ```
-4. Run executable with data path argument
+5. Run executable with data path argument
 ```
 ./moondream_ggml_exe ../../../data/
 ```
