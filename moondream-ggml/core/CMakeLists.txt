@@ -4,6 +4,7 @@ project(moondream_ggml)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build ggml as a static library" FORCE)
 add_subdirectory(./dependencies/ggml)
 
 set(SOURCES src/moondream.cpp src/unicode_data.cpp src/unicode.cpp)
