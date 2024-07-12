@@ -11,8 +11,8 @@
 #include <unordered_map>
 #include <queue>
 #include "unicode.h"
-#include "ggml/ggml.h"
-#include "ggml/ggml-backend.h"
+#include "ggml.h"
+#include "ggml-backend.h"
 
 #define MD_TEXT_MODEL_FNAME "moondream2-text-model-f16.gguf"
 #define MD_MMPROJ_FNAME "moondream2-mmproj-f16.gguf"
@@ -365,7 +365,6 @@ ggml_tensor * build_inp_pos(ggml_context * ctx, moondream_context & mctx, moondr
     return mctx.inp_pos;
 }
 
-// NOTE: version of build_inp_KQ_mask without build callback
 ggml_tensor * build_inp_KQ_mask(
     ggml_context * ctx, 
     moondream_context & mctx, 
@@ -373,7 +372,6 @@ ggml_tensor * build_inp_KQ_mask(
     moondream_cparams & cparams,
     int32_t n_kv
 ) {
-    // How does the causal branch differ from the non-causal branch?
     if (cparams.causal_attn) {
         mctx.inp_KQ_mask = ggml_new_tensor_2d(
             ctx, GGML_TYPE_F32, n_kv, GGML_PAD(batch.n_tokens, GGML_KQ_MASK_PAD)
@@ -794,7 +792,7 @@ ggml_cgraph * build_phi2(
             Kcur = ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens);
 
             Qcur = ggml_rope_ext(
-                ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, n_ctx, n_ctx_orig,
+                ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                 freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
             );
             //cb(Qcur, "Qcur", il);
@@ -805,7 +803,7 @@ ggml_cgraph * build_phi2(
             //cb(Qcur, "Qcur", il);
 
             Kcur = ggml_rope_ext(
-                ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, n_ctx, n_ctx_orig,
+                ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                 freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
             );
             //cb(Kcur, "Kcur", il);
