@@ -1,0 +1,119 @@
+llama.cpp tokenization:
+ 24564 -> 'Desc'
+  4892 -> 'ribe'
+   262 -> ' the'
+  2939 -> ' image'
+    13 -> '.'
+
+
+mondream-ggml tokenization:
+(DEBUG) symbols_final[0] Desc
+(DEBUG) symbols_final[1] ribe
+(DEBUG) symbols_final[2] Ġthe
+(DEBUG) symbols_final[3] Ġimage
+(DEBUG) symbols_final[4] .
+n_token_ids: 5
+token_ids: 24564 4892 262 2939 13
+
+
+prompting moondream text with llama.cpp:
+./simple -m ../moondream/data/moondream2-text-model-f16.gguf -p "Describe the image."
+llama_model_loader: loaded meta data with 19 key-value pairs and 245 tensors from ../moondream/data/moondream2-text-model-f16.gguf (version GGUF V3 (latest))
+llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+llama_model_loader: - kv   0:                       general.architecture str              = phi2
+llama_model_loader: - kv   1:                               general.name str              = moondream2
+llama_model_loader: - kv   2:                        phi2.context_length u32              = 2048
+llama_model_loader: - kv   3:                      phi2.embedding_length u32              = 2048
+llama_model_loader: - kv   4:                   phi2.feed_forward_length u32              = 8192
+llama_model_loader: - kv   5:                           phi2.block_count u32              = 24
+llama_model_loader: - kv   6:                  phi2.attention.head_count u32              = 32
+llama_model_loader: - kv   7:               phi2.attention.head_count_kv u32              = 32
+llama_model_loader: - kv   8:          phi2.attention.layer_norm_epsilon f32              = 0.000010
+llama_model_loader: - kv   9:                  phi2.rope.dimension_count u32              = 32
+llama_model_loader: - kv  10:                          general.file_type u32              = 1
+llama_model_loader: - kv  11:               tokenizer.ggml.add_bos_token bool             = false
+llama_model_loader: - kv  12:                       tokenizer.ggml.model str              = gpt2
+llama_model_loader: - kv  13:                      tokenizer.ggml.tokens arr[str,51200]   = ["!", "\"", "#", "$", "%", "&", "'", ...
+llama_model_loader: - kv  14:                  tokenizer.ggml.token_type arr[i32,51200]   = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+llama_model_loader: - kv  15:                      tokenizer.ggml.merges arr[str,50000]   = ["Ġ t", "Ġ a", "h e", "i n", "r e",...
+llama_model_loader: - kv  16:                tokenizer.ggml.bos_token_id u32              = 50256
+llama_model_loader: - kv  17:                tokenizer.ggml.eos_token_id u32              = 50256
+llama_model_loader: - kv  18:            tokenizer.ggml.unknown_token_id u32              = 50256
+llama_model_loader: - type  f32:  147 tensors
+llama_model_loader: - type  f16:   98 tensors
+llm_load_vocab: missing pre-tokenizer type, using: 'default'
+llm_load_vocab:
+llm_load_vocab: ************************************
+llm_load_vocab: GENERATION QUALITY WILL BE DEGRADED!
+llm_load_vocab: CONSIDER REGENERATING THE MODEL
+llm_load_vocab: ************************************
+llm_load_vocab:
+llm_load_vocab: special tokens cache size = 944
+llm_load_vocab: token to piece cache size = 0.3151 MB
+llm_load_print_meta: format           = GGUF V3 (latest)
+llm_load_print_meta: arch             = phi2
+llm_load_print_meta: vocab type       = BPE
+llm_load_print_meta: n_vocab          = 51200
+llm_load_print_meta: n_merges         = 50000
+llm_load_print_meta: n_ctx_train      = 2048
+llm_load_print_meta: n_embd           = 2048
+llm_load_print_meta: n_head           = 32
+llm_load_print_meta: n_head_kv        = 32
+llm_load_print_meta: n_layer          = 24
+llm_load_print_meta: n_rot            = 32
+llm_load_print_meta: n_embd_head_k    = 64
+llm_load_print_meta: n_embd_head_v    = 64
+llm_load_print_meta: n_gqa            = 1
+llm_load_print_meta: n_embd_k_gqa     = 2048
+llm_load_print_meta: n_embd_v_gqa     = 2048
+llm_load_print_meta: f_norm_eps       = 1.0e-05
+llm_load_print_meta: f_norm_rms_eps   = 0.0e+00
+llm_load_print_meta: f_clamp_kqv      = 0.0e+00
+llm_load_print_meta: f_max_alibi_bias = 0.0e+00
+llm_load_print_meta: f_logit_scale    = 0.0e+00
+llm_load_print_meta: n_ff             = 8192
+llm_load_print_meta: n_expert         = 0
+llm_load_print_meta: n_expert_used    = 0
+llm_load_print_meta: causal attn      = 1
+llm_load_print_meta: pooling type     = 0
+llm_load_print_meta: rope type        = 2
+llm_load_print_meta: rope scaling     = linear
+llm_load_print_meta: freq_base_train  = 10000.0
+llm_load_print_meta: freq_scale_train = 1
+llm_load_print_meta: n_ctx_orig_yarn  = 2048
+llm_load_print_meta: rope_finetuned   = unknown
+llm_load_print_meta: ssm_d_conv       = 0
+llm_load_print_meta: ssm_d_inner      = 0
+llm_load_print_meta: ssm_d_state      = 0
+llm_load_print_meta: ssm_dt_rank      = 0
+llm_load_print_meta: model type       = 1B
+llm_load_print_meta: model ftype      = F16
+llm_load_print_meta: model params     = 1.42 B
+llm_load_print_meta: model size       = 2.64 GiB (16.01 BPW)
+llm_load_print_meta: general.name     = moondream2
+llm_load_print_meta: BOS token        = 50256 '<|endoftext|>'
+llm_load_print_meta: EOS token        = 50256 '<|endoftext|>'
+llm_load_print_meta: UNK token        = 50256 '<|endoftext|>'
+llm_load_print_meta: LF token         = 128 'Ä'
+llm_load_print_meta: EOT token        = 50256 '<|endoftext|>'
+llm_load_tensors: ggml ctx size =    0.12 MiB
+llm_load_tensors:        CPU buffer size =  2706.27 MiB
+................................................................................
+llama_new_context_with_model: n_ctx      = 2048
+llama_new_context_with_model: n_batch    = 2048
+llama_new_context_with_model: n_ubatch   = 512
+llama_new_context_with_model: flash_attn = 0
+llama_new_context_with_model: freq_base  = 10000.0
+llama_new_context_with_model: freq_scale = 1
+llama_kv_cache_init:        CPU KV buffer size =   384.00 MiB
+llama_new_context_with_model: KV self size  =  384.00 MiB, K (f16):  192.00 MiB, V (f16):  192.00 MiB
+llama_new_context_with_model:        CPU  output buffer size =     0.20 MiB
+llama_new_context_with_model:        CPU compute buffer size =   160.01 MiB
+llama_new_context_with_model: graph nodes  = 921
+llama_new_context_with_model: graph splits = 1
+
+main: n_predict = 32, n_ctx = 2048, n_kv_req = 32
+
+Describe the image.
+
+Answer: The image features a large, open field with a few trees in the background. The field is mostly empty, with

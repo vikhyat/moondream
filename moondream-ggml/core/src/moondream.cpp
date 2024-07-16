@@ -22,8 +22,9 @@
 #define LLAMA_MAX_NODES 8192
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
+// Rope scaling type should be: LLAMA_ROPE_SCALING_TYPE_LINEAR
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
-//#define MOONDREAM_EXTRA_LOGS 
+#define MOONDREAM_EXTRA_LOGS 
 
 /* Start of helpers. */
 static size_t utf8_len(char src) {
@@ -1127,7 +1128,7 @@ bool moondream_init_kv_cache(
     kv_cache.size = kv_size;
     kv_cache.used = 0;
     // Value tensor is only transposed when not using flash attention.
-    kv_cache.v_trans = !cparams.flash_attn; // TODO: double check this
+    kv_cache.v_trans = !cparams.flash_attn;
     kv_cache.type_k = type_k;
     kv_cache.type_v = type_v;
     kv_cache.ctx = ctx;
@@ -1967,29 +1968,29 @@ bool moondream_init_api_state(const char * text_model_path, const char * mmproj_
 
     /* Start of moondream_context init. */
     moondream_cparams cparams = {
-        .n_ctx = 512,
-        .n_batch = 1,
-        .n_ubatch = 1,
+        .n_ctx = 512, /*api_state.model.hparams.n_ctx_train,*/
+        .n_batch = 2048,
+        .n_ubatch = 512,
         .n_seq_max = 1,
         .n_threads = n_threads,
-        .n_threads_batch = 1,
+        .n_threads_batch = n_threads,
         // TODO: figure out what these shoud be
         .rope_freq_base = 10000.0f,
         .rope_freq_scale = 1.0f,
         .n_ctx_orig_yarn = api_state.model.hparams.n_ctx_train, 
-        .yarn_ext_factor = 1.0f,
+        .yarn_ext_factor = 0.0f,
         .yarn_attn_factor = 1.0f,
         .yarn_beta_fast = 32.0f,
         .yarn_beta_slow = 1.0f,
         .defrag_thold = -1.0f,
         // -----------------
-        .embeddings = true,
+        .embeddings = false,
         .causal_attn = true,
         .offload_kqv = false,
         .flash_attn = false
     };
-    const ggml_type type_k = GGML_TYPE_F32;
-    const ggml_type type_v = GGML_TYPE_F32;
+    const ggml_type type_k = GGML_TYPE_F16;
+    const ggml_type type_v = GGML_TYPE_F16;
     result = moondream_init_context(
         api_state.mctx, api_state.model.hparams, cparams, api_state.model, type_k, type_v
     );
@@ -2057,7 +2058,7 @@ int main(int argc, char * argv[]) {
         ggml_numa_init(numa_strat);
     }*/
 
-    bool result = moondream_init_api_state(text_model_path, mmproj_path, 8);
+    bool result = moondream_init_api_state(text_model_path, mmproj_path, 1);
     if (!result) {
         printf("failed to initialize api state\n");
         return 1;
@@ -2071,7 +2072,8 @@ int main(int argc, char * argv[]) {
     moondream_mmproj_context & mmproj_ctx = api_state.mmproj_ctx;
     
     /* Start of prompt tokenization. */
-    const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
+    //const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
+    const char * prompt = "Describe the image.";
     size_t prompt_len = strlen(prompt);
     printf("prompt_len: %zu\n", prompt_len);
     int32_t token_ids[prompt_len];
@@ -2118,7 +2120,7 @@ int main(int argc, char * argv[]) {
         ggml_backend_tensor_set(
             mctx.inp_tokens, batch.token, 0, batch.n_tokens * ggml_element_size(mctx.inp_tokens)
         );
-        
+
         const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
         if (compute_status != GGML_STATUS_SUCCESS) {
             printf("graph computation failed (%s)\n", ggml_status_to_string(compute_status));
