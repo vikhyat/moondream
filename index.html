@@ -1,21 +1,568 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="theme-color" content="#ffffff">
-    <link rel="icon" href="/favicon.png" type="image/png" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="mask-icon" href="/safari-mask-icon.svg" color="#000000" />    
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script
-	    type="module"
-	    src="https://gradio.s3-us-west-2.amazonaws.com/4.19.2/gradio.js"
-    ></script>
-    <title>moondream</title>
-    <script type="module" crossorigin src="/assets/index-Dk2Se1I8.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DVjURZdC.css">
+<!DOCTYPE html>
+<!-- saved from url=(0026)https://beta.moondream.ai/ -->
+<html lang="en" class="[scrollbar-gutter:stable]"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="icon" href="https://beta.moondream.ai/favicon.ico" sizes="32x32">
+    <link rel="icon" href="https://beta.moondream.ai/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="https://beta.moondream.ai/apple-touch-icon.png">
+    <link rel="manifest" href="https://beta.moondream.ai/manifest.webmanifest">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="cy4GMVMZdAl_DBMHCRpMDSAKIxZ3JhEeJg_K2aCH1UZ09vxEBbLY0DTW">
+    <title data-suffix="">
+Moondream
+    </title>
+    <link phx-track-static="" rel="stylesheet" href="./Moondream_files/app-29939c0b16268a62834fae52e7ca5d06.css">
+    <script defer="" phx-track-static="" type="module" src="./Moondream_files/app-a3a705d2a4ad4c91a459a7e9b22859df.js">
+    </script>
+    <!-- Place this tag in your head or just before your close body tag. -->
+    <script async="" defer="" src="./Moondream_files/buttons.js">
+    </script>
   </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html>
+  <body class="bg-white antialiased">
+<div>
+  <div id="flash-group">
+  
+  
+  <div id="client-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed top-2 right-2 mr-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1 bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}]]">
+  <p class="flex items-center gap-1.5 text-sm font-semibold leading-6">
+    
+    <span class="hero-exclamation-circle-mini h-4 w-4"></span>
+    We can't find the internet
+  </p>
+  <p class="mt-2 text-sm leading-5">
+    Attempting to reconnect
+    <span class="hero-arrow-path ml-1 h-3 w-3 animate-spin"></span>
+  </p>
+  <button type="button" class="group absolute top-1 right-1 p-2" aria-label="close">
+    <span class="hero-x-mark-solid h-5 w-5 opacity-40 group-hover:opacity-70"></span>
+  </button>
+</div>
+
+  <div id="server-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed top-2 right-2 mr-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1 bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900" hidden="" phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}]]">
+  <p class="flex items-center gap-1.5 text-sm font-semibold leading-6">
+    
+    <span class="hero-exclamation-circle-mini h-4 w-4"></span>
+    Something went wrong!
+  </p>
+  <p class="mt-2 text-sm leading-5">
+    Hang in there while we get back on track
+    <span class="hero-arrow-path ml-1 h-3 w-3 animate-spin"></span>
+  </p>
+  <button type="button" class="group absolute top-1 right-1 p-2" aria-label="close">
+    <span class="hero-x-mark-solid h-5 w-5 opacity-40 group-hover:opacity-70"></span>
+  </button>
+</div>
+</div>
+  <header class="relative bg-[#281B47] text-white z-10">
+  <nav class="mx-auto flex max items-center justify-between gap-x-6 p-6 lg:px-8" aria-label="Global">
+    <div class="flex lg:flex-1">
+      <a href="https://moondream.ai/" class="-m-1.5 p-1.5 inline-flex items-center">
+        <span class="sr-only">moondream</span>
+        <div class="h-7">
+          <svg height="100%" viewBox="0 0 2348 2268" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="1191.92" cy="1191.92" r="1076" fill="black"></circle>
+  <circle cx="1191.92" cy="1191.92" r="984" fill="#BDC9D4"></circle>
+  <circle cx="1191.92" cy="1191.92" r="984" fill="#BDC9D4"></circle>
+  <circle cx="1191.92" cy="1191.92" r="984" fill="#BDC9D4"></circle>
+  <ellipse cx="1173.78" cy="1118.77" rx="984" ry="908.627" transform="rotate(-13.9283 1173.78 1118.77)" fill="#FBF9F3"></ellipse>
+  <path d="M770.425 1170.42C770.425 1096.92 720.925 1055.92 655.925 1055.92C597.925 1055.92 534.925 1118.92 534.925 1170.42C534.925 1219.92 549.925 1231.92 577.925 1231.92H710.5C728 1231.92 770.425 1218.5 770.425 1170.42Z" fill="black"></path>
+  <path d="M1615 1170.42C1615 1096.92 1664.5 1055.92 1729.5 1055.92C1787.5 1055.92 1850.5 1118.92 1850.5 1170.42C1850.5 1219.92 1835.5 1231.92 1807.5 1231.92H1674.92C1657.42 1231.92 1615 1218.5 1615 1170.42Z" fill="black"></path>
+  <path d="M1299.92 1257.92C1299.92 1305.92 1256.92 1362.92 1182.92 1362.92C1104.92 1362.92 1063.92 1293.92 1063.92 1257.92C1063.92 1221.92 1045.92 1218.42 1028.92 1218.42C1014.59 1214.59 990.925 1222.32 994.925 1283.92C999.925 1360.92 1082.92 1439.92 1199.92 1439.92C1329.92 1439.92 1377.92 1303.92 1377.92 1257.92C1377.92 1231.92 1356.92 1218.42 1339.42 1218.42C1321.92 1218.42 1299.92 1227.92 1299.92 1257.92Z" fill="black"></path>
+</svg>
+        </div>
+        <span class="text-s font-semibold leading-6 mx-1">moondream</span>
+      </a>
+    </div>
+    <div class="hidden lg:flex lg:gap-x-12">
+      <a href="https://huggingface.co/spaces/vikhyatk/moondream2" class="text-sm font-semibold leading-6">Try it!</a>
+    </div>
+    <div class="flex flex-1 items-center justify-end gap-x-6">
+      <div class="flex items-center space-x-6 md:order-2 ml-4">
+        <a href="https://discord.com/invite/tRUdpjDQfH" class="text-white hover:text-gray-300">
+          <span class="sr-only">Discord</span>
+          <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-discord" viewBox="0 0 16 16">
+              <path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8 8 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032q.003.022.021.037a13.3 13.3 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019q.463-.63.818-1.329a.05.05 0 0 0-.01-.059l-.018-.011a9 9 0 0 1-1.248-.595.05.05 0 0 1-.02-.066l.015-.019q.127-.095.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.007q.121.1.248.195a.05.05 0 0 1-.004.085 8 8 0 0 1-1.249.594.05.05 0 0 0-.03.03.05.05 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.2 13.2 0 0 0 4.001-2.02.05.05 0 0 0 .021-.037c.334-3.451-.559-6.449-2.366-9.106a.03.03 0 0 0-.02-.019m-8.198 7.307c-.789 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612m5.316 0c-.788 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.451.73 1.438 1.613 0 .888-.631 1.612-1.438 1.612"></path>
+            </svg>
+          </svg>
+        </a>
+        <a href="https://github.com/vikhyat/moondream" class="text-white hover:text-gray-300">
+          <span class="sr-only">GitHub</span>
+          <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+          </svg>
+        </a>
+        <!-- Place this tag where you want the button to render. -->
+        <div class="hidden sm:block pt-2">
+          <span><template shadowrootmode="closed"><style type="text/css">body{margin:0}a{text-decoration:none;outline:0}.widget{display:inline-block;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;font-size:0;line-height:0;white-space:nowrap}.btn,.social-count{position:relative;display:inline-block;display:inline-flex;height:14px;padding:2px 5px;font-size:11px;font-weight:600;line-height:14px;vertical-align:bottom;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;background-repeat:repeat-x;background-position:-1px -1px;background-size:110% 110%;border:1px solid}.btn{border-radius:.25em}.btn:not(:last-child){border-radius:.25em 0 0 .25em}.social-count{border-left:0;border-radius:0 .25em .25em 0}.widget-lg .btn,.widget-lg .social-count{height:16px;padding:5px 10px;font-size:12px;line-height:16px}.octicon{display:inline-block;vertical-align:text-top;fill:currentColor;overflow:visible}.btn:focus-visible,.social-count:focus-visible{outline:2px solid #0969da;outline-offset:-2px}.btn{color:#24292f;background-color:#ebf0f4;border-color:#d0d7de;background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg'%3e%3clinearGradient id='o' x2='0' y2='1'%3e%3cstop stop-color='%23f6f8fa'/%3e%3cstop offset='90%25' stop-color='%23ebf0f4'/%3e%3c/linearGradient%3e%3crect width='100%25' height='100%25' fill='url(%23o)'/%3e%3c/svg%3e");background-image:-moz-linear-gradient(top, #f6f8fa, #ebf0f4 90%);background-image:linear-gradient(180deg, #f6f8fa, #ebf0f4 90%);filter:progid:DXImageTransform.Microsoft.Gradient(startColorstr='#FFF6F8FA', endColorstr='#FFEAEFF3')}:root .btn{filter:none}.btn:hover,.btn:focus{background-color:#e4e9ed;background-position:0 -0.5em;border-color:#d0d7de;background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg'%3e%3clinearGradient id='o' x2='0' y2='1'%3e%3cstop stop-color='%23eef1f4'/%3e%3cstop offset='90%25' stop-color='%23e4e9ed'/%3e%3c/linearGradient%3e%3crect width='100%25' height='100%25' fill='url(%23o)'/%3e%3c/svg%3e");background-image:-moz-linear-gradient(top, #eef1f4, #e4e9ed 90%);background-image:linear-gradient(180deg, #eef1f4, #e4e9ed 90%);filter:progid:DXImageTransform.Microsoft.Gradient(startColorstr='#FFEEF1F4', endColorstr='#FFE3E8EC')}:root .btn:hover,:root .btn:focus{filter:none}.btn:active{background-color:#e7ebef;border-color:#d0d7de;background-image:none;filter:none}.social-count{color:#24292f;background-color:#fff;border-color:#d0d7de}.social-count:hover,.social-count:focus{color:#0969da}.octicon-heart{color:#bf3989}</style><div class="widget"><a class="btn" href="https://github.com/vikhyat/moondream" rel="noopener" target="_blank" aria-label="Star buttons/github-buttons on GitHub"><svg viewBox="0 0 16 16" width="14" height="14" class="octicon octicon-mark-github" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>&nbsp;<span>
+            Star
+          </span></a><a class="social-count" href="https://github.com/vikhyat/moondream/stargazers" rel="noopener" target="_blank" aria-label="4551 stargazers on GitHub">4,551</a></div></template></span>
+        </div>
+      </div>
+    </div>
+    <div class="flex lg:hidden">
+      <button id="navbar-menu-open" type="button" class="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700">
+        <span class="sr-only">Open main menu</span>
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"></path>
+        </svg>
+      </button>
+    </div>
+  </nav>
+  <!-- Mobile menu, show/hide based on menu open state. -->
+  <div id="navbar-menu" class="lg:hidden hidden" role="dialog" aria-modal="true">
+    <!-- Background backdrop, show/hide based on slide-over state. -->
+    <div class="fixed inset-0 z-10"></div>
+    <div class="fixed inset-y-0 right-0 z-10 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+      <div class="flex items-center gap-x-6">
+        <a href="#" class="-m-1.5 p-1.5">
+          <span class="sr-only">moondream</span>
+          <div class="h-7">
+            <svg height="100%" viewBox="0 0 2348 2268" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="1191.92" cy="1191.92" r="1076" fill="black"></circle>
+  <circle cx="1191.92" cy="1191.92" r="984" fill="#BDC9D4"></circle>
+  <circle cx="1191.92" cy="1191.92" r="984" fill="#BDC9D4"></circle>
+  <circle cx="1191.92" cy="1191.92" r="984" fill="#BDC9D4"></circle>
+  <ellipse cx="1173.78" cy="1118.77" rx="984" ry="908.627" transform="rotate(-13.9283 1173.78 1118.77)" fill="#FBF9F3"></ellipse>
+  <path d="M770.425 1170.42C770.425 1096.92 720.925 1055.92 655.925 1055.92C597.925 1055.92 534.925 1118.92 534.925 1170.42C534.925 1219.92 549.925 1231.92 577.925 1231.92H710.5C728 1231.92 770.425 1218.5 770.425 1170.42Z" fill="black"></path>
+  <path d="M1615 1170.42C1615 1096.92 1664.5 1055.92 1729.5 1055.92C1787.5 1055.92 1850.5 1118.92 1850.5 1170.42C1850.5 1219.92 1835.5 1231.92 1807.5 1231.92H1674.92C1657.42 1231.92 1615 1218.5 1615 1170.42Z" fill="black"></path>
+  <path d="M1299.92 1257.92C1299.92 1305.92 1256.92 1362.92 1182.92 1362.92C1104.92 1362.92 1063.92 1293.92 1063.92 1257.92C1063.92 1221.92 1045.92 1218.42 1028.92 1218.42C1014.59 1214.59 990.925 1222.32 994.925 1283.92C999.925 1360.92 1082.92 1439.92 1199.92 1439.92C1329.92 1439.92 1377.92 1303.92 1377.92 1257.92C1377.92 1231.92 1356.92 1218.42 1339.42 1218.42C1321.92 1218.42 1299.92 1227.92 1299.92 1257.92Z" fill="black"></path>
+</svg>
+          </div>
+
+          <span class="text-s text-black font-semibold leading-6 mx-1">moondream</span>
+        </a>
+        <button id="navbar-menu-close" type="button" class="-m-2.5 rounded-md p-2.5 text-gray-700">
+          <span class="sr-only">Close menu</span>
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>`
+      </div>
+      <div class="mt-6 flow-root">
+        <div class="-my-6 divide-y divide-gray-500/10">
+          <div class="space-y-2 py-6">
+            <a href="https://huggingface.co/spaces/vikhyatk/moondream2" class="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+              Try it!
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+<div class="min-h-[40rem] text-white overflow-x-hidden relative" style="background: linear-gradient(to bottom, #2A1A4A, #120836);">
+  <div class="planet"></div>
+  <div id="stars"><div class="star" style="width: 1.11679px; height: 1.11679px; left: 68.6203%; top: 26.4021%; animation-delay: 2.47682s;"></div><div class="star" style="width: 1.22713px; height: 1.22713px; left: 86.4293%; top: 40.9097%; animation-delay: 3.02748s;"></div><div class="star" style="width: 2.32801px; height: 2.32801px; left: 79.2419%; top: 33.115%; animation-delay: 1.98367s;"></div><div class="star" style="width: 0.474197px; height: 0.474197px; left: 82.3964%; top: 4.55748%; animation-delay: 0.975114s;"></div><div class="star" style="width: 1.08535px; height: 1.08535px; left: 86.8907%; top: 98.3319%; animation-delay: 2.57648s;"></div><div class="star" style="width: 2.88665px; height: 2.88665px; left: 45.2084%; top: 92.2406%; animation-delay: 2.16654s;"></div><div class="star" style="width: 2.51937px; height: 2.51937px; left: 87.3813%; top: 52.4126%; animation-delay: 0.711274s;"></div><div class="star" style="width: 1.02861px; height: 1.02861px; left: 5.61747%; top: 28.9407%; animation-delay: 3.62878s;"></div><div class="star" style="width: 1.47995px; height: 1.47995px; left: 15.1395%; top: 24.3526%; animation-delay: 1.76235s;"></div><div class="star" style="width: 0.544163px; height: 0.544163px; left: 26.8241%; top: 4.30357%; animation-delay: 2.8519s;"></div><div class="star" style="width: 0.214852px; height: 0.214852px; left: 56.6895%; top: 22.1115%; animation-delay: 0.317402s;"></div><div class="star" style="width: 2.43679px; height: 2.43679px; left: 40.3594%; top: 21.8769%; animation-delay: 0.780727s;"></div><div class="star" style="width: 1.32163px; height: 1.32163px; left: 96.2396%; top: 71.4049%; animation-delay: 3.67954s;"></div><div class="star" style="width: 1.25459px; height: 1.25459px; left: 8.25515%; top: 61.8613%; animation-delay: 2.84241s;"></div><div class="star" style="width: 1.18575px; height: 1.18575px; left: 1.82258%; top: 74.6771%; animation-delay: 0.737691s;"></div><div class="star" style="width: 1.84728px; height: 1.84728px; left: 9.29594%; top: 91.3713%; animation-delay: 3.82329s;"></div><div class="star" style="width: 0.403716px; height: 0.403716px; left: 3.53402%; top: 34.8947%; animation-delay: 0.111111s;"></div><div class="star" style="width: 2.02762px; height: 2.02762px; left: 30.2898%; top: 50.6463%; animation-delay: 3.58885s;"></div><div class="star" style="width: 2.56596px; height: 2.56596px; left: 24.2526%; top: 17.4941%; animation-delay: 3.25547s;"></div><div class="star" style="width: 0.658545px; height: 0.658545px; left: 46.2593%; top: 46.3009%; animation-delay: 0.80121s;"></div><div class="star" style="width: 0.909919px; height: 0.909919px; left: 47.699%; top: 13.2294%; animation-delay: 3.00532s;"></div><div class="star" style="width: 2.35623px; height: 2.35623px; left: 40.466%; top: 12.3769%; animation-delay: 1.43279s;"></div><div class="star" style="width: 1.06795px; height: 1.06795px; left: 1.13366%; top: 83.8899%; animation-delay: 1.67594s;"></div><div class="star" style="width: 0.296656px; height: 0.296656px; left: 76.7944%; top: 36.2449%; animation-delay: 2.59181s;"></div><div class="star" style="width: 0.453816px; height: 0.453816px; left: 88.1757%; top: 88.8429%; animation-delay: 0.664369s;"></div><div class="star" style="width: 1.33489px; height: 1.33489px; left: 11.0521%; top: 56.6571%; animation-delay: 2.30186s;"></div><div class="star" style="width: 0.128104px; height: 0.128104px; left: 68.1752%; top: 94.9159%; animation-delay: 2.34112s;"></div><div class="star" style="width: 0.319865px; height: 0.319865px; left: 34.8252%; top: 16.7689%; animation-delay: 3.30026s;"></div><div class="star" style="width: 1.49598px; height: 1.49598px; left: 21.7529%; top: 51.8585%; animation-delay: 0.682194s;"></div><div class="star" style="width: 2.4661px; height: 2.4661px; left: 57.7738%; top: 78.8464%; animation-delay: 2.02377s;"></div><div class="star" style="width: 1.21748px; height: 1.21748px; left: 70.7833%; top: 94.4857%; animation-delay: 1.16081s;"></div><div class="star" style="width: 0.925582px; height: 0.925582px; left: 9.61641%; top: 49.6358%; animation-delay: 2.39074s;"></div><div class="star" style="width: 2.57188px; height: 2.57188px; left: 71.4064%; top: 59.4665%; animation-delay: 3.09134s;"></div><div class="star" style="width: 1.2946px; height: 1.2946px; left: 75.4269%; top: 33.9543%; animation-delay: 0.958967s;"></div><div class="star" style="width: 0.27304px; height: 0.27304px; left: 87.8093%; top: 82.5573%; animation-delay: 3.72546s;"></div><div class="star" style="width: 1.55025px; height: 1.55025px; left: 96.9687%; top: 80.6993%; animation-delay: 2.18365s;"></div><div class="star" style="width: 2.02799px; height: 2.02799px; left: 68.395%; top: 82.9222%; animation-delay: 3.08215s;"></div><div class="star" style="width: 1.19139px; height: 1.19139px; left: 2.92302%; top: 89.4511%; animation-delay: 1.1596s;"></div><div class="star" style="width: 0.527117px; height: 0.527117px; left: 7.19176%; top: 54.6541%; animation-delay: 1.70713s;"></div><div class="star" style="width: 0.0885314px; height: 0.0885314px; left: 93.9395%; top: 35.6993%; animation-delay: 0.587512s;"></div><div class="star" style="width: 0.341161px; height: 0.341161px; left: 95.819%; top: 72.299%; animation-delay: 0.570527s;"></div><div class="star" style="width: 2.36677px; height: 2.36677px; left: 21.4413%; top: 59.4713%; animation-delay: 3.81995s;"></div><div class="star" style="width: 0.58485px; height: 0.58485px; left: 83.7712%; top: 3.5895%; animation-delay: 0.427343s;"></div><div class="star" style="width: 1.93304px; height: 1.93304px; left: 55.4849%; top: 21.5271%; animation-delay: 1.11971s;"></div><div class="star" style="width: 2.43413px; height: 2.43413px; left: 55.737%; top: 92.6582%; animation-delay: 2.15765s;"></div><div class="star" style="width: 2.42009px; height: 2.42009px; left: 4.22868%; top: 48.4387%; animation-delay: 1.65977s;"></div><div class="star" style="width: 1.88247px; height: 1.88247px; left: 57.6993%; top: 55.4981%; animation-delay: 2.10218s;"></div><div class="star" style="width: 0.449194px; height: 0.449194px; left: 23.2422%; top: 15.0885%; animation-delay: 0.275917s;"></div><div class="star" style="width: 1.35977px; height: 1.35977px; left: 36.8656%; top: 64.7853%; animation-delay: 3.65282s;"></div><div class="star" style="width: 2.0486px; height: 2.0486px; left: 3.43402%; top: 39.5999%; animation-delay: 2.80035s;"></div><div class="star" style="width: 0.0630912px; height: 0.0630912px; left: 26.8092%; top: 18.38%; animation-delay: 2.48305s;"></div><div class="star" style="width: 1.15179px; height: 1.15179px; left: 61.7368%; top: 74.9839%; animation-delay: 0.532625s;"></div><div class="star" style="width: 0.82447px; height: 0.82447px; left: 81.9069%; top: 88.7406%; animation-delay: 0.574767s;"></div><div class="star" style="width: 2.15374px; height: 2.15374px; left: 21.2489%; top: 72.882%; animation-delay: 2.6759s;"></div><div class="star" style="width: 1.13832px; height: 1.13832px; left: 16.3704%; top: 35.1488%; animation-delay: 1.71722s;"></div><div class="star" style="width: 0.453243px; height: 0.453243px; left: 99.2417%; top: 68.3405%; animation-delay: 0.119619s;"></div><div class="star" style="width: 2.47193px; height: 2.47193px; left: 35.7891%; top: 9.00166%; animation-delay: 1.27651s;"></div><div class="star" style="width: 2.96072px; height: 2.96072px; left: 73.3406%; top: 96.5769%; animation-delay: 1.48165s;"></div><div class="star" style="width: 1.67869px; height: 1.67869px; left: 3.21929%; top: 87.3311%; animation-delay: 2.72342s;"></div><div class="star" style="width: 0.404142px; height: 0.404142px; left: 85.5233%; top: 63.7735%; animation-delay: 3.74267s;"></div><div class="star" style="width: 0.893597px; height: 0.893597px; left: 58.564%; top: 55.398%; animation-delay: 2.61934s;"></div><div class="star" style="width: 2.81221px; height: 2.81221px; left: 56.7943%; top: 20.979%; animation-delay: 2.21234s;"></div><div class="star" style="width: 1.45381px; height: 1.45381px; left: 22.3993%; top: 29.4003%; animation-delay: 2.23078s;"></div><div class="star" style="width: 0.23075px; height: 0.23075px; left: 55.447%; top: 60.295%; animation-delay: 0.448611s;"></div><div class="star" style="width: 0.85856px; height: 0.85856px; left: 62.7765%; top: 50.2921%; animation-delay: 1.17469s;"></div><div class="star" style="width: 2.87441px; height: 2.87441px; left: 86.104%; top: 14.7853%; animation-delay: 2.80134s;"></div><div class="star" style="width: 2.85573px; height: 2.85573px; left: 12.8977%; top: 35.5998%; animation-delay: 2.15928s;"></div><div class="star" style="width: 1.04109px; height: 1.04109px; left: 33.0463%; top: 71.08%; animation-delay: 2.54906s;"></div><div class="star" style="width: 0.15375px; height: 0.15375px; left: 69.3695%; top: 63.7816%; animation-delay: 0.818345s;"></div><div class="star" style="width: 1.77158px; height: 1.77158px; left: 71.3764%; top: 57.1522%; animation-delay: 0.05261s;"></div><div class="star" style="width: 1.31374px; height: 1.31374px; left: 18.5844%; top: 46.1426%; animation-delay: 0.096008s;"></div><div class="star" style="width: 0.436626px; height: 0.436626px; left: 65.2522%; top: 73.3406%; animation-delay: 2.67415s;"></div><div class="star" style="width: 1.0396px; height: 1.0396px; left: 24.6473%; top: 65.7035%; animation-delay: 3.28301s;"></div><div class="star" style="width: 0.617236px; height: 0.617236px; left: 47.7027%; top: 38.2211%; animation-delay: 1.05605s;"></div><div class="star" style="width: 2.47911px; height: 2.47911px; left: 14.8929%; top: 56.9241%; animation-delay: 3.72556s;"></div><div class="star" style="width: 2.95502px; height: 2.95502px; left: 56.8989%; top: 75.1467%; animation-delay: 2.925s;"></div><div class="star" style="width: 1.49317px; height: 1.49317px; left: 81.2447%; top: 39.9841%; animation-delay: 1.12925s;"></div><div class="star" style="width: 0.686535px; height: 0.686535px; left: 17.4767%; top: 56.6285%; animation-delay: 2.37541s;"></div><div class="star" style="width: 0.953648px; height: 0.953648px; left: 34.7444%; top: 48.5746%; animation-delay: 3.21576s;"></div><div class="star" style="width: 2.54816px; height: 2.54816px; left: 50.7591%; top: 3.30493%; animation-delay: 1.432s;"></div><div class="star" style="width: 1.41889px; height: 1.41889px; left: 57.9232%; top: 30.3199%; animation-delay: 1.63083s;"></div><div class="star" style="width: 0.0939317px; height: 0.0939317px; left: 47.7307%; top: 86.8863%; animation-delay: 0.628266s;"></div><div class="star" style="width: 2.11819px; height: 2.11819px; left: 97.3057%; top: 39.085%; animation-delay: 3.49156s;"></div><div class="star" style="width: 0.352706px; height: 0.352706px; left: 26.6281%; top: 79.1075%; animation-delay: 3.86851s;"></div><div class="star" style="width: 0.213535px; height: 0.213535px; left: 35.5155%; top: 9.87906%; animation-delay: 0.998051s;"></div><div class="star" style="width: 0.403256px; height: 0.403256px; left: 46.9307%; top: 62.2083%; animation-delay: 0.148427s;"></div><div class="star" style="width: 1.97651px; height: 1.97651px; left: 63.1984%; top: 94.2779%; animation-delay: 3.29938s;"></div><div class="star" style="width: 0.587958px; height: 0.587958px; left: 77.6929%; top: 51.3531%; animation-delay: 2.89166s;"></div><div class="star" style="width: 2.15501px; height: 2.15501px; left: 66.4218%; top: 60.2177%; animation-delay: 1.47839s;"></div><div class="star" style="width: 1.93644px; height: 1.93644px; left: 88.9951%; top: 62.912%; animation-delay: 1.95496s;"></div><div class="star" style="width: 0.986829px; height: 0.986829px; left: 90.7423%; top: 1.52166%; animation-delay: 0.762256s;"></div><div class="star" style="width: 1.82964px; height: 1.82964px; left: 31.1929%; top: 63.7005%; animation-delay: 3.72504s;"></div><div class="star" style="width: 1.48421px; height: 1.48421px; left: 50.0843%; top: 9.9112%; animation-delay: 2.51255s;"></div><div class="star" style="width: 0.399936px; height: 0.399936px; left: 81.0205%; top: 24.986%; animation-delay: 0.646605s;"></div><div class="star" style="width: 2.33363px; height: 2.33363px; left: 58.5975%; top: 91.5241%; animation-delay: 0.375926s;"></div><div class="star" style="width: 2.60983px; height: 2.60983px; left: 82.7542%; top: 81.6744%; animation-delay: 2.07524s;"></div><div class="star" style="width: 0.396598px; height: 0.396598px; left: 60.9516%; top: 28.111%; animation-delay: 1.78626s;"></div><div class="star" style="width: 1.29445px; height: 1.29445px; left: 12.1521%; top: 69.1873%; animation-delay: 2.5019s;"></div><div class="star" style="width: 2.09684px; height: 2.09684px; left: 97.8092%; top: 36.3635%; animation-delay: 2.42893s;"></div><div class="star" style="width: 0.0852558px; height: 0.0852558px; left: 15.8666%; top: 36.1335%; animation-delay: 3.39459s;"></div></div>
+
+  <div class="relative isolate overflow-hidden pt-14">
+    <div class="absolute inset-x-0 -top-40 -z-10 transform-gpu  blur-3xl sm:-top-80" aria-hidden="true">
+      <div class="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" style="clip-path: polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)">
+      </div>
+    </div>
+    <div class="mx-auto max-w-2xl py-28 sm:py-36 lg:py-40">
+      <div class="hidden sm:mb-8 sm:flex sm:justify-center"></div>
+      <div class="text-center">
+        <h1 class="text-4xl  font-display font-bold tracking-tight text-white sm:text-6xl">
+          Vision AI For Devs.
+        </h1>
+        <p class="mt-6 px-4 sm:px-0 text-lg leading-8 text-gray-300">
+          Build next-level AI Vision apps with moondream, the tiny open source Vision Language Model (VLM) that's runs everywhere and kicks ass.
+        </p>
+        <div class="mt-10 flex items-center justify-center gap-x-6">
+          <a href="https://github.com/vikhyat/moondream" class="rounded-md bg-indigo-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
+            Get started
+          </a>
+          <a href="https://huggingface.co/spaces/vikhyatk/moondream2" class="text-sm font-semibold leading-6 text-white">
+            Try it out <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Generate stars
+    const starsContainer = document.getElementById('stars');
+    for (let i = 0; i < 100; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.style.width = `${Math.random() * 3}px`;
+        star.style.height = star.style.width;
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.top = `${Math.random() * 100}%`;
+        star.style.animationDelay = `${Math.random() * 4}s`;
+        starsContainer.appendChild(star);
+    }
+  </script>
+</div>
+<div class="bg-dark-bg pb-24 pt-8 sm:pb-32 sm:pt-10">
+  <div class="mx-auto max-w-7xl px-6 lg:px-8">
+    <h2 class="text-center text-lg font-semibold leading-8 text-white">
+      Trusted by the world’s most innovative teams
+    </h2>
+    <div class="mx-auto mt-10 grid max-w-lg grid-cols-2 gap-x-8 gap-y-10 sm:max-w-4xl sm:grid-cols-3 sm:gap-x-10 xl:mx-0 xl:max-w-none xl:grid-cols-4">
+      <div class="h-12 flex items-center justify-center sm:block">
+        <svg class="m-auto" width="108" height="28" viewBox="0 0 89 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M52.308 3.07812H57.8465V4.92428H56.0003V6.77043H54.1541V10.4627H57.8465V12.3089H54.1541V25.232H52.308V27.0781H46.7695V25.232H48.6157V12.3089H46.7695V10.4627H48.6157V6.77043H50.4618V4.92428H52.308V3.07812Z" fill="#fff">
+  </path>
+  <path d="M79.3849 23.3858H81.2311V25.232H83.0772V27.0781H88.6157V25.232H86.7695V23.3858H84.9234V4.92428H79.3849V23.3858Z" fill="#fff">
+  </path>
+  <path d="M57.8465 14.155H59.6926V12.3089H61.5388V10.4627H70.7695V12.3089H74.4618V23.3858H76.308V25.232H78.1541V27.0781H72.6157V25.232H70.7695V23.3858H68.9234V14.155H67.0772V12.3089H65.2311V14.155H63.3849V23.3858H65.2311V25.232H67.0772V27.0781H61.5388V25.232H59.6926V23.3858H57.8465V14.155Z" fill="#fff">
+  </path>
+  <path d="M67.0772 25.232V23.3858H68.9234V25.232H67.0772Z" fill="currentColor"></path>
+  <rect opacity="0.22" x="7.38477" y="29.5391" width="2.46154" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.85" x="2.46094" y="19.6914" width="12.3077" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect x="4.92383" y="17.2305" width="9.84615" height="2.46154" fill="#5F4CD9"></rect>
+  <rect opacity="0.4" x="7.38477" y="27.0781" width="4.92308" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.7" y="22.1562" width="14.7692" height="2.46154" fill="#5F4CD9"></rect>
+  <rect opacity="0.5" x="7.38477" y="24.6133" width="7.38462" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.22" x="7.38477" y="12.3086" width="2.46154" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.85" x="2.46094" y="2.46094" width="12.3077" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect x="4.92383" width="9.84615" height="2.46154" fill="#5F4CD9"></rect>
+  <rect opacity="0.4" x="7.38477" y="9.84375" width="4.92308" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.7" y="4.92188" width="14.7692" height="2.46154" fill="#5F4CD9"></rect>
+  <rect opacity="0.5" x="7.38477" y="7.38281" width="7.38462" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.22" x="24.6152" y="29.5391" width="2.46154" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.85" x="19.6914" y="19.6914" width="12.3077" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect x="22.1543" y="17.2305" width="9.84615" height="2.46154" fill="#5F4CD9"></rect>
+  <rect opacity="0.4" x="24.6152" y="27.0781" width="4.92308" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.7" x="17.2305" y="22.1562" width="14.7692" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.5" x="24.6152" y="24.6133" width="7.38462" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.22" x="24.6152" y="12.3086" width="2.46154" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.85" x="19.6914" y="2.46094" width="12.3077" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect x="22.1543" width="9.84615" height="2.46154" fill="#5F4CD9"></rect>
+  <rect opacity="0.4" x="24.6152" y="9.84375" width="4.92308" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.7" x="17.2305" y="4.92188" width="14.7692" height="2.46154" fill="#5F4CD9">
+  </rect>
+  <rect opacity="0.5" x="24.6152" y="7.38281" width="7.38462" height="2.46154" fill="#5F4CD9">
+  </rect>
+</svg>
+      </div>
+      <div class="h-12 flex items-center justify-center sm:block">
+        <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" version="1.1" class="m-auto" viewBox="0 0 115 34" width="118" height="28">
+  <style>
+    .cls-1 {
+      fill-rule: evenodd;
+    }
+
+    .cls-1, .cls-2, .cls-3 {
+      fill: white;
+      stroke-width: 0px;
+    }
+  </style>
+  <path class="cls-3" d="M39.7,24c.6.6,1.5,1.1,2.5,1.5,1.1.4,2.2.6,3.5.6s3.1-.3,3.9-1,1.3-1.6,1.3-2.7-.2-1.2-.5-1.7c-.3-.5-.9-.9-1.7-1.3-.8-.4-1.9-.8-3.4-1.3-1.7-.5-3-1-4-1.6-1-.5-1.8-1.2-2.2-1.9-.5-.7-.7-1.6-.7-2.7,0-1.7.7-3.1,2-4.1,1.3-1,3.2-1.6,5.5-1.6s3,.2,4.2.6c1.2.4,2.1.9,2.7,1.5l-1.4,2c-.6-.5-1.4-1-2.3-1.3-1-.4-2-.5-3.3-.5s-2.7.3-3.6.9c-.9.6-1.4,1.4-1.4,2.5s.2,1.1.5,1.5c.4.4.9.8,1.7,1.2.8.4,1.9.8,3.4,1.2,1.8.5,3.2,1.1,4.2,1.7,1,.6,1.7,1.3,2.2,2.1.4.8.6,1.7.6,2.8s-.3,2.2-.9,3.1c-.6.9-1.4,1.6-2.6,2.1-1.1.5-2.5.8-4.2.8s-3.1-.2-4.4-.7c-1.3-.5-2.3-1.1-3-1.8l1.4-1.9ZM57,13.5h2.3v14.5h-2.3v-14.5ZM58.2,10.8c-.5,0-.9-.2-1.2-.5-.3-.3-.5-.7-.5-1.2s.2-.8.5-1.1c.3-.3.7-.5,1.2-.5s.8.2,1.1.5c.3.3.5.7.5,1.1s-.2.9-.5,1.2c-.3.3-.7.5-1.1.5ZM66.4,21.8c.2,1.4.8,2.5,1.7,3.2.9.8,2,1.1,3.4,1.1s1.8-.1,2.6-.5c.9-.3,1.7-.7,2.4-1.3l1,1.9c-1.7,1.3-3.8,2-6,2s-3.1-.4-4.2-1c-1.1-.7-1.9-1.6-2.4-2.8-.5-1.1-.8-2.4-.8-3.8s.3-2.8.8-3.9c.6-1.2,1.4-2.1,2.4-2.7,1.1-.7,2.3-1,3.7-1s2.6.3,3.6,1c1,.6,1.8,1.5,2.3,2.6.6,1.1.8,2.4.8,3.8v1.3h-11.4ZM75.3,19.7c0-.8-.3-1.6-.7-2.2-.4-.7-.9-1.2-1.6-1.6-.6-.4-1.3-.6-2.1-.6-1.2,0-2.2.4-3,1.2-.8.8-1.4,1.9-1.6,3.1h8.9ZM94.9,13.5h-2.5l-4.8,11.9-4.7-11.9h-2.5l5.8,14.5h2.5l6-14.5ZM99.9,21.8c.2,1.4.8,2.5,1.7,3.2.9.8,2,1.1,3.4,1.1s1.8-.1,2.6-.5c.9-.3,1.7-.7,2.4-1.3l1,1.9c-1.7,1.3-3.8,2-6,2s-3.1-.4-4.2-1c-1.1-.7-1.9-1.6-2.4-2.8-.5-1.1-.8-2.4-.8-3.8s.3-2.8.8-3.9c.6-1.2,1.4-2.1,2.4-2.7,1.1-.7,2.3-1,3.7-1s2.6.3,3.6,1c1,.6,1.8,1.5,2.3,2.6.6,1.1.8,2.4.8,3.8v1.3h-11.4ZM108.8,19.7c0-.8-.3-1.6-.7-2.2-.4-.7-.9-1.2-1.6-1.6-.6-.4-1.3-.6-2.1-.6-1.2,0-2.2.4-3,1.2-.8.8-1.4,1.9-1.6,3.1h8.9Z">
+  </path>
+  <g>
+    <path class="cls-1" d="M16,33c8.8,0,16-7.2,16-16S24.8,1,16,1,0,8.2,0,17s7.2,16,16,16ZM16,30.9c7.7,0,13.9-6.2,13.9-13.9S23.7,3.1,16,3.1,2.1,9.3,2.1,17s6.2,13.9,13.9,13.9Z">
+    </path>
+    <path class="cls-2" d="M16,5.8c-6.3,0-11.4,5.1-11.4,11.4s0,.3,0,.4h22.8c0-.1,0-.3,0-.4,0-6.3-5.1-11.4-11.4-11.4Z">
+    </path>
+    <path class="cls-2" d="M4.8,19.3c.1.6.3,1.2.5,1.8h21.3c.2-.6.4-1.2.5-1.8H4.8Z"></path>
+    <path class="cls-2" d="M7.5,24.7c-.5-.6-.9-1.2-1.3-1.8h19.6c-.4.6-.8,1.2-1.3,1.8H7.5Z"></path>
+    <path class="cls-2" d="M9.5,26.5c1.8,1.3,4.1,2,6.5,2s4.7-.8,6.5-2h-13Z"></path>
+  </g>
+</svg>
+      </div>
+      <div class="h-12 flex items-center justify-center sm:block">
+        <svg width="132" height="42" viewBox="0 0 189 61" fill="none" class="m-auto" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <rect width="61" height="61" rx="16" fill="url(#pattern0_430_830)"></rect>
+  <path d="M81.7246 37H75.5234V22.6055H81.7246C82.6165 22.6185 83.3587 22.7227 83.9512 22.918C84.9603 23.25 85.7773 23.8587 86.4023 24.7441C86.9036 25.4603 87.2454 26.235 87.4277 27.0684C87.61 27.9017 87.7012 28.696 87.7012 29.4512C87.7012 31.3652 87.3171 32.9863 86.5488 34.3145C85.5072 36.1048 83.8991 37 81.7246 37ZM83.9609 26.2773C83.4987 25.4961 82.584 25.1055 81.2168 25.1055H78.4434V34.5H81.2168C82.6361 34.5 83.6257 33.8001 84.1855 32.4004C84.4915 31.6322 84.6445 30.7174 84.6445 29.6562C84.6445 28.1914 84.4167 27.0651 83.9609 26.2773ZM95.1035 28.9238C93.9837 28.9238 93.2318 29.2884 92.8477 30.0176C92.6328 30.4277 92.5254 31.0592 92.5254 31.9121V37H89.7227V26.3555H92.3789V28.2109C92.8086 27.5013 93.1829 27.0163 93.502 26.7559C94.0228 26.3197 94.6999 26.1016 95.5332 26.1016C95.5853 26.1016 95.6276 26.1048 95.6602 26.1113C95.6992 26.1113 95.7806 26.1146 95.9043 26.1211V28.9727C95.7285 28.9531 95.5723 28.9401 95.4355 28.9336C95.2988 28.9271 95.1882 28.9238 95.1035 28.9238ZM97.9453 27.5078C98.681 26.5703 99.944 26.1016 101.734 26.1016C102.9 26.1016 103.935 26.3327 104.84 26.7949C105.745 27.2572 106.197 28.1296 106.197 29.4121V34.2949C106.197 34.6335 106.204 35.0436 106.217 35.5254C106.236 35.89 106.292 36.1374 106.383 36.2676C106.474 36.3978 106.611 36.5052 106.793 36.5898V37H103.766C103.681 36.7852 103.622 36.5833 103.59 36.3945C103.557 36.2057 103.531 35.9909 103.512 35.75C103.128 36.1667 102.685 36.5215 102.184 36.8145C101.585 37.1595 100.908 37.332 100.152 37.332C99.1888 37.332 98.3913 37.0586 97.7598 36.5117C97.1348 35.9583 96.8223 35.1771 96.8223 34.168C96.8223 32.8594 97.3268 31.9121 98.3359 31.3262C98.8893 31.0072 99.7031 30.7793 100.777 30.6426L101.725 30.5254C102.239 30.4603 102.607 30.3789 102.828 30.2812C103.225 30.112 103.424 29.8483 103.424 29.4902C103.424 29.054 103.271 28.7546 102.965 28.5918C102.665 28.4225 102.223 28.3379 101.637 28.3379C100.979 28.3379 100.514 28.5007 100.24 28.8262C100.045 29.0671 99.9147 29.3926 99.8496 29.8027H97.1641C97.2227 28.8717 97.4831 28.1068 97.9453 27.5078ZM100.016 34.9883C100.276 35.2031 100.595 35.3105 100.973 35.3105C101.572 35.3105 102.122 35.1348 102.623 34.7832C103.131 34.4316 103.395 33.7904 103.414 32.8594V31.8242C103.238 31.9349 103.059 32.026 102.877 32.0977C102.701 32.1628 102.457 32.2246 102.145 32.2832L101.52 32.4004C100.934 32.5046 100.514 32.6315 100.26 32.7812C99.8301 33.0352 99.6152 33.429 99.6152 33.9629C99.6152 34.4382 99.7487 34.7799 100.016 34.9883ZM116.754 37L115.084 29.2461L113.395 37H110.504L107.516 26.3555H110.504L112.164 33.9922L113.697 26.3555H116.52L118.141 34.0215L119.801 26.3555H122.701L119.615 37H116.754ZM134.928 22.6055V25.1543H130.621V37H127.594V25.1543H123.268V22.6055H134.928ZM146.09 30.75V37H143.248V30.5254C143.248 29.9525 143.15 29.4902 142.955 29.1387C142.701 28.6439 142.219 28.3965 141.51 28.3965C140.774 28.3965 140.214 28.6439 139.83 29.1387C139.452 29.627 139.264 30.3268 139.264 31.2383V37H136.49V22.6543H139.264V27.7422C139.667 27.1237 140.133 26.694 140.66 26.4531C141.194 26.2057 141.754 26.082 142.34 26.082C142.997 26.082 143.593 26.196 144.127 26.4238C144.667 26.6517 145.11 27 145.455 27.4688C145.748 27.8659 145.927 28.276 145.992 28.6992C146.057 29.1159 146.09 29.7995 146.09 30.75ZM151.559 26.3555V37H148.736V26.3555H151.559ZM151.559 22.5176V25.0859H148.736V22.5176H151.559ZM159.273 28.416C158.329 28.416 157.682 28.8164 157.33 29.6172C157.148 30.0404 157.057 30.5807 157.057 31.2383V37H154.283V26.375H156.969V27.9277C157.327 27.3809 157.665 26.987 157.984 26.7461C158.557 26.3164 159.283 26.1016 160.162 26.1016C161.262 26.1016 162.161 26.3913 162.857 26.9707C163.561 27.5436 163.912 28.4974 163.912 29.832V37H161.061V30.5254C161.061 29.9655 160.986 29.5358 160.836 29.2363C160.562 28.6895 160.042 28.416 159.273 28.416ZM169.498 38.8652C169.798 39.1191 170.302 39.2461 171.012 39.2461C172.014 39.2461 172.685 38.9108 173.023 38.2402C173.245 37.8105 173.355 37.0879 173.355 36.0723V35.3887C173.089 35.8444 172.802 36.1862 172.496 36.4141C171.943 36.8372 171.223 37.0488 170.338 37.0488C168.971 37.0488 167.877 36.5703 167.057 35.6133C166.243 34.6497 165.836 33.3477 165.836 31.707C165.836 30.125 166.23 28.7969 167.018 27.7227C167.805 26.6419 168.922 26.1016 170.367 26.1016C170.901 26.1016 171.367 26.1829 171.764 26.3457C172.441 26.6257 172.988 27.14 173.404 27.8887V26.3555H176.109V36.4531C176.109 37.8268 175.878 38.862 175.416 39.5586C174.622 40.7565 173.098 41.3555 170.846 41.3555C169.485 41.3555 168.375 41.0885 167.516 40.5547C166.656 40.0208 166.181 39.2233 166.09 38.1621H169.117C169.195 38.4876 169.322 38.722 169.498 38.8652ZM169.029 33.3672C169.407 34.2656 170.084 34.7148 171.061 34.7148C171.712 34.7148 172.262 34.4707 172.711 33.9824C173.16 33.4876 173.385 32.7031 173.385 31.6289C173.385 30.6198 173.17 29.8516 172.74 29.3242C172.317 28.7969 171.747 28.5332 171.031 28.5332C170.055 28.5332 169.381 28.9922 169.01 29.9102C168.814 30.3984 168.717 31.0007 168.717 31.7168C168.717 32.3353 168.821 32.8854 169.029 33.3672ZM186.051 26.8438C186.884 27.3776 187.363 28.2956 187.486 29.5977H184.703C184.664 29.2396 184.563 28.9564 184.4 28.748C184.094 28.3704 183.574 28.1816 182.838 28.1816C182.232 28.1816 181.799 28.276 181.539 28.4648C181.285 28.6536 181.158 28.875 181.158 29.1289C181.158 29.4479 181.295 29.679 181.568 29.8223C181.842 29.972 182.809 30.2292 184.469 30.5938C185.576 30.8542 186.406 31.248 186.959 31.7754C187.506 32.3092 187.779 32.9766 187.779 33.7773C187.779 34.832 187.385 35.6947 186.598 36.3652C185.816 37.0293 184.605 37.3613 182.965 37.3613C181.292 37.3613 180.055 37.0098 179.254 36.3066C178.46 35.597 178.062 34.6953 178.062 33.6016H180.885C180.943 34.0964 181.07 34.4479 181.266 34.6562C181.611 35.0273 182.249 35.2129 183.18 35.2129C183.727 35.2129 184.16 35.1315 184.479 34.9688C184.804 34.806 184.967 34.5618 184.967 34.2363C184.967 33.9238 184.837 33.6862 184.576 33.5234C184.316 33.3607 183.349 33.0807 181.676 32.6836C180.471 32.3841 179.622 32.0098 179.127 31.5605C178.632 31.1178 178.385 30.4798 178.385 29.6465C178.385 28.6634 178.769 27.8203 179.537 27.1172C180.312 26.4076 181.399 26.0527 182.799 26.0527C184.127 26.0527 185.211 26.3164 186.051 26.8438Z" fill="white"></path>
+  <defs>
+    <pattern id="pattern0_430_830" patternContentUnits="objectBoundingBox" width="1" height="1">
+      <use xlink:href="#image0_430_830" transform="scale(0.00282486)"></use>
+    </pattern>
+    <image id="image0_430_830" width="354" height="354" xlink:href="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEA2ADYAAD/4QCsRXhpZgAATU0AKgAAAAgABgESAAMAAAABAAEAAAEaAAUAAAABAAAAVgEbAAUAAAABAAAAXgEoAAMAAAABAAIAAAEyAAIAAAAUAAAAZodpAAQAAAABAAAAegAAAAAAAADYAAAAAQAAANgAAAABMjAyNDowNzowMSAxMzoxNDoyMgAAA6ABAAMAAAABAAEAAKACAAMAAAABAWIAAKADAAMAAAABAWIAAAAAAAD/4QtCaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLwA8P3hwYWNrZXQgYmVnaW49Iu+7vyIgaWQ9Ilc1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCI/PiA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA1LjUuMCI+IDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+IDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgcGhvdG9zaG9wOkNvbG9yTW9kZT0iMyIgcGhvdG9zaG9wOklDQ1Byb2ZpbGU9InNSR0IgSUVDNjE5NjYtMi4xIiB4bXA6TW9kaWZ5RGF0ZT0iMjAyNC0wNy0wMVQxMzoxNDoyMi0wNzowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAyNC0wNy0wMVQxMzoxNDoyMi0wNzowMCI+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249InByb2R1Y2VkIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZmZpbml0eSBQaG90byAyIDIuNS4zIiBzdEV2dDp3aGVuPSIyMDI0LTA3LTAxVDEzOjE0OjIyLTA3OjAwIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8P3hwYWNrZXQgZW5kPSJ3Ij8+/+0ALFBob3Rvc2hvcCAzLjAAOEJJTQQlAAAAAAAQ1B2M2Y8AsgTpgAmY7PhCfv/iAmRJQ0NfUFJPRklMRQABAQAAAlRsY21zBDAAAG1udHJSR0IgWFlaIAfoAAcAAQAUAAwAF2Fjc3BBUFBMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD21gABAAAAANMtbGNtcwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC2Rlc2MAAAEIAAAAPmNwcnQAAAFIAAAATHd0cHQAAAGUAAAAFGNoYWQAAAGoAAAALHJYWVoAAAHUAAAAFGJYWVoAAAHoAAAAFGdYWVoAAAH8AAAAFHJUUkMAAAIQAAAAIGdUUkMAAAIQAAAAIGJUUkMAAAIQAAAAIGNocm0AAAIwAAAAJG1sdWMAAAAAAAAAAQAAAAxlblVTAAAAIgAAABwAcwBSAEcAQgAgAEkARQBDADYAMQA5ADYANgAtADIALgAxAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAADAAAAAcAE4AbwAgAGMAbwBwAHkAcgBpAGcAaAB0ACwAIAB1AHMAZQAgAGYAcgBlAGUAbAB5WFlaIAAAAAAAAPbWAAEAAAAA0y1zZjMyAAAAAAABDEIAAAXe///zJQAAB5MAAP2Q///7of//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"></image>
+  </defs>
+</svg>
+      </div>
+      <div class="h-12 flex items-center justify-center sm:block">
+        <svg width="132" height="38" fill="none" viewBox="0 0 132 24" class="m-auto">
+  <g fill="#fff">
+    <path fill-rule="evenodd" d="m0 7.2c0-2.23652 0-3.35478.365378-4.23688.487171-1.17614 1.421602-2.110571 2.597742-2.597742.8821-.365378 2.00036-.365378 4.23688-.365378h9.6c2.2365 0 3.3548 0 4.2369.365378 1.1761.487171 2.1106 1.421602 2.5977 2.597742.3654.8821.3654 2.00036.3654 4.23688v9.6c0 2.2365 0 3.3548-.3654 4.2369-.4871 1.1761-1.4216 2.1106-2.5977 2.5977-.8821.3654-2.0004.3654-4.2369.3654h-9.6c-2.23652 0-3.35478 0-4.23688-.3654-1.17614-.4871-2.110571-1.4216-2.597742-2.5977-.365378-.8821-.365378-2.0004-.365378-4.2369zm7.032 1.21196c-.91458 0-1.656-.74141-1.656-1.65598s.74142-1.65598 1.656-1.65598h7.452c2.5913 0 4.692 2.10065 4.692 4.69194 0 2.59126-2.1007 4.69196-4.692 4.69196h-5.796v2.7599c0 .9146-.74141 1.656-1.656 1.656-.91458 0-1.656-.7414-1.656-1.656v-4.4159c0-.9146.74142-1.656 1.656-1.656h7.452c.7622 0 1.38-.6178 1.38-1.37996 0-.76215-.6178-1.37998-1.38-1.37998zm7.452 7.45194h-.6861l2.5511 2.5511c.2997.2996.7137.485 1.171.485.9146 0 1.656-.7414 1.656-1.656 0-.4573-.1854-.8713-.485-1.171l-1.077-1.0769c-.914.5509-1.985.8678-3.13.8678z" clip-rule="evenodd">
+    </path>
+    <path fill-rule="evenodd" d="m30.6 18.9972h3.0423v-4.462h2.8394c2.9408 0 4.969-2.0282 4.969-4.8676 0-2.83943-2.0282-4.8676-4.969-4.8676h-5.8817zm3.0423-7.2v-4.25917h2.5352c1.4197 0 2.2309.81126 2.2309 2.12957 0 1.3183-.8112 2.1296-2.2309 2.1296z" clip-rule="evenodd">
+    </path>
+    <path d="m45.5934 18.9972h-2.8395v-14.1972h2.8395v4.56338h.1014c.7099-.81127 1.5211-1.31831 2.738-1.31831 2.3324 0 3.9549 1.62253 3.9549 4.36053v6.5916h-2.8394v-6.1859c0-1.4198-.7098-2.231-1.9267-2.231s-2.0282.9127-2.0282 2.231z">
+    </path>
+    <path d="m70.0313 18.9972h2.0281v-2.6367h-1.5211c-.6084 0-1.0141-.4056-1.0141-1.014v-4.462h2.5352v-2.63663h-2.5352v-2.83943h-2.4338l-.4056 2.83943h-1.724v2.63663h1.724v4.969c0 2.0282 1.1155 3.1437 3.3465 3.1437z">
+    </path>
+    <g fill-rule="evenodd" clip-rule="evenodd">
+      <path d="m73.0838 13.6225c0 3.5493 2.0282 5.5775 5.2733 5.5775 3.245 0 5.2732-2.0282 5.2732-5.5775s-2.0282-5.57742-5.2732-5.57742c-3.2451 0-5.2733 2.02812-5.2733 5.57742zm7.7071 0c0 2.1296-1.1155 3.0423-2.4338 3.0423-1.3184 0-2.4338-.9127-2.4338-3.0423 0-2.1295 1.1154-3.0422 2.4338-3.0422 1.3183 0 2.4338.9127 2.4338 3.0422z">
+      </path>
+      <path d="m97.7228 19.2c-3.245 0-5.2732-2.0282-5.2732-5.5775s2.0282-5.57742 5.2732-5.57742c3.2452 0 5.2732 2.02812 5.2732 5.57742s-2.028 5.5775-5.2732 5.5775zm0-2.5352c1.3184 0 2.4342-.9127 2.4342-3.0423 0-2.1295-1.1158-3.0422-2.4342-3.0422-1.3183 0-2.4337.9127-2.4337 3.0422 0 2.1296 1.1154 3.0423 2.4337 3.0423z">
+      </path>
+      <path d="m109.483 19.2c-3.245 0-5.273-2.0282-5.273-5.5775s2.028-5.57742 5.273-5.57742 5.273 2.02812 5.273 5.57742-2.028 5.5775-5.273 5.5775zm0-2.5352c1.318 0 2.434-.9127 2.434-3.0423 0-2.1295-1.116-3.0422-2.434-3.0422s-2.434.9127-2.434 3.0422c0 2.1296 1.116 3.0423 2.434 3.0423z">
+      </path>
+    </g>
+    <path d="m116.274 18.9972h2.84v-6.2873c0-1.4198.811-2.1296 1.724-2.1296 1.014 0 1.825.6084 1.825 2.1296v6.2873h2.839v-6.2873c0-1.4198.812-2.1296 1.724-2.1296 1.014 0 1.826.6084 1.826 2.1296v6.2873h2.839v-6.693c0-2.63659-1.622-4.25912-3.955-4.25912-1.379 0-2.738.73014-3.245 1.72394h-.101c-.528-1.05465-1.663-1.72394-2.941-1.72394-1.116 0-1.927.50704-2.535 1.41971h-.102l-.304-1.2169h-2.434z">
+    </path>
+    <path d="m87.9877 18.9972h-2.8394v-10.74929h2.4337l.3043 1.2169h.1014c.6084-.91268 1.5211-1.2169 2.5352-1.2169h1.3183v2.73799h-1.1155c-1.7239 0-2.738 1.0141-2.738 2.6367z">
+    </path>
+    <path fill-rule="evenodd" d="m59.0751 19.2c-3.245 0-5.2732-2.0282-5.2732-5.5775s2.0282-5.57742 5.2732-5.57742c3.2451 0 5.2733 2.02812 5.2733 5.57742s-2.0282 5.5775-5.2733 5.5775zm0-2.5352c1.3184 0 2.4338-.9127 2.4338-3.0423 0-2.1295-1.1154-3.0422-2.4338-3.0422-1.3183 0-2.4338.9127-2.4338 3.0422 0 2.1296 1.1155 3.0423 2.4338 3.0423z" clip-rule="evenodd">
+    </path>
+  </g>
+</svg>
+      </div>
+      <div class="h-12 flex items-center justify-center sm:block">
+        <svg class="m-auto" width="132" height="38" viewBox="0 0 217 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M100.023 36V12.7273H109.205C110.97 12.7273 112.473 13.0644 113.716 13.7386C114.958 14.4053 115.905 15.3333 116.557 16.5227C117.216 17.7045 117.545 19.0682 117.545 20.6136C117.545 22.1591 117.212 23.5227 116.545 24.7045C115.879 25.8864 114.913 26.8068 113.648 27.4659C112.39 28.125 110.867 28.4545 109.08 28.4545H103.227V24.5114H108.284C109.231 24.5114 110.011 24.3485 110.625 24.0227C111.246 23.6894 111.708 23.2311 112.011 22.6477C112.322 22.0568 112.477 21.3788 112.477 20.6136C112.477 19.8409 112.322 19.1667 112.011 18.5909C111.708 18.0076 111.246 17.5568 110.625 17.2386C110.004 16.9129 109.216 16.75 108.261 16.75H104.943V36H100.023ZM120.651 36V18.5455H125.491V36H120.651ZM123.082 16.2955C122.363 16.2955 121.745 16.0568 121.23 15.5795C120.723 15.0947 120.469 14.5152 120.469 13.8409C120.469 13.1742 120.723 12.6023 121.23 12.125C121.745 11.6402 122.363 11.3977 123.082 11.3977C123.802 11.3977 124.416 11.6402 124.923 12.125C125.438 12.6023 125.696 13.1742 125.696 13.8409C125.696 14.5152 125.438 15.0947 124.923 15.5795C124.416 16.0568 123.802 16.2955 123.082 16.2955ZM129.369 42.5455V18.5455H134.142V21.4773H134.358C134.57 21.0076 134.877 20.5303 135.278 20.0455C135.688 19.553 136.218 19.1439 136.869 18.8182C137.528 18.4848 138.347 18.3182 139.324 18.3182C140.597 18.3182 141.771 18.6515 142.847 19.3182C143.922 19.9773 144.782 20.9735 145.426 22.3068C146.07 23.6326 146.392 25.2955 146.392 27.2955C146.392 29.2424 146.078 30.8864 145.449 32.2273C144.828 33.5606 143.979 34.572 142.903 35.2614C141.835 35.9432 140.638 36.2841 139.312 36.2841C138.373 36.2841 137.574 36.1288 136.915 35.8182C136.263 35.5076 135.729 35.1174 135.312 34.6477C134.896 34.1705 134.578 33.6894 134.358 33.2045H134.21V42.5455H129.369ZM134.108 27.2727C134.108 28.3106 134.252 29.2159 134.54 29.9886C134.828 30.7614 135.244 31.3636 135.79 31.7955C136.335 32.2197 136.998 32.4318 137.778 32.4318C138.566 32.4318 139.233 32.2159 139.778 31.7841C140.324 31.3447 140.737 30.7386 141.017 29.9659C141.305 29.1856 141.449 28.2879 141.449 27.2727C141.449 26.2652 141.309 25.3788 141.028 24.6136C140.748 23.8485 140.335 23.25 139.79 22.8182C139.244 22.3864 138.574 22.1705 137.778 22.1705C136.991 22.1705 136.324 22.3788 135.778 22.7955C135.241 23.2121 134.828 23.803 134.54 24.5682C134.252 25.3333 134.108 26.2348 134.108 27.2727ZM157.574 36.3409C155.778 36.3409 154.233 35.9773 152.938 35.25C151.65 34.5152 150.657 33.4773 149.96 32.1364C149.263 30.7879 148.915 29.1932 148.915 27.3523C148.915 25.5568 149.263 23.9811 149.96 22.625C150.657 21.2689 151.638 20.2121 152.903 19.4545C154.176 18.697 155.669 18.3182 157.381 18.3182C158.532 18.3182 159.604 18.5038 160.597 18.875C161.597 19.2386 162.468 19.7879 163.21 20.5227C163.96 21.2576 164.544 22.1818 164.96 23.2955C165.377 24.4015 165.585 25.697 165.585 27.1818V28.5114H150.847V25.5114H161.028C161.028 24.8144 160.877 24.197 160.574 23.6591C160.271 23.1212 159.85 22.7008 159.312 22.3977C158.782 22.0871 158.165 21.9318 157.46 21.9318C156.725 21.9318 156.074 22.1023 155.506 22.4432C154.945 22.7765 154.506 23.2273 154.188 23.7955C153.869 24.3561 153.706 24.9811 153.699 25.6705V28.5227C153.699 29.3864 153.858 30.1326 154.176 30.7614C154.502 31.3902 154.96 31.875 155.551 32.2159C156.142 32.5568 156.843 32.7273 157.653 32.7273C158.191 32.7273 158.684 32.6515 159.131 32.5C159.578 32.3485 159.96 32.1212 160.278 31.8182C160.597 31.5152 160.839 31.1439 161.006 30.7045L165.483 31C165.256 32.0758 164.79 33.0152 164.085 33.8182C163.388 34.6136 162.487 35.2348 161.381 35.6818C160.282 36.1212 159.013 36.3409 157.574 36.3409ZM176.631 36.3409C174.843 36.3409 173.305 35.9621 172.017 35.2045C170.737 34.4394 169.752 33.3788 169.062 32.0227C168.381 30.6667 168.04 29.1061 168.04 27.3409C168.04 25.553 168.384 23.9848 169.074 22.6364C169.771 21.2803 170.759 20.2235 172.04 19.4659C173.32 18.7008 174.843 18.3182 176.608 18.3182C178.131 18.3182 179.464 18.5947 180.608 19.1477C181.752 19.7008 182.657 20.4773 183.324 21.4773C183.991 22.4773 184.358 23.6515 184.426 25H179.858C179.729 24.1288 179.388 23.428 178.835 22.8977C178.29 22.3598 177.574 22.0909 176.688 22.0909C175.938 22.0909 175.282 22.2955 174.722 22.7045C174.169 23.1061 173.737 23.6932 173.426 24.4659C173.116 25.2386 172.96 26.1742 172.96 27.2727C172.96 28.3864 173.112 29.3333 173.415 30.1136C173.725 30.8939 174.161 31.4886 174.722 31.8977C175.282 32.3068 175.938 32.5114 176.688 32.5114C177.241 32.5114 177.737 32.3977 178.176 32.1705C178.623 31.9432 178.991 31.6136 179.278 31.1818C179.574 30.7424 179.767 30.2159 179.858 29.6023H184.426C184.35 30.9356 183.987 32.1098 183.335 33.125C182.691 34.1326 181.801 34.9205 180.665 35.4886C179.528 36.0568 178.184 36.3409 176.631 36.3409ZM192.503 36.3295C191.389 36.3295 190.397 36.1364 189.526 35.75C188.654 35.3561 187.965 34.7765 187.457 34.0114C186.957 33.2386 186.707 32.2765 186.707 31.125C186.707 30.1553 186.885 29.3409 187.241 28.6818C187.598 28.0227 188.082 27.4924 188.696 27.0909C189.31 26.6894 190.007 26.3864 190.787 26.1818C191.575 25.9773 192.401 25.8333 193.264 25.75C194.279 25.6439 195.098 25.5455 195.719 25.4545C196.34 25.3561 196.791 25.2121 197.071 25.0227C197.351 24.8333 197.491 24.553 197.491 24.1818V24.1136C197.491 23.3939 197.264 22.8371 196.81 22.4432C196.363 22.0492 195.726 21.8523 194.901 21.8523C194.029 21.8523 193.336 22.0455 192.821 22.4318C192.306 22.8106 191.965 23.2879 191.798 23.8636L187.321 23.5C187.548 22.4394 187.995 21.5227 188.662 20.75C189.329 19.9697 190.188 19.3712 191.241 18.9545C192.302 18.5303 193.529 18.3182 194.923 18.3182C195.893 18.3182 196.821 18.4318 197.707 18.6591C198.601 18.8864 199.393 19.2386 200.082 19.7159C200.779 20.1932 201.329 20.8068 201.73 21.5568C202.132 22.2992 202.332 23.1894 202.332 24.2273V36H197.741V33.5795H197.605C197.325 34.125 196.95 34.6061 196.48 35.0227C196.01 35.4318 195.446 35.7538 194.787 35.9886C194.128 36.2159 193.366 36.3295 192.503 36.3295ZM193.889 32.9886C194.601 32.9886 195.23 32.8485 195.776 32.5682C196.321 32.2803 196.749 31.8939 197.06 31.4091C197.37 30.9242 197.526 30.375 197.526 29.7614V27.9091C197.374 28.0076 197.166 28.0985 196.901 28.1818C196.643 28.2576 196.351 28.3295 196.026 28.3977C195.7 28.4583 195.374 28.5152 195.048 28.5682C194.723 28.6136 194.427 28.6553 194.162 28.6932C193.594 28.7765 193.098 28.9091 192.673 29.0909C192.249 29.2727 191.92 29.5189 191.685 29.8295C191.45 30.1326 191.332 30.5114 191.332 30.9659C191.332 31.625 191.571 32.1288 192.048 32.4773C192.533 32.8182 193.147 32.9886 193.889 32.9886ZM215.372 18.5455V22.1818H204.861V18.5455H215.372ZM207.247 14.3636H212.088V30.6364C212.088 31.0833 212.156 31.4318 212.293 31.6818C212.429 31.9242 212.618 32.0947 212.861 32.1932C213.111 32.2917 213.399 32.3409 213.724 32.3409C213.952 32.3409 214.179 32.322 214.406 32.2841C214.634 32.2386 214.808 32.2045 214.929 32.1818L215.69 35.7841C215.448 35.8598 215.107 35.947 214.668 36.0455C214.228 36.1515 213.694 36.2159 213.065 36.2386C211.899 36.2841 210.876 36.1288 209.997 35.7727C209.126 35.4167 208.448 34.8636 207.963 34.1136C207.478 33.3636 207.24 32.4167 207.247 31.2727V14.3636Z" fill="white"></path>
+  <path d="M10.7536 0.180444C11.8522 -0.233162 13.0921 0.0772007 13.8662 0.959578L23.9488 12.4514H54.0512L64.1339 0.959578C64.908 0.0772007 66.1478 -0.233162 67.2463 0.180444C68.3449 0.59405 69.0723 1.64507 69.0723 2.8189V28.1924H78V33.831H63.4337V10.3071L57.4475 17.13C56.9123 17.7402 56.14 18.09 55.3283 18.09H22.6717C21.86 18.09 21.0877 17.7402 20.5524 17.13L14.5663 10.3071V33.831H0V28.1924H8.92771V2.8189C8.92771 1.64507 9.65504 0.59405 10.7536 0.180444Z" fill="white"></path>
+  <path d="M63.4337 39.4695H78V45.1081H63.4337V39.4695Z" fill="white"></path>
+  <path d="M0 39.4695H14.5663V45.1081H0V39.4695Z" fill="white"></path>
+  <path d="M30.0723 30.0719C30.0723 32.1481 28.3894 33.831 26.3133 33.831C24.2371 33.831 22.5542 32.1481 22.5542 30.0719C22.5542 27.996 24.2371 26.3129 26.3133 26.3129C28.3894 26.3129 30.0723 27.996 30.0723 30.0719Z" fill="white"></path>
+  <path d="M55.4458 30.0719C55.4458 32.1481 53.7629 33.831 51.6867 33.831C49.6106 33.831 47.9277 32.1481 47.9277 30.0719C47.9277 27.996 49.6106 26.3129 51.6867 26.3129C53.7629 26.3129 55.4458 27.996 55.4458 30.0719Z" fill="white"></path>
+</svg>
+      </div>
+
+      <div class="h-12 m-auto flex items-center justify-start">
+        <img width="158" height="48" src="./Moondream_files/open_interpreter-2eb3fffa14b38fc1fa8b96a8a9dfa887.png" alt="OpenInterpreter">
+      </div>
+      <div class="h-12 mx-auto flex items-center">
+        <img width="128" height="38" src="./Moondream_files/llama_fs-a0aa527b4bdd0bf7af15217ec9b5501b.png" alt="LlamaFS">
+      </div>
+      <div class="h-12 mx-auto flex items-center">
+        <img width="158" height="48" src="./Moondream_files/based_hardware-56ee37ddbd3a1ed3ea21b42dcc7a91b7.png" alt="Based hardware">
+      </div>
+    </div>
+  </div>
+</div>
+<div class="bg-slate-100 p-1">
+  <div class="max-w-6xl my-32 mx-auto">
+    <div class=" md:mx-8">
+      <h3 class="font-bold text-4xl font-display mb-12">What can it do?</h3>
+      <img src="./Moondream_files/what_can_it_do.png" />
+    </div>
+  </div>
+</div>
+<div class="bg-dark-bg py-24">
+  <div class="mx-auto max-w-7xl px-6 lg:px-8">
+    <h2 class="text-center text-2xl font-semibold leading-8 py-12 text-white">
+      What people are saying about Moondream
+    </h2>
+  </div>
+
+  <div class="masonry mx-auto">
+    
+      <div class="brick block">
+  <a class="!no-underline block relative bg-splash-purple-light p-6 hover:bg-brand-charcoal/50 text-white rounded-xl" href="https://twitter.com/BrianRoemmele/status/1751743949763702914">
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" class="absolute right-4 top-4" color="currentColor" height="20" width="20" xmlns="http://www.w3.org/2000/svg" style="color: currentcolor;">
+      <path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+      </path>
+    </svg>
+    <div class="flex">
+      <img class="rounded-full w-14 h-14 mr-5" src="./Moondream_files/BrianRoemmele.jpg" alt="Avatar for @flybayer">
+      <div>
+        <p class="font-semibold">Brian Roemmele</p>
+        <p class="text-gray-300">@BrianRoemmele</p>
+      </div>
+    </div>
+    <p class="sm:text-lg mt-6 no-underline overflow-hidden">
+      More testing of the amazing Moondream open source multimodal LLM today! It is massively small: 1.6B parameter model built using SigLIP, Phi-1.5 and the LLaVA training dataset. I am really impressed. More soon.
+    </p>
+  </a>
+</div>
+    
+      <div class="brick block">
+  <a class="!no-underline block relative bg-splash-purple-light p-6 hover:bg-brand-charcoal/50 text-white rounded-xl" href="https://twitter.com/MstrMachines/status/1749055969886134690">
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" class="absolute right-4 top-4" color="currentColor" height="20" width="20" xmlns="http://www.w3.org/2000/svg" style="color: currentcolor;">
+      <path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+      </path>
+    </svg>
+    <div class="flex">
+      <img class="rounded-full w-14 h-14 mr-5" src="./Moondream_files/MstrMachines.jpg" alt="Avatar for @flybayer">
+      <div>
+        <p class="font-semibold">MasteringMachines AI</p>
+        <p class="text-gray-300">@MstrMachines</p>
+      </div>
+    </div>
+    <p class="sm:text-lg mt-6 no-underline overflow-hidden">
+      Moondream: a 1.6 Billion parameter model that is quite effective and possibly able to go toe to toe with the bigger models in the future.
+    </p>
+  </a>
+</div>
+    
+      <div class="brick block">
+  <a class="!no-underline block relative bg-splash-purple-light p-6 hover:bg-brand-charcoal/50 text-white rounded-xl" href="https://x.com/lucataco93/status/1750255802693161323">
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" class="absolute right-4 top-4" color="currentColor" height="20" width="20" xmlns="http://www.w3.org/2000/svg" style="color: currentcolor;">
+      <path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+      </path>
+    </svg>
+    <div class="flex">
+      <img class="rounded-full w-14 h-14 mr-5" src="./Moondream_files/lucataco93.jpg" alt="Avatar for @flybayer">
+      <div>
+        <p class="font-semibold">Luis C</p>
+        <p class="text-gray-300">@lucataco93</p>
+      </div>
+    </div>
+    <p class="sm:text-lg mt-6 no-underline overflow-hidden">
+      MoonDream - A tiny vision language model that performs on par w/ models twice its size by @vikhyatk. Its so fast, you might not even catch it streaming output! Try it out now on @replicate
+    </p>
+  </a>
+</div>
+    
+      <div class="brick block">
+  <a class="!no-underline block relative bg-splash-purple-light p-6 hover:bg-brand-charcoal/50 text-white rounded-xl" href="https://twitter.com/FieroTy/status/1758702094092312795">
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" class="absolute right-4 top-4" color="currentColor" height="20" width="20" xmlns="http://www.w3.org/2000/svg" style="color: currentcolor;">
+      <path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+      </path>
+    </svg>
+    <div class="flex">
+      <img class="rounded-full w-14 h-14 mr-5" src="./Moondream_files/ty.jpeg" alt="Avatar for @flybayer">
+      <div>
+        <p class="font-semibold">Ty</p>
+        <p class="text-gray-300">@FieroTy</p>
+      </div>
+    </div>
+    <p class="sm:text-lg mt-6 no-underline overflow-hidden">
+      the 1.6b parameter Moondream model understands it better than GPT4 and Gemini 👀 @vikhyatk
+    </p>
+  </a>
+</div>
+    
+      <div class="brick hidden sm:block">
+  <a class="!no-underline block relative bg-splash-purple-light p-6 hover:bg-brand-charcoal/50 text-white rounded-xl" href="https://twitter.com/_PrasannaLahoti/status/1757720357337960499">
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" class="absolute right-4 top-4" color="currentColor" height="20" width="20" xmlns="http://www.w3.org/2000/svg" style="color: currentcolor;">
+      <path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+      </path>
+    </svg>
+    <div class="flex">
+      <img class="rounded-full w-14 h-14 mr-5" src="./Moondream_files/PrasannaLahoti.jpeg" alt="Avatar for @flybayer">
+      <div>
+        <p class="font-semibold">Prasanna Lahoti</p>
+        <p class="text-gray-300">@_PrasannaLahoti</p>
+      </div>
+    </div>
+    <p class="sm:text-lg mt-6 no-underline overflow-hidden">
+      Moondream space is amazing, i tried it out yesterday for the very first time after @Suhail tweet
+    </p>
+  </a>
+</div>
+    
+      <div class="brick hidden sm:block">
+  <a class="!no-underline block relative bg-splash-purple-light p-6 hover:bg-brand-charcoal/50 text-white rounded-xl" href="https://twitter.com/ClementDelangue">
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" class="absolute right-4 top-4" color="currentColor" height="20" width="20" xmlns="http://www.w3.org/2000/svg" style="color: currentcolor;">
+      <path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+      </path>
+    </svg>
+    <div class="flex">
+      <img class="rounded-full w-14 h-14 mr-5" src="./Moondream_files/clem.png" alt="Avatar for @flybayer">
+      <div>
+        <p class="font-semibold">clem 🤗</p>
+        <p class="text-gray-300">@ClementDelangue</p>
+      </div>
+    </div>
+    <p class="sm:text-lg mt-6 no-underline overflow-hidden">
+      So impressed with the speed and accuracy of https://huggingface.co/spaces/vikhyatk/moondream1 by @vikhyatk (especially the last answer 😝😝😝). Open multi-modal models have gone a long way!
+    </p>
+  </a>
+</div>
+    
+      <div class="brick hidden sm:block">
+  <a class="!no-underline block relative bg-splash-purple-light p-6 hover:bg-brand-charcoal/50 text-white rounded-xl" href="https://twitter.com/mayfer">
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" class="absolute right-4 top-4" color="currentColor" height="20" width="20" xmlns="http://www.w3.org/2000/svg" style="color: currentcolor;">
+      <path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+      </path>
+    </svg>
+    <div class="flex">
+      <img class="rounded-full w-14 h-14 mr-5" src="./Moondream_files/murat.jpeg" alt="Avatar for @flybayer">
+      <div>
+        <p class="font-semibold">murat</p>
+        <p class="text-gray-300">@mayfer</p>
+      </div>
+    </div>
+    <p class="sm:text-lg mt-6 no-underline overflow-hidden">
+      how is moondream so good? is it because you switched to quality data earlier during pretraining (while plasticity was still high) ?
+    </p>
+  </a>
+</div>
+    
+      <div class="brick hidden sm:block">
+  <a class="!no-underline block relative bg-splash-purple-light p-6 hover:bg-brand-charcoal/50 text-white rounded-xl" href="https://twitter.com/drawthingsapp">
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" class="absolute right-4 top-4" color="currentColor" height="20" width="20" xmlns="http://www.w3.org/2000/svg" style="color: currentcolor;">
+      <path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+      </path>
+    </svg>
+    <div class="flex">
+      <img class="rounded-full w-14 h-14 mr-5" src="./Moondream_files/draw_things.jpeg" alt="Avatar for @flybayer">
+      <div>
+        <p class="font-semibold">Draw Things</p>
+        <p class="text-gray-300">@drawthingsapp</p>
+      </div>
+    </div>
+    <p class="sm:text-lg mt-6 no-underline overflow-hidden">
+      Moondream1 is a tiny VLM trained by @vikhyatk. It is pretty suitable to run on variety of devices. We brought it inside our app to support better image captioning. It generates pretty detailed stories about the image. It is a lot of fun! 2/6
+    </p>
+  </a>
+</div>
+    
+  </div>
+</div>
+  <footer class="bg-dark-bg" aria-labelledby="footer-heading">
+  <h2 id="footer-heading" class="sr-only">Footer</h2>
+  <div class="mx-auto px-6 pb-8 pt-20 sm:pt-24 lg:px-8 lg:pt-32">
+    <div class="grid md:grid-cols-4 gap-24">
+      <div class="">
+        <div class="">
+          <div class="mx-auto max-w-7xl px-6 lg:px-8">
+            <h2 class="text-center text-sm text-slate-300">
+              Moondream is built by M87 Labs in Seattle, WA. We are proudly backed by some of the best investors in the world.
+            </h2>
+            <div class="flex flex-row items-center justify-evenly gap-2 mt-4 ">
+              <div class="flex max-w-24 items-center justify-center">
+                <img src="./Moondream_files/felicis.svg" alt="Felicis" class="h-12">
+              </div>
+              <div class="flex max-w-24 items-center justify-center">
+                <img src="./Moondream_files/ascend-no-bg.png" alt="Ascend VC" class="h-12 object-contain">
+              </div>
+              <div class="flex max-w-24 items-center justify-center">
+                <img src="./Moondream_files/m12-microsoft.png" alt="M12 Microsoft" class="h-12 object-contain">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mt-16 border-t border-white/10 pt-8 sm:mt-20 md:flex md:items-center md:justify-between lg:mt-24">
+      <div class="flex space-x-6 md:order-2">
+        <a href="https://discord.com/invite/tRUdpjDQfH" class="text-gray-500 hover:text-gray-400">
+          <span class="sr-only">Discord</span>
+          <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-discord" viewBox="0 0 16 16">
+              <path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8 8 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032q.003.022.021.037a13.3 13.3 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019q.463-.63.818-1.329a.05.05 0 0 0-.01-.059l-.018-.011a9 9 0 0 1-1.248-.595.05.05 0 0 1-.02-.066l.015-.019q.127-.095.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.007q.121.1.248.195a.05.05 0 0 1-.004.085 8 8 0 0 1-1.249.594.05.05 0 0 0-.03.03.05.05 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.2 13.2 0 0 0 4.001-2.02.05.05 0 0 0 .021-.037c.334-3.451-.559-6.449-2.366-9.106a.03.03 0 0 0-.02-.019m-8.198 7.307c-.789 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612m5.316 0c-.788 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.451.73 1.438 1.613 0 .888-.631 1.612-1.438 1.612"></path>
+            </svg>
+          </svg>
+        </a>
+
+        <a href="https://github.com/vikhyat/moondream" class="text-gray-500 hover:text-gray-400">
+          <span class="sr-only">GitHub</span>
+          <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+          </svg>
+        </a>
+      </div>
+      <p class="mt-8 text-xs leading-5 text-gray-400 md:order-1 md:mt-0">
+        © 2024 M87 Labs, Inc. All rights reserved.
+      </p>
+    </div>
+  </div>
+</footer>
+</div>
+  
+</body></html>
