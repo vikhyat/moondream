@@ -117,3 +117,107 @@ main: n_predict = 32, n_ctx = 2048, n_kv_req = 32
 Describe the image.
 
 Answer: The image features a large, open field with a few trees in the background. The field is mostly empty, with
+
+
+There is a discrepancy in the shape of moondream-ggml and llama.cpp's inp_KQ_mask tensor, but I think it's because moondream-ggml always has the worst-case n_kv = n_ctx while llama.cpp's starts of smaller (32).
+
+moondream-ggml's inp_KQ_mask:
+{
+    type = GGML_TYPE_F32, 
+    backend = GGML_BACKEND_TYPE_CPU, 
+    buffer = 0x0, 
+    ne = {512, 32, 1, 1}, /* n_kv = 512 */
+    nb = {4, 2048, 65536, 65536}, 
+    op = GGML_OP_NONE, 
+    op_params = {0 <repeats 16 times>}, 
+    flags = 0, 
+    grad = 0x0, 
+    src = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 
+    view_src = 0x0, 
+    view_offs = 0, 
+    data = 0x0,
+    name = '\000' <repeats 63 times>, 
+    extra = 0x0
+}
+
+llama.cpp's inp_KQ_mask:
+{
+    type = GGML_TYPE_F32, 
+    backend = GGML_BACKEND_TYPE_CPU, 
+    buffer = 0x0, 
+    ne = {32, 32, 1, 1}, /* n_kv = 32 */
+    nb = {4, 128, 4096, 4096},
+    op = GGML_OP_NONE, 
+    op_params = {0 <repeats 16 times>}, 
+    flags = 0, 
+    grad = 0x0, 
+    src = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 
+    view_src = 0x0, 
+    view_offs = 0, 
+    data = 0x0, 
+    name = '\000' <repeats 63 times>, 
+    extra = 0x0
+}
+
+There is also a discrepancy between the two version of v_cache_view from llm_build_kv_store.
+
+moondream_ggml's v_cache_view:
+{
+    type = GGML_TYPE_F16, 
+    backend = GGML_BACKEND_TYPE_CPU, 
+    buffer = 0x0, 
+    ne = {5, 2048, 1, 1}, 
+    nb = {2, 1024, 2097152, 2097152}, // difference here
+    op = GGML_OP_VIEW, 
+    op_params = {0 <repeats 16 times>}, 
+    flags = 0, 
+    grad = 0x0,
+    src = {0x7e1570, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 
+    view_src = 0x7e1570, 
+    view_offs = 0,
+    data = 0x7fff12298020, 
+    name = "leaf_8 (view)", '\000' <repeats 50 times>, 
+    extra = 0x0
+}
+
+llama.cpp's v_cache_view:
+{
+    type = GGML_TYPE_F16, 
+    backend = GGML_BACKEND_TYPE_CPU, 
+    buffer = 0x0, 
+    ne = {5, 2048, 1, 1}, 
+    nb = {2, 4096, 8388608, 8388608}, // difference here
+    op = GGML_OP_VIEW, 
+    op_params = {0 <repeats 16 times>}, 
+    flags = 0, 
+    grad = 0x0, 
+    src = {0x6af610, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 
+    view_src = 0x6af610, 
+    view_offs = 0, 
+    data = 0x7fff361b6020,
+    name = "cache_v_l0 (view)", '\000' <repeats 46 times>, 
+    extra = 0x0
+}
+
+There might be something wrong with kv.v_l initialization in moondream-ggml
+
+Difference between moondream-ggml and llama.cpp's kq after softmax.
+
+llama.cpp's kq:
+
+(gdb) print *kq
+$291 = {type = GGML_TYPE_F32, backend = GGML_BACKEND_TYPE_CPU, buffer = 0x0, ne = {32, 5, 32, 1}, nb = {4, 128, 640, 20480},
+  op = GGML_OP_SOFT_MAX, op_params = {1065353216, 0 <repeats 15 times>}, flags = 0, grad = 0x0, src = {0x7fff356d7840,
+    0x7fff356d55c0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, view_src = 0x0, view_offs = 0, data = 0x0,
+  name = '\000' <repeats 63 times>, extra = 0x0}
+(gdb) print kq->op_params
+$292 = {1065353216, 0 <repeats 15 times>}
+
+moondream-ggml's kq:
+(gdb) print *kq
+$104 = {type = GGML_TYPE_F32, backend = GGML_BACKEND_TYPE_CPU, buffer = 0x0, ne = {512, 5, 32, 1}, nb = {4,
+    2048, 10240, 327680}, op = GGML_OP_SOFT_MAX, op_params = {1065353216, 1090519040, 0 <repeats 14 times>},
+  flags = 0, grad = 0x0, src = {0x7fff11db9840, 0x7fff11db75c0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+  view_src = 0x0, view_offs = 0, data = 0x0, name = '\000' <repeats 63 times>, extra = 0x0}
+(gdb) print kq->op_params
+$105 = {1065353216, 1090519040, 0 <repeats 14 times>}

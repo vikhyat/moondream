@@ -24,7 +24,7 @@
 #define MOONDREAM_ROPE_TYPE 2
 // Rope scaling type should be: LLAMA_ROPE_SCALING_TYPE_LINEAR
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
-#define MOONDREAM_EXTRA_LOGS 
+//#define MOONDREAM_EXTRA_LOGS 
 
 /* Start of helpers. */
 static size_t utf8_len(char src) {
@@ -258,8 +258,6 @@ struct moondream_batch {
     float * embd = nullptr;
     // The positions of the respective tokens in the sequence.
     int32_t * pos = nullptr;
-    // The sequence to which the respective token belongs.
-    int32_t ** seq_id = nullptr;
     // If zero, the logits for the respective token will not be output.
     int8_t * logits = nullptr;
 };
@@ -1013,8 +1011,7 @@ bool moondream_init_batch(
     moondream_batch & batch, 
     int32_t n_tokens_alloc, 
     int32_t n_embd, 
-    bool alloc_embd, 
-    int32_t n_seq_max
+    bool alloc_embd
 ) {
     batch.n_tokens = 0;
     if (alloc_embd) {
@@ -1035,28 +1032,10 @@ bool moondream_init_batch(
         printf("could not allocate memory for moondream_batch token positions\n");
         return false;
     }
-    /*batch.n_seq_id = (int32_t *)malloc(sizeof(int32_t) * n_tokens_alloc);
-    if (!batch.n_seq_id) {
-        printf("could not allocate memeory for moondream_batch n_seq_id\n");
-        return false;
-    }*/
-    // TODO: this could probably be allocated as a single chunk with the for loop
-    // setting pointers at (i * n_tokens_alloc * sizeof(int32_t)) strides.
-    // TODO: re-enable seq_id allocation if necessary.
-    /*batch.seq_id = (int32_t **)malloc(sizeof(int32_t *) * (n_tokens_alloc + 1));
-    if (!batch.seq_id) {
-        printf("could not allocated memory for moondream_batch seq_id\n");
-        return false;
+    // TODO: maybe n_tokens_alloc should be capped at n_ctx?
+    for (int i = 0; i < n_tokens_alloc; ++i) {
+        batch.pos[i] = i;
     }
-    for (int32_t i = 0; i < n_tokens_alloc; ++i) {
-        batch.seq_id[i] = (int32_t *)malloc(sizeof(int32_t) * n_seq_max);
-        if (!batch.seq_id) {
-            printf("could not allocate memory for moondream_batch seq_id[%d]\n", i);
-            return false;
-        }
-    }
-    batch.seq_id[n_tokens_alloc] = nullptr;*/
-    batch.seq_id = nullptr;
     batch.logits = (int8_t *)malloc(sizeof(int8_t) * n_tokens_alloc);
     if (!batch.logits) {
         printf("coulld not allocate memory for moondream_batch logits\n");
@@ -1070,8 +1049,6 @@ void moondream_free_batch(moondream_batch & batch) {
     if (batch.token) { free(batch.token); }
     if (batch.embd) { free(batch.embd); }
     if (batch.pos) { free(batch.pos); }
-    // TODO: free each seq_id if seq_id allocation is re-enabled.
-    //if (batch.seq_id) { free(batch.seq_id); }
     if (batch.logits) { free(batch.logits); }
 }
 
@@ -1176,14 +1153,16 @@ bool moondream_init_context(
     
     // Initialize scheduler with worst-case graph.
     mctx.sched = ggml_backend_sched_new(&mctx.backend_cpu, &mctx.backend_cpu_buft, 1, LLAMA_MAX_NODES, false);
-    int32_t dummy_token = 0;
     moondream_batch dummy_batch;
-    dummy_batch.n_tokens = cparams.n_ctx; // narrowing conversion
-    dummy_batch.token = &dummy_token;
-    dummy_batch.embd = nullptr;
-    dummy_batch.pos = nullptr;
-    dummy_batch.seq_id = nullptr;
-    dummy_batch.logits = nullptr;
+    result = moondream_init_batch(dummy_batch, cparams.n_ctx, 0, false);
+    if (!result) {
+        printf("failed to initialize batch\n");
+        return false;
+    }
+    dummy_batch.n_tokens = cparams.n_ctx;
+    for (int i = 0; i < dummy_batch.n_tokens; ++i) {
+        dummy_batch.token[i] = i;
+    }
     mctx.n_outputs = 1; // TODO: figure out what n_outputs should be during initialization.
     ggml_cgraph * gf = build_phi2(model, dummy_batch, mctx);
     if (!ggml_backend_sched_reserve(mctx.sched, gf)) {
@@ -1191,6 +1170,7 @@ bool moondream_init_context(
         return false;
     }
     printf("succesfully reserved buffers for compute graph\n");
+    moondream_free_batch(dummy_batch);
 
     // TODO: equivalent of llama_output_reserve(), see llama.cpp line 11949
 
@@ -1533,7 +1513,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     hparams.n_embd_v_gqa = hparams.n_embd_head_v * hparams.n_head_kv;
     // TODO: determine this dynamically from the GGUF file instead of hardcoding it
     hparams.n_vocab = 51200;
-    hparams.f_max_alibi_bias = 0.0f; // TODO: figure out what this is supposed to be.
+    hparams.f_max_alibi_bias = 0.0f;
     model.hparams = hparams;
     /* End of hparams load. */
     
@@ -1968,7 +1948,7 @@ bool moondream_init_api_state(const char * text_model_path, const char * mmproj_
 
     /* Start of moondream_context init. */
     moondream_cparams cparams = {
-        .n_ctx = 512, /*api_state.model.hparams.n_ctx_train,*/
+        .n_ctx = 2048,/*api_state.model.hparams.n_ctx_train,*/
         .n_batch = 2048,
         .n_ubatch = 512,
         .n_seq_max = 1,
@@ -2016,6 +1996,29 @@ void moondream_cleanup_api_state(void) {
     printf("freed model ggml_context\n");
 }
 
+bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
+    // This function should be called after build_phi2() so the corresponding input tensors
+    // in mctx should already be created.
+    if (batch.token) {
+        ggml_backend_tensor_set(
+            mctx.inp_tokens, batch.token, 0, batch.n_tokens * ggml_element_size(mctx.inp_tokens)
+        );
+    } else {
+        printf("only batch.token inputs are supported but batch.token is NULL\n");
+        return false;
+    }
+
+    if (batch.pos) {
+        ggml_backend_tensor_set(
+            mctx.inp_pos, batch.pos, 0, batch.n_tokens * ggml_element_size(mctx.inp_pos)
+        );
+    } else {
+        printf("could not set mctx.inp_pos because batch.pos is NULL\n");
+        return false;
+    }
+
+    return true;
+}
 
 #ifndef MOONDREAM_LIBRARY_BUILD
 int main(int argc, char * argv[]) {
@@ -2093,7 +2096,7 @@ int main(int argc, char * argv[]) {
 
     /* Start of moondream_batch initialization. */
     moondream_batch batch;
-    result = moondream_init_batch(batch, cparams.n_ctx, model.hparams.n_embd, false, cparams.n_seq_max);
+    result = moondream_init_batch(batch, cparams.n_ctx, model.hparams.n_embd, false);
     if (!result) {
         printf("failed to initialized moondream_batch\n");
         return 1;
@@ -2117,9 +2120,11 @@ int main(int argc, char * argv[]) {
             return 1;
         }
         
-        ggml_backend_tensor_set(
-            mctx.inp_tokens, batch.token, 0, batch.n_tokens * ggml_element_size(mctx.inp_tokens)
-        );
+        result = moondream_set_inputs(mctx, batch);
+        if (!result) {
+            printf("failed to set model inputs\n");
+            return 1;
+        }
 
         const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
         if (compute_status != GGML_STATUS_SUCCESS) {
