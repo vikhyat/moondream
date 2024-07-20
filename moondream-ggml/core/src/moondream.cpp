@@ -406,10 +406,17 @@ ggml_tensor * llm_build_norm(
             cur = ggml_rms_norm(ctx, cur, hparams.f_norm_rms_eps);
             break;
     }
+
+    if (mw || mb) {
+        moondream_set_tensor_name(cur, "norm", il);
+    }
     
     // Weight
     if (mw) {
         cur = ggml_mul(ctx, cur, mw);
+        if (mb) {
+            moondream_set_tensor_name(cur, "norm_w", il);
+        }
     }
     // Bias
     if (mb) {
@@ -445,6 +452,7 @@ void llm_build_kv_store(
         // Why are there parentheses around ggml_row_size?
         (ggml_row_size(kv.k_l[il]->type, n_embd_k_gqa))*kv_head
     );
+    moondream_set_tensor_name(k_cache_view, "k_cache_view", il);
     ggml_build_forward_expand(graph, ggml_cpy(ctx, k_cur, k_cache_view));
 
     assert(v_cur->ne[0] == n_embd_v_gqa && v_cur->ne[1] == n_tokens);
@@ -466,6 +474,7 @@ void llm_build_kv_store(
         );
         v_cur = ggml_transpose(ctx, v_cur);
     }
+    moondream_set_tensor_name(v_cache_view, "v_cache_view", il);
     ggml_build_forward_expand(graph, ggml_cpy(ctx, v_cur, v_cache_view));
 }
 
@@ -502,6 +511,7 @@ ggml_tensor * llm_build_kqv(
         ggml_row_size(kv.k_l[il]->type, n_embd_head_k),
         0
     );
+    moondream_set_tensor_name(k, "k", il);
 
     ggml_tensor * cur;
     if (cparams.flash_attn) {
@@ -516,6 +526,7 @@ ggml_tensor * llm_build_kqv(
             ggml_row_size(kv.v_l[il]->type, n_embd_head_v),
             0
         );
+        moondream_set_tensor_name(v, "v", il);
         cur = ggml_flash_attn_ext(ctx, q, k, v, kq_mask, kq_scale, hparams.f_max_alibi_bias);
         // For phi2 the KQ multiplication must be done with F32 precision, otherwise we get NaNs.
         // Ref: https://github.com/ggerganov/llama.cpp/pull/4490#issuecomment-1859055847
@@ -523,10 +534,12 @@ ggml_tensor * llm_build_kqv(
         cur = ggml_reshape_2d(ctx, cur, n_embd_head_v*n_head, n_tokens);
     } else {
         ggml_tensor * kq = ggml_mul_mat(ctx, k, q);
+        moondream_set_tensor_name(kq, "kq", il);
         // For phi2 the KQ multiplication must be done with F32 precision, otherwise we get NaNs.
         // Ref: https://github.com/ggerganov/llama.cpp/pull/4490#issuecomment-1859055847
         ggml_mul_mat_set_prec(kq, GGML_PREC_F32);
         kq = ggml_soft_max_ext(ctx, kq, kq_mask, kq_scale, hparams.f_max_alibi_bias);
+        moondream_set_tensor_name(kq, "kq_soft_max_ext", il);
         GGML_ASSERT(kv.size == n_ctx);
         // Split cached v into n_head heads.
         ggml_tensor * v = ggml_view_3d(
@@ -536,16 +549,23 @@ ggml_tensor * llm_build_kqv(
             ggml_element_size(kv.v_l[il])*n_ctx*n_embd_head_v,
             0
         );
+        moondream_set_tensor_name(v, "v", il);
         // TODO: go over caching and clarify what's happening
         ggml_tensor * kqv = ggml_mul_mat(ctx, v, kq);
+        moondream_set_tensor_name(kqv, "kqv", il);
         ggml_tensor * kqv_merged = ggml_permute(ctx, kqv, 0, 2, 1, 3);
+        moondream_set_tensor_name(kqv_merged, "kqv_merged", il);
         // Make contiguous, with new shape.
         cur = ggml_cont_2d(ctx, kqv_merged, n_embd_head_v*n_head, n_tokens);
+        moondream_set_tensor_name(cur, "kqv_merged_cont", il);
     }
     
     ggml_build_forward_expand(graph, cur);
     cur = ggml_mul_mat(ctx, wo, cur);
     if (wo_b) {
+        // Only set the name of the output projection if there is also a bias.
+        // The bias name will be set outside the function.
+        moondream_set_tensor_name(cur, "kqv_wo", il);
         cur = ggml_add(ctx, cur, wo_b);
     }
     return cur;
@@ -583,12 +603,13 @@ ggml_tensor * llm_build_kv(
         ctx, model, hparams, cparams, kv, graph, wo, wo_b, 
         q_cur, kq_mask, n_tokens, n_kv, kq_scale, il
     );
+    moondream_set_tensor_name(cur, "kqv_out", il);
     return cur;
 }
 
 ggml_tensor * build_inp_out_ids(ggml_context * ctx, moondream_context & mctx, int n_outputs) {
     mctx.inp_out_ids = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, n_outputs);
-    moondream_set_tensor_name(lctx.inp_out_ids, "inp_out_ids", -1);
+    moondream_set_tensor_name(mctx.inp_out_ids, "inp_out_ids", -1);
     ggml_set_input(mctx.inp_out_ids);
     return mctx.inp_out_ids;
 }
@@ -609,22 +630,28 @@ ggml_tensor * llm_build_ffn(
     int il
 ) {
     ggml_tensor * tmp = up ? ggml_mul_mat(ctx, up, cur) : cur;
+    moondream_set_tensor_name(tmp, "ffn_up", il);
+
     if (up_b) {
         tmp = ggml_add(ctx, tmp, up_b);
+        moondream_set_tensor_name(tmp, "ffn_up_b", il);
     }
     if (gate) {
         switch (type_gate) {
             case LLM_FFN_SEQ: {
                 cur = ggml_mul_mat(ctx, gate, tmp);
+                moondream_set_tensor_name(cur, "ffn_gate", il);
                 break;
             }
             case LLM_FFN_PAR: {
                 cur = ggml_mul_mat(ctx, gate, cur);
+                moondream_set_tensor_name(cur, "ffn_gate", il);
                 break;
             }
         }
         if (gate_b) {
             cur = ggml_add(ctx, cur, gate_b);
+            moondream_set_tensor_name(cur, "ffn_gate_b", il);
         }
     } else {
         cur = tmp;
@@ -633,33 +660,41 @@ ggml_tensor * llm_build_ffn(
     switch (type_op) {
         case LLM_FFN_SILU: {
             cur = ggml_silu(ctx, cur);
+            moondream_set_tensor_name(cur, "ffn_silu", il);
             break;
         }
         case LLM_FFN_GELU: {
             cur = ggml_gelu(ctx, cur);
+            moondream_set_tensor_name(cur, "ffn_gelu", il);
             if (act_scales != NULL) {
                 cur = ggml_div(ctx, cur, act_scales);
+                moondream_set_tensor_name(cur, "ffn_act", il);
             }
             break;
         }
         case LLM_FFN_RELU: {
             cur = ggml_relu(ctx, cur);
+            moondream_set_tensor_name(cur, "ffn_relu", il);
             break;
         }
         case LLM_FFN_RELU_SQR: {
             cur = ggml_relu(ctx, cur);
+            moondream_set_tensor_name(cur, "ffn_relu", il);
             cur = ggml_sqr(ctx, cur);
+            moondream_set_tensor_name(cur, "ffn_sqr(relu)", il);
             break;
         }
     }
 
     if (type_gate == LLM_FFN_PAR) {
         cur = ggml_mul(ctx, cur, tmp);
+        moondream_set_tensor_name(cur, "ffn_gate_par", il);
     }
 
     cur = ggml_mul_mat(ctx, down, cur);
     if (down_b) {
         cur = ggml_add(ctx, cur, down_b);
+        moondream_set_tensor_name(cur, "ffn_down_s", il);
     }
     return cur;
 }
@@ -737,7 +772,6 @@ ggml_cgraph * build_phi2(
             // TODO: since LLM_NORM is hardcoded the arg might not be needed
             LLM_NORM, il
         );
-
         moondream_set_tensor_name(attn_norm_output, "attn_norm", il);
 
         // Self-attention
@@ -829,11 +863,10 @@ ggml_cgraph * build_phi2(
         }
 
         cur = ggml_add(ctx0, cur, ffn_output);
-        moondream_set_tensor_name(cur, "l_out", il);
-
         cur = ggml_add(ctx0, cur, inpL);
         moondream_set_tensor_name(cur, "l_out", il);
-
+        
+        // Set input for next layer.
         inpL = cur;
     }
 
@@ -2149,7 +2182,7 @@ int main(int argc, char * argv[]) {
         free(host_logits);
         ggml_backend_sched_reset(mctx.sched);
         printf("generation step %d\n------------\n", i);
-        break;
+        //break;
     }
     
     moondream_free_batch(batch);
