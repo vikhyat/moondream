@@ -36,6 +36,14 @@ static size_t utf8_len(char src) {
 static double bytes_to_gib(size_t n_bytes) {
     return static_cast<double>(n_bytes) / (1024.0 * 1024.0 * 1024.0);
 }
+
+static void moondream_set_tensor_name(ggml_tensor * cur, const char * name, int il) {
+    if (il >= 0) {
+        ggml_format_name(cur, "%s-%d", name, il);
+    } else {
+        ggml_set_name(cur, name);
+    }
+}
 /* End of helpers. */
 
 enum projector_type {
@@ -330,8 +338,6 @@ struct moondream_mmproj_context {
     ggml_backend_sched_t sched = nullptr;
 };
 
-// NOTE: skipping the usage of llm_build_cb (build callback) because I have a feeling
-// it won't be necessary, may need to revisit this though
 ggml_tensor * llm_build_inp_embd(
     ggml_context * ctx,
     moondream_context & mctx,
@@ -357,7 +363,6 @@ ggml_tensor * llm_build_inp_embd(
     return inpL;
 }
 
-// NOTE: version of build_inp_pos without build callback
 ggml_tensor * build_inp_pos(ggml_context * ctx, moondream_context & mctx, moondream_batch & batch) {
     mctx.inp_pos = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, batch.n_tokens);
     ggml_set_input(mctx.inp_pos);
@@ -384,7 +389,6 @@ ggml_tensor * build_inp_KQ_mask(
     return cparams.flash_attn ? ggml_cast(ctx, mctx.inp_KQ_mask, GGML_TYPE_F16) : mctx.inp_KQ_mask;
 };
 
-// Note build callback seems important for layer names so it might be needed here
 ggml_tensor * llm_build_norm(
     ggml_context * ctx, 
     ggml_tensor * cur, 
@@ -584,7 +588,7 @@ ggml_tensor * llm_build_kv(
 
 ggml_tensor * build_inp_out_ids(ggml_context * ctx, moondream_context & mctx, int n_outputs) {
     mctx.inp_out_ids = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, n_outputs);
-    //cb(lctx.inp_out_ids, "inp_out_ids", -1);
+    moondream_set_tensor_name(lctx.inp_out_ids, "inp_out_ids", -1);
     ggml_set_input(mctx.inp_out_ids);
     return mctx.inp_out_ids;
 }
@@ -720,22 +724,12 @@ ggml_cgraph * build_phi2(
     ggml_tensor * ffn_output;
     ggml_tensor * inpL;
 
-    // TODO: implement llm_build_inp_embd (see llama.cpp line 6654) - done but needs check
-    //inpL = llm_build_inp_embd(ctx0, lctx, hparams, batch, model.tok_embd, cb);
-    // NOTE: using a version of llm_build_inp_embd that doesn't use build cb
     inpL = llm_build_inp_embd(ctx0, mctx, hparams, batch, model.tok_embd);
-    
-    // TODO: implement build_inp_pos (see llama.cpp line 7346)
-    // inp_pos - contains the positions
-    // NOTE: using a version of llm_build_inp_embd that doesn't use build cb - done but needs check
     ggml_tensor * inp_pos = build_inp_pos(ctx0, mctx, batch);
-
-    // TODO: implement build_inp_KQ_mask (see llama.cpp line 7371) - done but needs check
-    // KQ_mask (mask for 1 head, it will be broadcasted to all heads)
+    // KQ_mask (mask for 1 head, it will be broadcasted to all heads).
     ggml_tensor * KQ_mask = build_inp_KQ_mask(ctx0, mctx, batch, cparams, n_kv);
 
     for (int il = 0; il < n_layer; ++il) {
-        // TODO: implement llm_build_norm (see llama.cpp line 6728) - done but needs check
         attn_norm_output = llm_build_norm(
             ctx0, inpL, hparams,
             model.layers[il].attn_norm,
@@ -744,7 +738,7 @@ ggml_cgraph * build_phi2(
             LLM_NORM, il
         );
 
-        //cb(attn_norm_output, "attn_norm", il);
+        moondream_set_tensor_name(attn_norm_output, "attn_norm", il);
 
         // Self-attention
         {
@@ -754,10 +748,10 @@ ggml_cgraph * build_phi2(
 
             if (model.layers[il].wqkv) {
                 cur = ggml_mul_mat(ctx0, model.layers[il].wqkv, attn_norm_output);
-                //cb(cur, "wqkv", il);
+                moondream_set_tensor_name(cur, "wqkv", il);
 
                 cur = ggml_add(ctx0, cur, model.layers[il].bqkv);
-                //cb(cur, "bqkv", il);
+                moondream_set_tensor_name(cur, "bqkv", il);
 
                 Qcur = ggml_cont(
                     ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 0*sizeof(float)*(n_embd))
@@ -783,9 +777,9 @@ ggml_cgraph * build_phi2(
                 );
             }
 
-            //cb(Qcur, "Qcur", il);
-            //cb(Kcur, "Kcur", il);
-            //cb(Vcur, "Vcur", il);
+            moondream_set_tensor_name(Qcur, "Qcur", il);
+            moondream_set_tensor_name(Kcur, "Kcur", il);
+            moondream_set_tensor_name(Vcur, "Vcur", il);
             
             Qcur = ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens);
             Kcur = ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens);
@@ -794,20 +788,19 @@ ggml_cgraph * build_phi2(
                 ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                 freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
             );
-            //cb(Qcur, "Qcur", il);
+            moondream_set_tensor_name(Qcur, "Qcur", il);
 
             // With phi2, we scale the Q to avoid precision issues.
             // Ref: https://github.com/ml-explore/mlx-examples/blob/08e862336ade809bc37d1035f94b359e7d1a5152/phi2/phi2.py#L64-L66
             Qcur = ggml_scale(ctx0, Qcur, 1.0f/sqrtf(float(n_embd_head)));
-            //cb(Qcur, "Qcur", il);
-
+            moondream_set_tensor_name(Qcur, "Qcur", il);
+            
             Kcur = ggml_rope_ext(
                 ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                 freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
             );
-            //cb(Kcur, "Kcur", il);
+            moondream_set_tensor_name(Kcur, "Kcur", il);
 
-            // TODO: implement llm_build_kv (see llama.cpp line 7070) - done but needs check
             cur = llm_build_kv(
                 ctx0, model, hparams, cparams, kv_cache, gf,
                 model.layers[il].wo, model.layers[il].bo,
@@ -816,7 +809,6 @@ ggml_cgraph * build_phi2(
         }
 
         if (il == n_layer - 1) {
-            // TODO: implement build_inp_out_ids (see llama.cpp line 7464) - done but needs check
             // Skip computing output for unused tokens.
             ggml_tensor * inp_out_ids = build_inp_out_ids(ctx0, mctx, n_outputs);
             cur = ggml_get_rows(ctx0, cur, inp_out_ids);
@@ -826,40 +818,38 @@ ggml_cgraph * build_phi2(
 
         // Feed forward
         {
-            // TODO: implement llm_build_ffn (see llama.cpp line 6760) - done but needs check
             ffn_output = llm_build_ffn(
                 ctx0, attn_norm_output,
                 model.layers[il].ffn_up, model.layers[il].ffn_up_b,
-                NULL, NULL, /* I guess this means that phi2 doesn't have a ff gate */
+                NULL, NULL, /* phi2 doesn't have a ff gate */
                 model.layers[il].ffn_down, model.layers[il].ffn_down_b,
                 NULL, LLM_FFN_GELU, LLM_FFN_SEQ, il
             );
-            //cb(ffn_output, "ffn_out", il);
+            moondream_set_tensor_name(ffn_output, "ffn_out", il);
         }
 
         cur = ggml_add(ctx0, cur, ffn_output);
-        //cb(cur, "l_out", il);
+        moondream_set_tensor_name(cur, "l_out", il);
 
         cur = ggml_add(ctx0, cur, inpL);
-        //cb(cur, "l_out", il);
+        moondream_set_tensor_name(cur, "l_out", il);
 
         inpL = cur;
     }
 
-    // TODO: implement llm_build_norm (see llama.cpp line 6728) - done but needs check
     cur = llm_build_norm(
         ctx0, inpL, hparams,
         model.output_norm,
         model.output_norm_b,
         LLM_NORM, -1
     );
-    //cb(cur, "result_norm", -1);
+    moondream_set_tensor_name(cur, "result_norm", -1);
 
     cur = ggml_mul_mat(ctx0, model.output, cur);
-    //cb(cur, "result_output_no_bias", -1);
+    moondream_set_tensor_name(cur, "result_output_no_bias", -1);
 
     cur = ggml_add(ctx0, cur, model.output_b);
-    //cb(cur, "result_output", -1);
+    moondream_set_tensor_name(cur, "result_output", -1);
     
     ggml_build_forward_expand(gf, cur);
     ggml_free(ctx0);
@@ -2159,7 +2149,7 @@ int main(int argc, char * argv[]) {
         free(host_logits);
         ggml_backend_sched_reset(mctx.sched);
         printf("generation step %d\n------------\n", i);
-        //break;
+        break;
     }
     
     moondream_free_batch(batch);
