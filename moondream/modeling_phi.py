@@ -287,19 +287,6 @@ class PhiAttention(nn.Module):
             self.num_heads * self.head_dim, self.hidden_size, bias=True
         )
 
-        self.qk_layernorm = config.qk_layernorm
-        if self.qk_layernorm:
-            self.q_layernorm = nn.LayerNorm(
-                config.hidden_size // self.num_heads,
-                eps=config.layer_norm_eps,
-                elementwise_affine=True,
-            )
-            self.k_layernorm = nn.LayerNorm(
-                config.hidden_size // self.num_heads,
-                eps=config.layer_norm_eps,
-                elementwise_affine=True,
-            )
-
         self._init_rope()
 
     def _init_rope(self):

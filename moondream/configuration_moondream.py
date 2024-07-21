@@ -25,7 +25,6 @@ class PhiConfig(PretrainedConfig):
         rope_theta=10000.0,
         rope_scaling=None,
         partial_rotary_factor=0.5,
-        qk_layernorm=False,
         bos_token_id=1,
         eos_token_id=2,
         **kwargs,
@@ -51,7 +50,6 @@ class PhiConfig(PretrainedConfig):
         self.rope_theta = rope_theta
         self.rope_scaling = rope_scaling
         self.partial_rotary_factor = partial_rotary_factor
-        self.qk_layernorm = qk_layernorm
         self._rope_scaling_validation()
 
         super().__init__(
