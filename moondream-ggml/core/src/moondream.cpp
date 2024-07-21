@@ -2045,7 +2045,15 @@ bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
         return false;
     }
     
-    // TODO: create kq mask
+    uint32_t n_kv = mctx.kv_cache.n;
+    float * inp_KQ_mask_data = (float *)mctx.inp_KQ_mask->data;
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        int32_t cur_pos = batch.pos[i];
+        for (int k = 0; k < n_kv; ++k) {
+            //float f = (k > cur_pos) ? -INFINITY : 0.0f;
+            inp_KQ_mask_data[(i * n_kv) + k] = 0.0f;
+        }
+    }
 
     return true;
 }
