@@ -2048,8 +2048,9 @@ bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
     uint32_t n_kv = mctx.kv_cache.n;
     float * inp_KQ_mask_data = (float *)mctx.inp_KQ_mask->data;
     for (int i = 0; i < batch.n_tokens; ++i) {
-        int32_t cur_pos = batch.pos[i];
+        //int32_t cur_pos = batch.pos[i];
         for (int k = 0; k < n_kv; ++k) {
+            // TODO: figure out correct stride for -INFINITY entries.
             //float f = (k > cur_pos) ? -INFINITY : 0.0f;
             inp_KQ_mask_data[(i * n_kv) + k] = 0.0f;
         }
@@ -2197,7 +2198,9 @@ int main(int argc, char * argv[]) {
         free(host_logits);
         ggml_backend_sched_reset(mctx.sched);
         printf("generation step %d\n------------\n", i);
-        //break;
+        if (sampled_token_id == model.vocab.eos_token_id) {
+            break;
+        }
     }
     
     moondream_free_batch(batch);
