@@ -2040,6 +2040,15 @@ bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
         return false;
     }
 
+    int32_t * inp_out_ids_data = (int32_t *)mctx.inp_out_ids->data;
+    if (mctx.n_outputs == 1) {
+        // Only keep last output.
+        inp_out_ids_data[0] = batch.n_tokens - 1;
+    } else {
+        printf("only mctx.n_outputs = 1 is supported but got mctx.n_outpouts = %d\n", mctx.n_outputs);
+        return false;
+    }
+    
     return true;
 }
 
