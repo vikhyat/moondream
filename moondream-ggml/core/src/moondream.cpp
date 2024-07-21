@@ -163,10 +163,6 @@ struct moondream_hparams {
     float f_norm_eps;
     float f_norm_rms_eps;
 
-    // this doesn't seem to be present in the model
-    float rope_freq_base_train;
-    int rope_attn_factor;
-
     // max bias for attention, not sure if it's used for anything else
     float f_max_alibi_bias;
 };
@@ -2049,6 +2045,8 @@ bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
         return false;
     }
     
+    // TODO: create kq mask
+
     return true;
 }
 

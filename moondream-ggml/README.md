@@ -33,3 +33,13 @@ make
 ```
 ./moondream_ggml_exe ../../../data/
 ```
+
+## Static Analysis
+1. cd into core directory.
+```
+cd core
+```
+2. Run cppcheck.
+```
+bash scripts/cppcheck.sh
+```

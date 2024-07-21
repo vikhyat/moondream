@@ -22,6 +22,7 @@
                         python
                         gcc
                         cmake
+                        cppcheck
                     ];
                     shellHook = ''
                         export PYTHONPATH=${python}/lib/${python.executable}/site-packages
