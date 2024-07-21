@@ -13,23 +13,23 @@ and make sure it contains the moondream2 gguf files
 (`moondream2-text-model-f16.gguf` and `moondream2-mmproj-f16.gguf`, obtained 
 [here](https://huggingface.co/vikhyatk/moondream2/tree/fa8398d264205ac3890b62e97d3c588268ed9ec4)).
 Currently these file names are hardcoded for simplicity during development.
-1. cd into core directory
+1. cd into core directory.
 ```
 cd core
 ```
-2. Create build directory and cd into it
+2. Create build directory and cd into it.
 ```
 mkdir build && cd build
 ```
-3. Generate makefile with cmake
+3. Generate makefile with cmake.
 ```
 cmake ..
 ```
-4. Execute build with make
+4. Build with make.
 ```
 make
 ```
-5. Run executable with data path argument
+5. Run executable with data path argument.
 ```
 ./moondream_ggml_exe ../../../data/
 ```
@@ -42,4 +42,10 @@ cd core
 2. Run cppcheck.
 ```
 bash scripts/cppcheck.sh
+```
+
+## Debugging
+To build in debug mode, add the -DDEBUG_MODE=ON flag when calling cmake.
+```
+cmake -DDEBUG_BUILD=ON ..
 ```
