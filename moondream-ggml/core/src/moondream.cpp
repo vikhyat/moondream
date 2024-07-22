@@ -2100,7 +2100,7 @@ int main(int argc, char * argv[]) {
         ggml_numa_init(numa_strat);
     }*/
 
-    bool result = moondream_init_api_state(text_model_path, mmproj_path, 1);
+    bool result = moondream_init_api_state(text_model_path, mmproj_path, 8);
     if (!result) {
         printf("failed to initialize api state\n");
         return 1;
@@ -2149,8 +2149,8 @@ int main(int argc, char * argv[]) {
 
     printf("------------\n");
     std::string response = "";
-    int n_gen = 128;
-    for (int i = 0; i < n_gen; ++i) {
+    int n_max_gen = 128;
+    for (int i = 0; i < n_max_gen; ++i) {
         ggml_cgraph * gf = build_phi2(model, batch, mctx);
         
         result = ggml_backend_sched_alloc_graph(mctx.sched, gf);
@@ -2174,34 +2174,29 @@ int main(int argc, char * argv[]) {
 
         // Extract logits and sample.
         ggml_tensor * logits = gf->nodes[gf->n_nodes - 1];
-        const int logits_n_dims = ggml_n_dims(logits);
         const int64_t logits_n_elements = ggml_nelements(logits);
-        printf("logits_n_dims: %d, logits_n_elements: %ld\n", logits_n_dims, logits_n_elements);
-        const size_t logits_size = logits_n_elements * sizeof(float);
-        float * host_logits = (float *)malloc(logits_size);
-        ggml_backend_tensor_get(logits, host_logits, 0, logits_size);
-        const int sampled_token_id = sample_top_logit(host_logits, logits_n_elements);
-        std::string sampled_token_str = model.vocab.id_to_token[sampled_token_id];
-        response += sampled_token_str;
-        printf("sampled_token_id: %d, sampled_token_str: %s\n", sampled_token_id, sampled_token_str.c_str());
-        printf("response: %s\n", response.c_str());
+        const float * logits_data = (float *)logits->data;
+        const int sampled_token_id = sample_top_logit(logits_data, logits_n_elements);
         batch.token[batch.n_tokens] = sampled_token_id;
         
         ++mctx.n_sample;
         ++batch.n_tokens;
         ++mctx.kv_cache.head;
+        
         // Ensure kv cache head points to a valid index.
         if (mctx.kv_cache.head >= mctx.kv_cache.size) {
             mctx.kv_cache.size = 0;
         }
-
-        free(host_logits);
+        
+        response += model.vocab.id_to_token[sampled_token_id];
+        printf("response: %s\n", response.c_str());
+        
         ggml_backend_sched_reset(mctx.sched);
-        printf("generation step %d\n------------\n", i);
         if (sampled_token_id == model.vocab.eos_token_id) {
             break;
         }
     }
+    printf("------------\n");
     
     moondream_free_batch(batch);
     printf("freed moondream_batch\n");
