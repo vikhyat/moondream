@@ -262,8 +262,6 @@ struct moondream_batch {
     float * embd = nullptr;
     // The positions of the respective tokens in the sequence.
     int32_t * pos = nullptr;
-    // If zero, the logits for the respective token will not be output.
-    int8_t * logits = nullptr;
 };
 
 // Batch for mmproj/clip input.
@@ -1055,12 +1053,7 @@ bool moondream_init_batch(
     for (int i = 0; i < n_tokens_alloc; ++i) {
         batch.pos[i] = i;
     }
-    batch.logits = (int8_t *)malloc(sizeof(int8_t) * n_tokens_alloc);
-    if (!batch.logits) {
-        printf("coulld not allocate memory for moondream_batch logits\n");
-        return false;
-    }
-    
+   
     return true;
 }
 
@@ -1068,7 +1061,6 @@ void moondream_free_batch(moondream_batch & batch) {
     if (batch.token) { free(batch.token); }
     if (batch.embd) { free(batch.embd); }
     if (batch.pos) { free(batch.pos); }
-    if (batch.logits) { free(batch.logits); }
 }
 
 bool moondream_init_kv_cache(
