@@ -2051,6 +2051,67 @@ bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
     return true;
 }
 
+bool moondream_decode(
+    moondream_context & mctx, 
+    moondream_model & model, 
+    moondream_batch & batch,
+    std::string & response,
+    int n_max_gen,
+    bool log_response_stream
+) {
+    std::string local_response = "";
+    for (int i = 0; i < n_max_gen; ++i) {
+        ggml_cgraph * gf = build_phi2(model, batch, mctx);
+        
+        bool result = ggml_backend_sched_alloc_graph(mctx.sched, gf);
+        if (!result) {
+            printf("failed to allocate graph for ggml_backend_sched_t\n");
+            return false;
+        }
+        
+        result = moondream_set_inputs(mctx, batch);
+        if (!result) {
+            printf("failed to set model inputs\n");
+            return false;
+        }
+
+        const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
+        if (compute_status != GGML_STATUS_SUCCESS) {
+            printf("graph computation failed (%s)\n", ggml_status_to_string(compute_status));
+            return false;
+        }
+        ggml_backend_sched_synchronize(mctx.sched);
+
+        // Extract logits and sample.
+        ggml_tensor * logits = gf->nodes[gf->n_nodes - 1];
+        const int64_t logits_n_elements = ggml_nelements(logits);
+        const float * logits_data = (float *)logits->data;
+        const int sampled_token_id = sample_top_logit(logits_data, logits_n_elements);
+        batch.token[batch.n_tokens] = sampled_token_id;
+        
+        ++mctx.n_sample;
+        ++batch.n_tokens;
+        ++mctx.kv_cache.head;
+        
+        // Ensure kv cache head points to a valid index.
+        if (mctx.kv_cache.head >= mctx.kv_cache.size) {
+            mctx.kv_cache.size = 0;
+        }
+        
+        local_response += model.vocab.id_to_token[sampled_token_id];
+        if (log_response_stream) {
+            printf("response: %s\n", local_response.c_str());
+        }
+
+        ggml_backend_sched_reset(mctx.sched);
+        if (sampled_token_id == model.vocab.eos_token_id) {
+            break;
+        }
+    }
+    response = local_response;
+    return true;
+}
+
 #ifndef MOONDREAM_LIBRARY_BUILD
 int main(int argc, char * argv[]) {
     if (argc < 2) {
@@ -2140,53 +2201,13 @@ int main(int argc, char * argv[]) {
     /* End of moondream_batch initialization. */
 
     printf("------------\n");
-    std::string response = "";
-    int n_max_gen = 128;
-    for (int i = 0; i < n_max_gen; ++i) {
-        ggml_cgraph * gf = build_phi2(model, batch, mctx);
-        
-        result = ggml_backend_sched_alloc_graph(mctx.sched, gf);
-        if (!result) {
-            printf("failed to allocate graph for ggml_backend_sched_t\n");
-            return 1;
-        }
-        
-        result = moondream_set_inputs(mctx, batch);
-        if (!result) {
-            printf("failed to set model inputs\n");
-            return 1;
-        }
-
-        const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
-        if (compute_status != GGML_STATUS_SUCCESS) {
-            printf("graph computation failed (%s)\n", ggml_status_to_string(compute_status));
-            return 1;
-        }
-        ggml_backend_sched_synchronize(mctx.sched);
-
-        // Extract logits and sample.
-        ggml_tensor * logits = gf->nodes[gf->n_nodes - 1];
-        const int64_t logits_n_elements = ggml_nelements(logits);
-        const float * logits_data = (float *)logits->data;
-        const int sampled_token_id = sample_top_logit(logits_data, logits_n_elements);
-        batch.token[batch.n_tokens] = sampled_token_id;
-        
-        ++mctx.n_sample;
-        ++batch.n_tokens;
-        ++mctx.kv_cache.head;
-        
-        // Ensure kv cache head points to a valid index.
-        if (mctx.kv_cache.head >= mctx.kv_cache.size) {
-            mctx.kv_cache.size = 0;
-        }
-        
-        response += model.vocab.id_to_token[sampled_token_id];
-        printf("response: %s\n", response.c_str());
-        
-        ggml_backend_sched_reset(mctx.sched);
-        if (sampled_token_id == model.vocab.eos_token_id) {
-            break;
-        }
+    std::string response;
+    const int n_max_gen = 128;
+    const bool log_response_stream = true;
+    result = moondream_decode(mctx, model, batch, response, n_max_gen, log_response_stream);
+    if (!result) {
+        printf("moondream decode failed\n");
+        return 1;
     }
     printf("------------\n");
     
