@@ -8,8 +8,10 @@ option(DEBUG_BUILD "Build with debug flags" OFF)
 
 if(DEBUG_BUILD)
     set(CMAKE_BUILD_TYPE Debug)
+    message("CMAKE_BUILD_TYPE=Debug")
 else()
     set(CMAKE_BUILD_TYPE Release)
+    message("CMAKE_BUILD_TYPE=Release")
 endif()
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build ggml as a static library" FORCE)

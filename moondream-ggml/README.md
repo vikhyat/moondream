@@ -23,7 +23,7 @@ mkdir build && cd build
 ```
 3. Generate makefile with cmake.
 ```
-cmake ..
+cmake -DDEBUG_BUILD=OFF ..
 ```
 4. Build with make.
 ```
