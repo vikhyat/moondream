@@ -3,6 +3,8 @@
 #include <cstring>
 #include <cassert>
 #include <cmath>
+#include <cstdarg>
+#include <climits>
 #include <fstream>
 #include <random>
 #include <string>
@@ -35,6 +37,21 @@ static size_t utf8_len(char src) {
 
 static double bytes_to_gib(size_t n_bytes) {
     return static_cast<double>(n_bytes) / (1024.0 * 1024.0 * 1024.0);
+}
+
+static std::string format(const char * fmt, ...) {
+    va_list ap;
+    va_list ap2;
+    va_start(ap, fmt);
+    va_copy(ap2, ap);
+    int size = vsnprintf(NULL, 0, fmt, ap);
+    GGML_ASSERT(size >= 0 && size < INT_MAX); // NOLINT
+    std::vector<char> buf(size + 1);
+    int size2 = vsnprintf(buf.data(), size + 1, fmt, ap2);
+    GGML_ASSERT(size2 == size);
+    va_end(ap2);
+    va_end(ap);
+    return std::string(buf.data(), size);
 }
 
 static void moondream_set_tensor_name(ggml_tensor * cur, const char * name, int il) {
@@ -2051,6 +2068,24 @@ bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
     return true;
 }
 
+static std::string moondream_decode_token_str(const std::string & text) {
+    std::string decoded_text;
+    const auto cpts = unicode_cpts_from_utf8(text);
+    for (const auto cpt : cpts) {
+        const auto utf8 = unicode_cpt_to_utf8(cpt);
+        try {
+            decoded_text += unicode_utf8_to_byte(utf8);
+        } catch (const std::out_of_range & /*e*/) {
+            decoded_text += "[UNK_BYTE_0x";
+            for (const auto c : utf8) {
+                decoded_text += format("%02x", (uint8_t) c);
+            }
+            decoded_text += text + "]";
+        }
+    }
+    return decoded_text;
+}
+
 bool moondream_decode(
     moondream_context & mctx, 
     moondream_model & model, 
@@ -2098,9 +2133,9 @@ bool moondream_decode(
             mctx.kv_cache.size = 0;
         }
         
-        local_response += model.vocab.id_to_token[sampled_token_id];
+        local_response += moondream_decode_token_str(model.vocab.id_to_token[sampled_token_id]);
         if (log_response_stream) {
-            printf("response: %s\n", local_response.c_str());
+            printf("%s\n", local_response.c_str());
         }
 
         ggml_backend_sched_reset(mctx.sched);
@@ -2108,6 +2143,7 @@ bool moondream_decode(
             break;
         }
     }
+    printf("\n");
     response = local_response;
     return true;
 }
