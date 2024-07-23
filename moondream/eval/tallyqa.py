@@ -16,7 +16,6 @@
 #   rm data/vg/VG_100K/images.zip
 #   rm data/tallyqa/tallyqa.zip
 
-import torch
 from tqdm import tqdm
 import json
 from PIL import Image

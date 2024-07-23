@@ -23,9 +23,9 @@ moondream.eval()
 pope_dataset = load_dataset("vikhyatk/POPE", split="test")
 
 stats = {
-    "adversarial": (0, 0),
-    "popular": (0, 0),
     "random": (0, 0),
+    "popular": (0, 0),
+    "adversarial": (0, 0),
 }
 for row in tqdm(pope_dataset):
     image = row["image"]
@@ -41,13 +41,14 @@ for row in tqdm(pope_dataset):
             else:
                 stats[split] = (stats[split][0], stats[split][1] + 1)
 
+print(MODEL_ID, REVISION)
 print(
-    "Adversarial:",
-    stats["adversarial"][0],
+    "Random:",
+    stats["random"][0],
     "/",
-    stats["adversarial"][1],
+    stats["random"][1],
     ":",
-    stats["adversarial"][0] * 100.0 / stats["adversarial"][1],
+    stats["random"][0] * 100.0 / stats["random"][1],
 )
 print(
     "Popular:",
@@ -58,10 +59,10 @@ print(
     stats["popular"][0] * 100.0 / stats["popular"][1],
 )
 print(
-    "Random:",
-    stats["random"][0],
+    "Adversarial:",
+    stats["adversarial"][0],
     "/",
-    stats["random"][1],
+    stats["adversarial"][1],
     ":",
-    stats["random"][0] * 100.0 / stats["random"][1],
+    stats["adversarial"][0] * 100.0 / stats["adversarial"][1],
 )
