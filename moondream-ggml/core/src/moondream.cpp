@@ -90,7 +90,7 @@ enum llm_norm_type {
 };
 /* End of llm enums. */
 
-struct moondream_layer {
+struct moondream_lm_layer {
     // Normalization
     ggml_tensor * attn_norm = nullptr;
     ggml_tensor * attn_norm_b = nullptr;
@@ -163,7 +163,7 @@ struct moondream_mmproj_layer {
     ggml_tensor * ln_2_b = nullptr;
 };
 
-struct moondream_hparams {
+struct moondream_lm_hparams {
     int n_embd;
     int n_ff;
     int n_layer;
@@ -199,7 +199,7 @@ struct moondream_mmproj_hparams {
     float * image_std;
 };
 
-struct moondream_cparams {
+struct moondream_lm_cparams {
     // Context size used during inference.
     uint32_t n_ctx;
     uint32_t n_batch;
@@ -243,11 +243,11 @@ struct moondream_vocab {
     std::map<std::pair<std::string, std::string>, int> bpe_ranks;
 };
 
-struct moondream_model {
+struct moondream_lm {
     ggml_context * ctx = nullptr;
-    moondream_hparams hparams;
+    moondream_lm_hparams hparams;
     moondream_vocab vocab;
-    std::vector<moondream_layer> layers;
+    std::vector<moondream_lm_layer> layers;
     ggml_tensor * tok_embd = nullptr;
     ggml_tensor * output_norm = nullptr;
     ggml_tensor * output_norm_b = nullptr;
@@ -255,7 +255,7 @@ struct moondream_model {
     ggml_tensor * output_b = nullptr;
 };
 
-struct moondream_mmproj_model {
+struct moondream_mmproj {
     ggml_context * ctx = nullptr;
     moondream_mmproj_hparams hparams;
     std::vector<moondream_mmproj_layer> layers;
@@ -271,7 +271,7 @@ struct moondream_mmproj_model {
 };
 
 // Arrays must have size of n_tokens
-struct moondream_batch {
+struct moondream_lm_batch {
     int32_t n_tokens;
     // The token ids of the input (used when embd is NULL).
     int32_t * token = nullptr;
@@ -282,7 +282,7 @@ struct moondream_batch {
 };
 
 // Batch for mmproj/clip input.
-struct moondream_mmproj_batch{
+struct moondream_mmproj_batch {
     float * images = nullptr;
 };
 
@@ -314,9 +314,9 @@ struct moondream_kv_cache {
     ggml_backend_buffer_t buf = nullptr;
 };
 
-struct moondream_context {
+struct moondream_lm_context {
     ggml_context * ctx = nullptr;
-    moondream_cparams cparams;
+    moondream_lm_cparams cparams;
     moondream_kv_cache kv_cache;
     ggml_backend_t backend_cpu = nullptr;
     ggml_backend_buffer_type_t backend_cpu_buft = nullptr;
@@ -329,7 +329,7 @@ struct moondream_context {
     ggml_tensor * inp_embd = nullptr;      // F32 [n_embd, n_batch]
     ggml_tensor * inp_pos = nullptr;       // I32 [n_batch]
     ggml_tensor * inp_out_ids = nullptr;   // I32 [n_outputs]
-    ggml_tensor * inp_KQ_mask = nullptr;   // F32 [kv_size, n_batch]
+    ggml_tensor * inp_kq_mask = nullptr;   // F32 [kv_size, n_batch]
     ggml_tensor * inp_K_shift = nullptr;   // I32 [kv_size]
     ggml_tensor * inp_mean = nullptr;      // F32 [n_batch, n_batch]
     ggml_tensor * inp_cls = nullptr;       // I32 [n_batch]
@@ -349,11 +349,11 @@ struct moondream_mmproj_context {
     ggml_backend_sched_t sched = nullptr;
 };
 
-ggml_tensor * llm_build_inp_embd(
+ggml_tensor * lm_build_inp_embd(
     ggml_context * ctx,
-    moondream_context & mctx,
-    const moondream_hparams & hparams,
-    const moondream_batch & batch,
+    moondream_lm_context & mctx,
+    const moondream_lm_hparams & hparams,
+    const moondream_lm_batch & batch,
     ggml_tensor * tok_embd
 ) {
     // TODO: what does the L stand for?
@@ -374,36 +374,36 @@ ggml_tensor * llm_build_inp_embd(
     return inpL;
 }
 
-ggml_tensor * build_inp_pos(ggml_context * ctx, moondream_context & mctx, moondream_batch & batch) {
+ggml_tensor * lm_build_inp_pos(ggml_context * ctx, moondream_lm_context & mctx, moondream_lm_batch & batch) {
     mctx.inp_pos = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, batch.n_tokens);
     ggml_set_input(mctx.inp_pos);
     return mctx.inp_pos;
 }
 
-ggml_tensor * build_inp_KQ_mask(
+ggml_tensor * lm_build_inp_kq_mask(
     ggml_context * ctx, 
-    moondream_context & mctx, 
-    moondream_batch & batch,
-    moondream_cparams & cparams,
+    moondream_lm_context & mctx, 
+    moondream_lm_batch & batch,
+    moondream_lm_cparams & cparams,
     int32_t n_kv
 ) {
     if (cparams.causal_attn) {
-        mctx.inp_KQ_mask = ggml_new_tensor_2d(
+        mctx.inp_kq_mask = ggml_new_tensor_2d(
             ctx, GGML_TYPE_F32, n_kv, GGML_PAD(batch.n_tokens, GGML_KQ_MASK_PAD)
         );
     } else {
-        mctx.inp_KQ_mask = ggml_new_tensor_2d(
+        mctx.inp_kq_mask = ggml_new_tensor_2d(
             ctx, GGML_TYPE_F32, batch.n_tokens, GGML_PAD(batch.n_tokens, GGML_KQ_MASK_PAD)
         );
     }
-    ggml_set_input(mctx.inp_KQ_mask);
-    return cparams.flash_attn ? ggml_cast(ctx, mctx.inp_KQ_mask, GGML_TYPE_F16) : mctx.inp_KQ_mask;
+    ggml_set_input(mctx.inp_kq_mask);
+    return cparams.flash_attn ? ggml_cast(ctx, mctx.inp_kq_mask, GGML_TYPE_F16) : mctx.inp_kq_mask;
 };
 
-ggml_tensor * llm_build_norm(
+ggml_tensor * lm_build_norm(
     ggml_context * ctx, 
     ggml_tensor * cur, 
-    moondream_hparams & hparams,
+    moondream_lm_hparams & hparams,
     ggml_tensor * mw,
     ggml_tensor * mb,
     llm_norm_type type,
@@ -436,11 +436,11 @@ ggml_tensor * llm_build_norm(
     return cur;
 }
 
-// Maybe this should be renamed to llm_build_kv_cache?
-void llm_build_kv_store(
+// Maybe this should be renamed to lm_build_kv_cache?
+void lm_build_kv_store(
     ggml_context * ctx, 
-    moondream_hparams & hparams, 
-    moondream_cparams & cparams, 
+    moondream_lm_hparams & hparams, 
+    moondream_lm_cparams & cparams, 
     moondream_kv_cache & kv,
     ggml_cgraph * graph,
     ggml_tensor * k_cur,
@@ -489,11 +489,11 @@ void llm_build_kv_store(
     ggml_build_forward_expand(graph, ggml_cpy(ctx, v_cur, v_cache_view));
 }
 
-ggml_tensor * llm_build_kqv(
+ggml_tensor * lm_build_kqv(
     ggml_context * ctx,
-    moondream_model & model,
-    moondream_hparams & hparams,
-    moondream_cparams & cparams,
+    moondream_lm & model,
+    moondream_lm_hparams & hparams,
+    moondream_lm_cparams & cparams,
     moondream_kv_cache & kv,
     ggml_cgraph * graph,
     ggml_tensor * wo,
@@ -582,11 +582,11 @@ ggml_tensor * llm_build_kqv(
     return cur;
 }
 
-ggml_tensor * llm_build_kv(
+ggml_tensor * lm_build_kv(
     ggml_context * ctx, 
-    moondream_model & model, 
-    moondream_hparams & hparams,
-    moondream_cparams & cparams,
+    moondream_lm & model, 
+    moondream_lm_hparams & hparams,
+    moondream_lm_cparams & cparams,
     moondream_kv_cache & kv,
     ggml_cgraph * graph,
     ggml_tensor * wo,
@@ -608,9 +608,9 @@ ggml_tensor * llm_build_kv(
     ggml_build_forward_expand(graph, k_cur);
     ggml_build_forward_expand(graph, v_cur);
 
-    llm_build_kv_store(ctx, hparams, cparams, kv, graph, k_cur, v_cur, n_tokens, kv_head, il);
+    lm_build_kv_store(ctx, hparams, cparams, kv, graph, k_cur, v_cur, n_tokens, kv_head, il);
     ggml_tensor * cur;
-    cur = llm_build_kqv(
+    cur = lm_build_kqv(
         ctx, model, hparams, cparams, kv, graph, wo, wo_b, 
         q_cur, kq_mask, n_tokens, n_kv, kq_scale, il
     );
@@ -618,14 +618,14 @@ ggml_tensor * llm_build_kv(
     return cur;
 }
 
-ggml_tensor * build_inp_out_ids(ggml_context * ctx, moondream_context & mctx, int n_outputs) {
+ggml_tensor * lm_build_inp_out_ids(ggml_context * ctx, moondream_lm_context & mctx, int n_outputs) {
     mctx.inp_out_ids = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, n_outputs);
     moondream_set_tensor_name(mctx.inp_out_ids, "inp_out_ids", -1);
     ggml_set_input(mctx.inp_out_ids);
     return mctx.inp_out_ids;
 }
 
-ggml_tensor * llm_build_ffn(
+ggml_tensor * lm_build_ffn(
     ggml_context * ctx,
     ggml_tensor * cur,
     ggml_tensor * up,
@@ -713,12 +713,12 @@ ggml_tensor * llm_build_ffn(
 // Modification of llama.cpp build_phi2.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/llama.cpp
 ggml_cgraph * build_phi2(
-    moondream_model & model,
-    moondream_batch & batch,
-    moondream_context & mctx
+    moondream_lm & model,
+    moondream_lm_batch & batch,
+    moondream_lm_context & mctx
 ) {
-    moondream_hparams & hparams = model.hparams;
-    moondream_cparams & cparams = mctx.cparams;
+    moondream_lm_hparams & hparams = model.hparams;
+    moondream_lm_cparams & cparams = mctx.cparams;
     moondream_kv_cache & kv_cache = mctx.kv_cache;
 
     ggml_init_params build_ctx_params = {
@@ -770,13 +770,13 @@ ggml_cgraph * build_phi2(
     ggml_tensor * ffn_output;
     ggml_tensor * inpL;
 
-    inpL = llm_build_inp_embd(ctx0, mctx, hparams, batch, model.tok_embd);
-    ggml_tensor * inp_pos = build_inp_pos(ctx0, mctx, batch);
-    // KQ_mask (mask for 1 head, it will be broadcasted to all heads).
-    ggml_tensor * KQ_mask = build_inp_KQ_mask(ctx0, mctx, batch, cparams, n_kv);
+    inpL = lm_build_inp_embd(ctx0, mctx, hparams, batch, model.tok_embd);
+    ggml_tensor * inp_pos = lm_build_inp_pos(ctx0, mctx, batch);
+    // Mask for 1 head. It will be broadcasted to all heads.
+    ggml_tensor * kq_mask = lm_build_inp_kq_mask(ctx0, mctx, batch, cparams, n_kv);
 
     for (int il = 0; il < n_layer; ++il) {
-        attn_norm_output = llm_build_norm(
+        attn_norm_output = lm_build_norm(
             ctx0, inpL, hparams,
             model.layers[il].attn_norm,
             model.layers[il].attn_norm_b,
@@ -787,9 +787,9 @@ ggml_cgraph * build_phi2(
 
         // Self-attention
         {
-            struct ggml_tensor * Qcur = nullptr;
-            struct ggml_tensor * Kcur = nullptr;
-            struct ggml_tensor * Vcur = nullptr;
+            struct ggml_tensor * q_cur = nullptr;
+            struct ggml_tensor * k_cur = nullptr;
+            struct ggml_tensor * v_cur = nullptr;
 
             if (model.layers[il].wqkv) {
                 cur = ggml_mul_mat(ctx0, model.layers[il].wqkv, attn_norm_output);
@@ -798,64 +798,64 @@ ggml_cgraph * build_phi2(
                 cur = ggml_add(ctx0, cur, model.layers[il].bqkv);
                 moondream_set_tensor_name(cur, "bqkv", il);
 
-                Qcur = ggml_cont(
+                q_cur = ggml_cont(
                     ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 0*sizeof(float)*(n_embd))
                 );
-                Kcur = ggml_cont(
+                k_cur = ggml_cont(
                     ctx0, ggml_view_2d(ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd))
                 );
-                Vcur = ggml_cont(
+                v_cur = ggml_cont(
                     ctx0, 
                     ggml_view_2d(
                         ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd + n_embd_gqa)
                     )
                 );
             } else {
-                Qcur = ggml_add(
+                q_cur = ggml_add(
                     ctx0, ggml_mul_mat(ctx0, model.layers[il].wq, attn_norm_output), model.layers[il].bq
                 );
-                Kcur = ggml_add(
+                k_cur = ggml_add(
                     ctx0, ggml_mul_mat(ctx0, model.layers[il].wk, attn_norm_output), model.layers[il].bk
                 );
-                Vcur = ggml_add(
+                v_cur = ggml_add(
                     ctx0, ggml_mul_mat(ctx0, model.layers[il].wv, attn_norm_output), model.layers[il].bv
                 );
             }
 
-            moondream_set_tensor_name(Qcur, "Qcur", il);
-            moondream_set_tensor_name(Kcur, "Kcur", il);
-            moondream_set_tensor_name(Vcur, "Vcur", il);
+            moondream_set_tensor_name(q_cur, "q_cur", il);
+            moondream_set_tensor_name(k_cur, "k_cur", il);
+            moondream_set_tensor_name(v_cur, "v_cur", il);
             
-            Qcur = ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens);
-            Kcur = ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens);
+            q_cur = ggml_reshape_3d(ctx0, q_cur, n_embd_head, n_head, n_tokens);
+            k_cur = ggml_reshape_3d(ctx0, k_cur, n_embd_head, n_head_kv, n_tokens);
 
-            Qcur = ggml_rope_ext(
-                ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
+            q_cur = ggml_rope_ext(
+                ctx0, q_cur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                 freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
             );
-            moondream_set_tensor_name(Qcur, "Qcur", il);
+            moondream_set_tensor_name(q_cur, "q_cur", il);
 
             // With phi2, we scale the Q to avoid precision issues.
             // Ref: https://github.com/ml-explore/mlx-examples/blob/08e862336ade809bc37d1035f94b359e7d1a5152/phi2/phi2.py#L64-L66
-            Qcur = ggml_scale(ctx0, Qcur, 1.0f/sqrtf(float(n_embd_head)));
-            moondream_set_tensor_name(Qcur, "Qcur", il);
+            q_cur = ggml_scale(ctx0, q_cur, 1.0f/sqrtf(float(n_embd_head)));
+            moondream_set_tensor_name(q_cur, "q_cur", il);
             
-            Kcur = ggml_rope_ext(
-                ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
+            k_cur = ggml_rope_ext(
+                ctx0, k_cur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                 freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
             );
-            moondream_set_tensor_name(Kcur, "Kcur", il);
+            moondream_set_tensor_name(k_cur, "k_cur", il);
 
-            cur = llm_build_kv(
+            cur = lm_build_kv(
                 ctx0, model, hparams, cparams, kv_cache, gf,
                 model.layers[il].wo, model.layers[il].bo,
-                Kcur, Vcur, Qcur, KQ_mask, n_tokens, kv_head, n_kv, 1.0f, il
+                k_cur, v_cur, q_cur, kq_mask, n_tokens, kv_head, n_kv, 1.0f, il
             );
         }
 
         if (il == n_layer - 1) {
             // Skip computing output for unused tokens.
-            ggml_tensor * inp_out_ids = build_inp_out_ids(ctx0, mctx, n_outputs);
+            ggml_tensor * inp_out_ids = lm_build_inp_out_ids(ctx0, mctx, n_outputs);
             cur = ggml_get_rows(ctx0, cur, inp_out_ids);
             inpL = ggml_get_rows(ctx0, inpL, inp_out_ids);
             attn_norm_output = ggml_get_rows(ctx0, attn_norm_output, inp_out_ids);
@@ -863,7 +863,7 @@ ggml_cgraph * build_phi2(
 
         // Feed forward
         {
-            ffn_output = llm_build_ffn(
+            ffn_output = lm_build_ffn(
                 ctx0, attn_norm_output,
                 model.layers[il].ffn_up, model.layers[il].ffn_up_b,
                 NULL, NULL, /* phi2 doesn't have a ff gate */
@@ -881,7 +881,7 @@ ggml_cgraph * build_phi2(
         inpL = cur;
     }
 
-    cur = llm_build_norm(
+    cur = lm_build_norm(
         ctx0, inpL, hparams,
         model.output_norm,
         model.output_norm_b,
@@ -903,7 +903,7 @@ ggml_cgraph * build_phi2(
 // Modification of llama.cpp/examples/llava/clip.pp clip_image_build_graph.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/examples/llava/clip.cpp
 ggml_cgraph * build_clip(
-    moondream_mmproj_model & model,
+    moondream_mmproj & model,
     moondream_mmproj_batch & batch,
     moondream_mmproj_context & mctx
 ) {
@@ -1041,8 +1041,8 @@ ggml_cgraph * build_clip(
     return gf;
 }
 
-bool moondream_init_batch(
-    moondream_batch & batch, 
+bool moondream_lm_batch_init(
+    moondream_lm_batch & batch, 
     int32_t n_tokens_alloc, 
     int32_t n_embd, 
     bool alloc_embd
@@ -1051,19 +1051,19 @@ bool moondream_init_batch(
     if (alloc_embd) {
         batch.embd = (float *)malloc(sizeof(float) * n_tokens_alloc * n_embd);
         if (!batch.embd) {
-            printf("could not allocate memory for moondream_batch token embeddings\n");
+            printf("could not allocate memory for moondream_lm_batch token embeddings\n");
             return false;
         }
     } else {
         batch.token = (int32_t *)malloc(sizeof(int32_t) * n_tokens_alloc);
         if (!batch.token) {
-            printf("could not allocate memory for moondream_batch tokens\n");
+            printf("could not allocate memory for moondream_lm_batch tokens\n");
             return false;
         }
     }
     batch.pos = (int32_t *)malloc(sizeof(int32_t) * n_tokens_alloc);
     if (!batch.pos) {
-        printf("could not allocate memory for moondream_batch token positions\n");
+        printf("could not allocate memory for moondream_lm_batch token positions\n");
         return false;
     }
     // TODO: maybe n_tokens_alloc should be capped at n_ctx?
@@ -1074,16 +1074,16 @@ bool moondream_init_batch(
     return true;
 }
 
-void moondream_free_batch(moondream_batch & batch) {
+void moondream_lm_batch_free(moondream_lm_batch & batch) {
     if (batch.token) { free(batch.token); }
     if (batch.embd) { free(batch.embd); }
     if (batch.pos) { free(batch.pos); }
 }
 
-bool moondream_init_kv_cache(
+bool moondream_kv_cache_init(
     moondream_kv_cache & kv_cache,
-    moondream_hparams & hparams, 
-    moondream_cparams & cparams, 
+    moondream_lm_hparams & hparams, 
+    moondream_lm_cparams & cparams, 
     ggml_backend_t backend,
     ggml_type type_k,
     ggml_type type_v
@@ -1141,15 +1141,15 @@ bool moondream_init_kv_cache(
     return true;
 }
 
-bool moondream_init_context(
-    moondream_context & mctx,
-    moondream_hparams & hparams,
-    moondream_cparams & cparams,
-    moondream_model & model,
+bool moondream_lm_context_init(
+    moondream_lm_context & mctx,
+    moondream_lm_hparams & hparams,
+    moondream_lm_cparams & cparams,
+    moondream_lm & model,
     ggml_type type_k, 
     ggml_type type_v
 ) {
-    memcpy(&mctx.cparams, &cparams, sizeof(moondream_cparams));
+    memcpy(&mctx.cparams, &cparams, sizeof(moondream_lm_cparams));
     
     // For the sake of simplicity, we're only using one buffer type right now,
     // but this will probablly have to change in the future.
@@ -1162,7 +1162,7 @@ bool moondream_init_context(
     ggml_backend_cpu_set_n_threads(mctx.backend_cpu, cparams.n_threads);
     mctx.backend_cpu_buft = ggml_backend_get_default_buffer_type(mctx.backend_cpu);
     
-    bool result = moondream_init_kv_cache(mctx.kv_cache, hparams, cparams, mctx.backend_cpu, type_k, type_v);
+    bool result = moondream_kv_cache_init(mctx.kv_cache, hparams, cparams, mctx.backend_cpu, type_k, type_v);
     if (!result) {
         printf("failed to initialize moondream_kv_cache\n");
         return false;
@@ -1181,8 +1181,8 @@ bool moondream_init_context(
     
     // Initialize scheduler with worst-case graph.
     mctx.sched = ggml_backend_sched_new(&mctx.backend_cpu, &mctx.backend_cpu_buft, 1, LLAMA_MAX_NODES, false);
-    moondream_batch dummy_batch;
-    result = moondream_init_batch(dummy_batch, cparams.n_ctx, 0, false);
+    moondream_lm_batch dummy_batch;
+    result = moondream_lm_batch_init(dummy_batch, cparams.n_ctx, 0, false);
     if (!result) {
         printf("failed to initialize batch\n");
         return false;
@@ -1198,7 +1198,7 @@ bool moondream_init_context(
         return false;
     }
     printf("succesfully reserved buffers for compute graph\n");
-    moondream_free_batch(dummy_batch);
+    moondream_lm_batch_free(dummy_batch);
 
     // TODO: equivalent of llama_output_reserve(), see llama.cpp line 11949
 
@@ -1208,9 +1208,9 @@ bool moondream_init_context(
 // WIP implementation of mmproj context initializaton.
 // Currently fails with:
 // GGML_ASSERT: ggml/src/ggml-backend.c:1431: node_backend_id != -1
-bool moondream_init_mmproj_context(
+bool moondream_mmproj_context_init(
     moondream_mmproj_context & mctx, 
-    moondream_mmproj_model & model, 
+    moondream_mmproj & model, 
     int n_threads
 ) {
     mctx.backend_cpu = ggml_backend_cpu_init();
@@ -1251,7 +1251,7 @@ bool moondream_init_mmproj_context(
     return true;
 }
 
-void moondream_free_context(moondream_context & mctx) {
+void moondream_lm_context_free(moondream_lm_context & mctx) {
     if (mctx.backend_cpu) { ggml_backend_free(mctx.backend_cpu); }
     if (mctx.sched) { ggml_backend_sched_free(mctx.sched); }
     if (mctx.kv_cache.buf) { ggml_backend_buffer_free(mctx.kv_cache.buf); }
@@ -1259,7 +1259,7 @@ void moondream_free_context(moondream_context & mctx) {
     if (mctx.ctx) { ggml_free(mctx.ctx); }
 }
 
-struct llm_symbol {
+struct lm_symbol {
     using index = int;
     index prev;
     index next;
@@ -1267,16 +1267,16 @@ struct llm_symbol {
     size_t n;
 };
 
-struct llm_bigram_bpe {
+struct lm_bigram_bpe {
     struct comparator {
-        bool operator()(const llm_bigram_bpe & l, const llm_bigram_bpe & r) const {
+        bool operator()(const lm_bigram_bpe & l, const lm_bigram_bpe & r) const {
             return l.rank > r.rank || (l.rank == r.rank && l.left > r.left);
         }
     };
-    using queue_storage = std::vector<llm_bigram_bpe>;
-    using queue = std::priority_queue<llm_bigram_bpe, queue_storage, comparator>;
-    llm_symbol::index left;
-    llm_symbol::index right;
+    using queue_storage = std::vector<lm_bigram_bpe>;
+    using queue = std::priority_queue<lm_bigram_bpe, queue_storage, comparator>;
+    lm_symbol::index left;
+    lm_symbol::index right;
     std::string text;
     int rank;
     size_t size;
@@ -1300,10 +1300,10 @@ static int vocab_find_bpe_rank(
 
 static void add_new_bigram(
     const moondream_vocab & vocab, 
-    const llm_symbol * symbols,
+    const lm_symbol * symbols,
     int left, 
     int right, 
-    llm_bigram_bpe::queue & work_queue
+    lm_bigram_bpe::queue & work_queue
 ) {
     if (left == -1 || right == -1) { return; }
 
@@ -1315,7 +1315,7 @@ static void add_new_bigram(
     //printf("left: %s, right: %s, rank found: %d\n", left_token.c_str(), right_token.c_str(), rank_found);
     if (rank_found < 0) { return; }
 
-    llm_bigram_bpe bigram;
+    lm_bigram_bpe bigram;
     bigram.left = left;
     bigram.right = right;
     bigram.text = left_token + right_token;
@@ -1358,13 +1358,13 @@ bool moondream_tokenize(
         {"'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)"}
     );
 
-    const size_t symbol_buf_size = sizeof(llm_symbol) * text_len;
-    llm_symbol * symbols = (llm_symbol *)malloc(symbol_buf_size);
+    const size_t symbol_buf_size = sizeof(lm_symbol) * text_len;
+    lm_symbol * symbols = (lm_symbol *)malloc(symbol_buf_size);
     if (!symbols) {
         printf("failed to allocate memory for symbols buffer during tokenization\n");
         return false;
     }
-    llm_symbol * symbols_final = (llm_symbol *)malloc(symbol_buf_size);
+    lm_symbol * symbols_final = (lm_symbol *)malloc(symbol_buf_size);
     if (!symbols_final) {
         printf("failed to allocate memory for symbols_final buffer during tokenization\n");
         free(symbols);
@@ -1374,12 +1374,12 @@ bool moondream_tokenize(
     int n_symbols_final = 0;
 
     for (auto & word : word_collection) {
-        llm_bigram_bpe::queue work_queue = llm_bigram_bpe::queue();
+        lm_bigram_bpe::queue work_queue = lm_bigram_bpe::queue();
         const int symbols_cur_word_start_idx = n_symbols;
         size_t char_offset = 0;
         
         while (char_offset < word.size()) {
-            llm_symbol cur_symbol;
+            lm_symbol cur_symbol;
             cur_symbol.text = word.c_str() + char_offset;
             cur_symbol.n = std::min(word.size() - char_offset, (size_t) ::utf8_len(word[char_offset]));
             char_offset += cur_symbol.n;
@@ -1391,7 +1391,7 @@ bool moondream_tokenize(
 
 #ifdef MOONDREAM_EXTRA_LOGS
         for (int j = symbols_cur_word_start_idx; j < n_symbols; ++j) {
-            llm_symbol cur_symbol = symbols[j];
+            lm_symbol cur_symbol = symbols[j];
             std::string sym_text = std::string(cur_symbol.text, cur_symbol.n);
             printf("(DEBUG) symbols[%d]: %s\n", j, sym_text.c_str());
         }
@@ -1403,10 +1403,10 @@ bool moondream_tokenize(
 
         // Build token(s).
         while (!work_queue.empty()) {
-            llm_bigram_bpe bigram = work_queue.top();
+            lm_bigram_bpe bigram = work_queue.top();
             work_queue.pop();
-            llm_symbol & left_symbol = symbols[bigram.left];
-            llm_symbol & right_symbol = symbols[bigram.right];
+            lm_symbol & left_symbol = symbols[bigram.left];
+            lm_symbol & right_symbol = symbols[bigram.right];
             if (left_symbol.n == 0 || right_symbol.n == 0) { continue; }
             
             std::string left_token = std::string(left_symbol.text, left_symbol.n);
@@ -1433,7 +1433,7 @@ bool moondream_tokenize(
         // Add the finished tokens to the final list keeping correct order for next and prev.
         int cur_symbol_idx = symbols_cur_word_start_idx;
         while (cur_symbol_idx >= 0) {
-            llm_symbol cur_symbol = symbols[cur_symbol_idx];
+            lm_symbol cur_symbol = symbols[cur_symbol_idx];
             // Prepare cur_symbol_idx for the next iteration of the loop. 
             cur_symbol_idx = cur_symbol.next;
             // Skip zero length symbols.
@@ -1453,7 +1453,7 @@ bool moondream_tokenize(
 
 #ifdef MOONDREAM_EXTRA_LOGS
     for (int k = 0; k < n_symbols_final; ++k) {
-        llm_symbol f = symbols_final[k];
+        lm_symbol f = symbols_final[k];
         std::string sym_final = std::string(f.text, f.n);
         printf("(DEBUG) symbols_final[%d] %s\n", k, sym_final.c_str());
     }
@@ -1464,7 +1464,7 @@ bool moondream_tokenize(
     if (n_symbols_final >= 0) {
         int cur_symbol_idx = 0;
         while (cur_symbol_idx >= 0) {
-            llm_symbol & cur_symbol = symbols_final[cur_symbol_idx];
+            lm_symbol & cur_symbol = symbols_final[cur_symbol_idx];
             // Prepare cur_symbol_idx for the next iteration of the loop. 
             cur_symbol_idx = cur_symbol.next;
             // Skip zero length symbols.
@@ -1507,7 +1507,7 @@ bool moondream_tokenize(
     return true;
 }
 
-bool moondream_load_model(const char * gguf_file_path, moondream_model & model) {
+bool moondream_load_lm_from_file(const char * gguf_file_path, moondream_lm & model) {
     ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
     gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
@@ -1521,7 +1521,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     const char * model_name = gguf_get_val_str(meta, gguf_find_key(meta, "general.name"));
     
     /* Start of hparams load. */
-    moondream_hparams hparams;
+    moondream_lm_hparams hparams;
     hparams.n_ctx_train = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("context_length")));
     hparams.n_embd = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("embedding_length")));
     hparams.n_rot = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("rope.dimension_count")));
@@ -1604,7 +1604,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     
     const int n_tensors_per_layer = 10;
     for (int i = 0; i < hparams.n_layer; ++i) {
-        moondream_layer cur_layer;
+        moondream_lm_layer cur_layer;
         for (int k = 0; k < n_tensors_per_layer; ++k) {
             cur = ggml_get_next_tensor(ctx, cur);
             if (cur == NULL) {
@@ -1714,7 +1714,7 @@ bool moondream_load_model(const char * gguf_file_path, moondream_model & model) 
     return true;
 }
 
-bool moondream_load_mmproj_model(const char * gguf_file_path, moondream_mmproj_model & model) {
+bool moondream_load_mmproj_from_file(const char * gguf_file_path, moondream_mmproj & model) {
     ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
     gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
@@ -1930,52 +1930,53 @@ static int sample_top_logit(const float * logits, const int n_logits) {
 
 struct moondream_api_state {
     bool is_init = false;
-    moondream_model model;
-    moondream_mmproj_model mmproj_model;
-    moondream_context mctx;
+    moondream_lm model;
+    moondream_mmproj mmproj_model;
+    moondream_lm_context mctx;
     moondream_mmproj_context mmproj_ctx;
 };
 
 static moondream_api_state api_state;
 
-bool moondream_init_api_state(const char * text_model_path, const char * mmproj_path, uint32_t n_threads) {
+bool moondream_api_state_init(const char * text_model_path, const char * mmproj_path, uint32_t n_threads) {
     if (api_state.is_init) {
         printf("API has already been initialized\n");
         return false;
     }
 
-    /* Start of moondream_model load. */
-    bool result = moondream_load_model(text_model_path, api_state.model);
+    /* Start of moondream_lm load. */
+    bool result = moondream_load_lm_from_file(text_model_path, api_state.model);
     if (!result) {
         printf("could not load text model\n");
         return false;
     }
     printf("succesfully loaded text model\n");
-    /* End of moondream_model load. */
+    /* End of moondream_lm load. */
 
-    /* Start of moondream_mmproj_model load. */
-    result = moondream_load_mmproj_model(mmproj_path, api_state.mmproj_model);
+    /* Start of moondream_mmproj load. */
+    /*
+    result = moondream_load_mmproj_from_file(mmproj_path, api_state.mmproj_model);
     if (!result) {
         printf("could not load mmproj model\n");
         return false;
     }
     printf("succesfully loaded mmproj model\n");
-    /* End of moondream_mmproj_model load. */
+    */
+    /* End of moondream_mmproj load. */
 
     /* Start of moondream_mmproj_context init. */
     /*
-    moondream_mmproj_context mmproj_ctx;
-    result = moondream_init_mmproj_context(mmproj_ctx, mmproj_model, n_threads);
+    result = moondream_mmproj_context_init(api_state.mmproj_ctx, api_state.mmproj_model, n_threads);
     if (!result) {
         printf("failed to initialze moondream_mmproj_context\n");
         return 1;
     }
-    printf("succesfully initialized moondream_context\n");
+    printf("succesfully initialized moondream_lm_context\n");
     */
     /* End of moondream_mmproj_context init. */
 
-    /* Start of moondream_context init. */
-    moondream_cparams cparams = {
+    /* Start of moondream_lm_context init. */
+    moondream_lm_cparams cparams = {
         .n_ctx = 2048,/*api_state.model.hparams.n_ctx_train,*/
         .n_batch = 2048,
         .n_ubatch = 512,
@@ -1999,32 +2000,32 @@ bool moondream_init_api_state(const char * text_model_path, const char * mmproj_
     };
     const ggml_type type_k = GGML_TYPE_F16;
     const ggml_type type_v = GGML_TYPE_F16;
-    result = moondream_init_context(
+    result = moondream_lm_context_init(
         api_state.mctx, api_state.model.hparams, cparams, api_state.model, type_k, type_v
     );
     if (!result) {
-        printf("failed to initialze moondream_context\n");
+        printf("failed to initialze moondream_lm_context\n");
         return false;
     }
     api_state.mctx.n_outputs = 1;
-    printf("succesfully initialized moondream_context\n");
-    /* End of moondream_context init. */
+    printf("succesfully initialized moondream_lm_context\n");
+    /* End of moondream_lm_context init. */
 
     api_state.is_init = true;
     return true;
 }
 
-void moondream_cleanup_api_state(void) {
+void moondream_api_state_cleanup(void) {
     printf("cleaning up API state...\n");
-    moondream_free_context(api_state.mctx);
-    printf("freed moondream_context\n");
+    moondream_lm_context_free(api_state.mctx);
+    printf("freed moondream_lm_context\n");
     ggml_free(api_state.mmproj_model.ctx);
     printf("freed mmproj model ggml_context\n");
     ggml_free(api_state.model.ctx);
     printf("freed model ggml_context\n");
 }
 
-bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
+bool moondream_lm_set_inputs(moondream_lm_context & mctx, moondream_lm_batch & batch) {
     // This function should be called after build_phi2() so the corresponding input tensors
     // in mctx should already be created.
     if (batch.token) {
@@ -2055,13 +2056,13 @@ bool moondream_set_inputs(moondream_context & mctx, moondream_batch & batch) {
     }
     
     uint32_t n_kv = mctx.kv_cache.n;
-    float * inp_KQ_mask_data = (float *)mctx.inp_KQ_mask->data;
+    float * inp_kq_mask_data = (float *)mctx.inp_kq_mask->data;
     for (int i = 0; i < batch.n_tokens; ++i) {
         //int32_t cur_pos = batch.pos[i];
         for (int k = 0; k < n_kv; ++k) {
             // TODO: figure out correct stride for -INFINITY entries.
             //float f = (k > cur_pos) ? -INFINITY : 0.0f;
-            inp_KQ_mask_data[(i * n_kv) + k] = 0.0f;
+            inp_kq_mask_data[(i * n_kv) + k] = 0.0f;
         }
     }
 
@@ -2086,10 +2087,10 @@ static std::string moondream_decode_token_str(const std::string & text) {
     return decoded_text;
 }
 
-bool moondream_decode(
-    moondream_context & mctx, 
-    moondream_model & model, 
-    moondream_batch & batch,
+bool moondream_lm_decode(
+    moondream_lm_context & mctx, 
+    moondream_lm & model, 
+    moondream_lm_batch & batch,
     std::string & response,
     int n_max_gen,
     bool log_response_stream
@@ -2104,7 +2105,7 @@ bool moondream_decode(
             return false;
         }
         
-        result = moondream_set_inputs(mctx, batch);
+        result = moondream_lm_set_inputs(mctx, batch);
         if (!result) {
             printf("failed to set model inputs\n");
             return false;
@@ -2189,17 +2190,17 @@ int main(int argc, char * argv[]) {
         ggml_numa_init(numa_strat);
     }*/
 
-    bool result = moondream_init_api_state(text_model_path, mmproj_path, 8);
+    bool result = moondream_api_state_init(text_model_path, mmproj_path, 8);
     if (!result) {
         printf("failed to initialize api state\n");
         return 1;
     }
     printf("succesfully initialized api state\n");
-    moondream_model & model = api_state.model;
-    moondream_hparams & hparams = model.hparams;
-    moondream_mmproj_model & mmproj_model = api_state.mmproj_model;
-    moondream_context & mctx = api_state.mctx;
-    moondream_cparams & cparams = mctx.cparams;
+    moondream_lm & model = api_state.model;
+    moondream_lm_hparams & hparams = model.hparams;
+    moondream_mmproj & mmproj_model = api_state.mmproj_model;
+    moondream_lm_context & mctx = api_state.mctx;
+    moondream_lm_cparams & cparams = mctx.cparams;
     moondream_mmproj_context & mmproj_ctx = api_state.mmproj_ctx;
     
     /* Start of prompt tokenization. */
@@ -2222,34 +2223,34 @@ int main(int argc, char * argv[]) {
     printf("\n");
     /* End of prompt tokenization. */
 
-    /* Start of moondream_batch initialization. */
-    moondream_batch batch;
-    result = moondream_init_batch(batch, cparams.n_ctx, model.hparams.n_embd, false);
+    /* Start of moondream_lm_batch initialization. */
+    moondream_lm_batch batch;
+    result = moondream_lm_batch_init(batch, cparams.n_ctx, model.hparams.n_embd, false);
     if (!result) {
-        printf("failed to initialized moondream_batch\n");
+        printf("failed to initialized moondream_lm_batch\n");
         return 1;
     }
     batch.n_tokens = n_token_ids;
     for (int i = 0; i < n_token_ids; ++i) {
         batch.token[i] = token_ids[i];
     }
-    printf("succesfully initialized moondream_batch\n");
-    /* End of moondream_batch initialization. */
+    printf("succesfully initialized moondream_lm_batch\n");
+    /* End of moondream_lm_batch initialization. */
 
     printf("------------\n");
     std::string response;
     const int n_max_gen = 128;
     const bool log_response_stream = true;
-    result = moondream_decode(mctx, model, batch, response, n_max_gen, log_response_stream);
+    result = moondream_lm_decode(mctx, model, batch, response, n_max_gen, log_response_stream);
     if (!result) {
         printf("moondream decode failed\n");
         return 1;
     }
     printf("------------\n");
     
-    moondream_free_batch(batch);
-    printf("freed moondream_batch\n");
-    moondream_cleanup_api_state();
+    moondream_lm_batch_free(batch);
+    printf("freed moondream_lm_batch\n");
+    moondream_api_state_cleanup();
     return 0;
 }
 #endif // MOONDREAM_LIBRARY_BUILD
