@@ -349,6 +349,16 @@ struct moondream_mmproj_context {
     ggml_backend_sched_t sched = nullptr;
 };
 
+struct moondream_api_state {
+    bool is_init = false;
+    moondream_lm model;
+    moondream_mmproj mmproj_model;
+    moondream_lm_context mctx;
+    moondream_mmproj_context mmproj_ctx;
+};
+
+static moondream_api_state api_state;
+
 ggml_tensor * lm_build_inp_embd(
     ggml_context * ctx,
     moondream_lm_context & mctx,
@@ -1927,16 +1937,6 @@ static int sample_top_logit(const float * logits, const int n_logits) {
     }
     return id_max;
 }
-
-struct moondream_api_state {
-    bool is_init = false;
-    moondream_lm model;
-    moondream_mmproj mmproj_model;
-    moondream_lm_context mctx;
-    moondream_mmproj_context mmproj_ctx;
-};
-
-static moondream_api_state api_state;
 
 bool moondream_api_state_init(const char * text_model_path, const char * mmproj_path, uint32_t n_threads) {
     if (api_state.is_init) {
