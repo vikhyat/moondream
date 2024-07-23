@@ -4,7 +4,7 @@ import gradio as gr
 from moondream import detect_device, LATEST_REVISION
 from threading import Thread
 from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
-from PIL import ImageDraw
+from PIL import Image, ImageDraw
 import re
 from torchvision.transforms.v2 import Resize
 
@@ -30,55 +30,59 @@ moondream = AutoModelForCausalLM.from_pretrained(
 moondream.eval()
 
 
-def answer_question(img, prompt):
-    image_embeds = moondream.encode_image(img)
-    streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True)
-    thread = Thread(
-        target=moondream.answer_question,
-        kwargs={
-            "image_embeds": image_embeds,
-            "question": prompt,
-            "tokenizer": tokenizer,
-            "streamer": streamer,
-        },
-    )
-    thread.start()
+def answer_question(img, prompts):
+    buffer = []
+    for prompt in prompts:
+        image_embeds = moondream.encode_image(img)
+        streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True)
+        thread = Thread(
+            target=moondream.answer_question,
+            kwargs={
+                "image_embeds": image_embeds,
+                "question": prompt,
+                "tokenizer": tokenizer,
+                "streamer": streamer,
+            },
+        )
+        thread.start()
 
-    buffer = ""
-    for new_text in streamer:
-        buffer += new_text
-        yield buffer
+        response = ""
+        for new_text in streamer:
+            response += new_text
+
+        buffer.append(response)
+
+    return buffer
 
 
 def extract_floats(text):
-    # Regular expression to match an array of four floating point numbers
     pattern = r"\[\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\]"
-    match = re.search(pattern, text)
-    if match:
-        # Extract the numbers and convert them to floats
-        return [float(num) for num in match.groups()]
-    return None  # Return None if no match is found
+    matches = re.findall(pattern, text)
+    return [[float(num) for num in match] for match in matches]
 
 
-def extract_bbox(text):
-    bbox = None
-    if extract_floats(text) is not None:
-        x1, y1, x2, y2 = extract_floats(text)
-        bbox = (x1, y1, x2, y2)
-    return bbox
+def extract_bboxes(text):
+    float_lists = extract_floats(text)
+    return [tuple(float_list) for float_list in float_lists]
 
 
-def process_answer(img, answer):
-    if extract_bbox(answer) is not None:
-        x1, y1, x2, y2 = extract_bbox(answer)
-        draw_image = Resize(768)(img)
+def process_answers(img, answers):
+    bboxes = []
+    for answer in answers:
+        bboxes.extend(extract_bboxes(answer))
+    if bboxes:
+        draw_image = img.copy()
+        draw_image.thumbnail((768, 768), Image.LANCZOS)
         width, height = draw_image.size
-        x1, x2 = int(x1 * width), int(x2 * width)
-        y1, y2 = int(y1 * height), int(y2 * height)
-        bbox = (x1, y1, x2, y2)
-        ImageDraw.Draw(draw_image).rectangle(bbox, outline="red", width=3)
-        return gr.update(visible=True, value=draw_image)
+        draw = ImageDraw.Draw(draw_image)
 
+        for bbox in bboxes:
+            x1, y1, x2, y2 = bbox
+            x1, x2 = int(x1 * width), int(x2 * width)
+            y1, y2 = int(y1 * height), int(y2 * height)
+            draw.rectangle((x1, y1, x2, y2), outline="red", width=3)
+
+        return gr.update(visible=True, value=draw_image)
     return gr.update(visible=False, value=None)
 
 
@@ -89,7 +93,7 @@ with gr.Blocks() as demo:
         """
     )
     with gr.Row():
-        prompt = gr.Textbox(label="Input Prompt", placeholder="Type here...", scale=4)
+        prompt = gr.Textbox(label="Input Prompts (comma-separated)", placeholder="Type here...", scale=4)
         submit = gr.Button("Submit")
     with gr.Row():
         img = gr.Image(type="pil", label="Upload an Image")
@@ -97,8 +101,25 @@ with gr.Blocks() as demo:
             output = gr.Markdown(label="Response")
             ann = gr.Image(visible=False, label="Annotated Image")
 
-    submit.click(answer_question, [img, prompt], output)
-    prompt.submit(answer_question, [img, prompt], output)
-    output.change(process_answer, [img, output], ann, show_progress=False)
+    import re
+
+
+    def on_submit(img, prompt_text):
+        prompts = []
+        match = re.search(r'(.*?)(bounding box:\s*)(.*)', prompt_text, re.IGNORECASE)
+        if match:
+            items_str = match.group(3).strip()
+            items = items_str.split(',')
+            prompts.extend([f"bounding box: {item.strip()}" for item in items])
+        else:
+            prompts.append(prompt_text)
+
+        answers = answer_question(img, prompts)
+        processed_image = process_answers(img, answers)
+        return processed_image, ''.join(answers)
+
+
+    submit.click(on_submit, [img, prompt], [ann, output])
+    prompt.submit(on_submit, [img, prompt], [ann, output])
 
 demo.queue().launch(debug=True)

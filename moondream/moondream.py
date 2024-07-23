@@ -111,20 +111,18 @@ class Moondream(PreTrainedModel):
         else:
             return cleaned_answer
 
-    def batch_answer(
-        self,
-        images,
-        prompts,
-        tokenizer,
-        **kwargs,
-    ):
-        image_embeds = self.encode_image(images)
+    def batch_answer(images, prompts, tokenizer, **kwargs):
+        if len(images) == 1 and len(prompts) > 1:
+            image_embeds = moondream.encode_image(images * len(prompts))
+        else:
+            image_embeds = moondream.encode_image(images)
 
         templated_prompts = [
             f"<image>\n\nQuestion: {prompt}\n\nAnswer:" for prompt in prompts
         ]
+
         prompt_embs = [
-            self.input_embeds(prompt, image_embed.unsqueeze(0), tokenizer)[0]
+            moondream.input_embeds(prompt, image_embed.unsqueeze(0), tokenizer)[0]
             for prompt, image_embed in zip(templated_prompts, image_embeds)
         ]
 
@@ -138,6 +136,7 @@ class Moondream(PreTrainedModel):
             ],
             dim=0,
         )
+
         attention_mask = torch.cat(
             [
                 torch.cat(
@@ -145,10 +144,10 @@ class Moondream(PreTrainedModel):
                         torch.zeros(
                             1,
                             max_len - p.shape[0],
-                            device=self.device,
+                            device=moondream.device,
                             dtype=torch.long,
                         ),
-                        torch.ones(1, p.shape[0], device=self.device, dtype=torch.long),
+                        torch.ones(1, p.shape[0], device=moondream.device, dtype=torch.long),
                     ],
                     dim=1,
                 )
@@ -166,7 +165,7 @@ class Moondream(PreTrainedModel):
         }
 
         with torch.no_grad():
-            output_ids = self.text_model.generate(
+            output_ids = moondream.text_model.generate(
                 inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
                 **generate_config,
