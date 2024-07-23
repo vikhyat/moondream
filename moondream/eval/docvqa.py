@@ -30,7 +30,7 @@ def get_anls(s1, s2):
     return anls
 
 
-docvqa_val = load_dataset("vikhyatk/docvqa", split="validation", streaming=True)
+docvqa_val = load_dataset("vikhyatk/docvqa", split="validation")
 
 scores = []
 for row in tqdm(docvqa_val):
@@ -42,7 +42,6 @@ for row in tqdm(docvqa_val):
         prompt = f"{question} Answer briefly."
 
         model_answer = moondream.answer_question(enc_image, prompt, tokenizer)
-        print(answers, model_answer)
         anls = max(get_anls(model_answer, gt) for gt in answers)
         scores.append(anls)
 
