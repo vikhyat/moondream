@@ -359,6 +359,41 @@ struct moondream_api_state {
 
 static moondream_api_state api_state;
 
+static void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata) {
+    if (ith != 0) {
+        // Only log from the first thread.
+        return;
+    }
+
+    printf("Shape: %lld %lld %lld %lld\n", dst->ne[3], dst->ne[2], dst->ne[1], dst->ne[0]);
+    switch (dst->type) {
+        case GGML_TYPE_F16: {
+            printf("Type: f16\n");
+            break;
+        }
+        case GGML_TYPE_F32: {
+            printf("Type: f32\n");
+            break;
+        }
+        default: {
+            printf("Type: unknown\n");
+            break;
+        }
+    }
+
+    // emit last 2 dimension values
+    for (int j = 0; j < dst->ne[1]; j++) {
+        for (int i = 0; i < dst->ne[0]; i++) {
+            if (i > 0) {
+                printf("\t");
+            }
+            float f = ggml_get_f32_nd(dst, i, j, 0, 0);
+            printf("%.7f", (double)f);
+        }
+        printf("\n");
+    }
+}
+
 ggml_tensor * lm_build_inp_embd(
     ggml_context * ctx,
     moondream_lm_context & mctx,
@@ -831,7 +866,7 @@ ggml_cgraph * build_phi2(
                     ctx0, ggml_mul_mat(ctx0, model.layers[il].wv, attn_norm_output), model.layers[il].bv
                 );
             }
-
+ 
             moondream_set_tensor_name(q_cur, "q_cur", il);
             moondream_set_tensor_name(k_cur, "k_cur", il);
             moondream_set_tensor_name(v_cur, "v_cur", il);
@@ -1713,7 +1748,7 @@ bool moondream_load_lm_from_file(const char * gguf_file_path, moondream_lm & mod
     printf("tokenizer_model_name: %s\n", tokenizer_model_name);
     printf("bos_token_id: %ld\n", vocab.bos_token_id);
     printf("eos_token_id: %ld\n", vocab.eos_token_id);
-    printf("unkown_token_id: %ld\n", vocab.separator_token_id);
+    printf("unknown_token_id: %ld\n", vocab.separator_token_id);
     printf("separator_token_id: %ld\n", vocab.separator_token_id);
     printf("padding_token_id: %ld\n", vocab.padding_token_id);
     printf("n_tokens: %d\n", vocab.n_tokens);
