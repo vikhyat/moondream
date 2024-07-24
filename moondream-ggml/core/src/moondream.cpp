@@ -168,7 +168,7 @@ struct moondream_lm_hparams {
     int n_ff;
     int n_layer;
     int n_rot;
-    int n_ctx_train;
+    uint32_t n_ctx_train;
     int n_head;
     int n_head_kv;
     int n_embd_head_k;
