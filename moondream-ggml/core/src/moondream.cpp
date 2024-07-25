@@ -1563,12 +1563,12 @@ bool moondream_load_lm_from_file(const char * gguf_file_path, moondream_lm & mod
 
     printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
     printf("gguf_version: %d\n", gguf_version);
-    printf("gguf_alignment: %ld\n", gguf_alignment);
-    printf("gguf_data_offset: %ld\n", gguf_data_offset);
+    printf("gguf_alignment: %zu\n", gguf_alignment);
+    printf("gguf_data_offset: %zu\n", gguf_data_offset);
     printf("model_arch: %s\n", model_arch);
     printf("mem_size: %lf GiB\n", bytes_to_gib(ggml_get_mem_size(model.ctx)));
     printf("------------\nHyperparameters\n------------\n");
-    printf("n_ctx_train: %d\n", hparams.n_ctx_train);
+    printf("n_ctx_train: %u\n", hparams.n_ctx_train);
     printf("n_embd: %d\n", hparams.n_embd);
     printf("n_layer: %d\n", hparams.n_layer);
     printf("n_ff: %d\n", hparams.n_ff);
@@ -1766,8 +1766,8 @@ bool moondream_load_mmproj_from_file(const char * gguf_file_path, moondream_mmpr
     
     printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
     printf("gguf_version: %d\n", gguf_version);
-    printf("gguf_alignment: %ld\n", gguf_alignment);
-    printf("gguf_data_offset: %ld\n", gguf_data_offset);
+    printf("gguf_alignment: %zu\n", gguf_alignment);
+    printf("gguf_data_offset: %zu\n", gguf_data_offset);
     printf("model_arch: %s\n", model_arch);
     printf("mem_size: %lf GiB\n", bytes_to_gib(ggml_get_mem_size(model.ctx)));
     printf("------------\nMMPROJ Hyperparameters\n------------\n");
