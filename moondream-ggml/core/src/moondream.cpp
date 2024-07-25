@@ -1957,11 +1957,10 @@ bool moondream_lm_set_inputs(moondream_lm_context & mctx, moondream_lm_batch & b
     uint32_t n_kv = mctx.kv_cache.n;
     float * inp_kq_mask_data = (float *)mctx.inp_kq_mask->data;
     for (int i = 0; i < batch.n_tokens; ++i) {
-        //int32_t cur_pos = batch.pos[i];
+        int32_t cur_pos = batch.pos[i];
         for (int k = 0; k < n_kv; ++k) {
-            // TODO: figure out correct stride for -INFINITY entries.
-            //float f = (k > cur_pos) ? -INFINITY : 0.0f;
-            inp_kq_mask_data[(i * n_kv) + k] = 0.0f;
+            float f = (k > cur_pos) ? -INFINITY : 0.0f;
+            inp_kq_mask_data[(i * n_kv) + k] = f;
         }
     }
 
