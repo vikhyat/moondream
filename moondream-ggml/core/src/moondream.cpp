@@ -329,18 +329,15 @@ static void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int 
 
     printf("Shape: %lld %lld %lld %lld\n", dst->ne[3], dst->ne[2], dst->ne[1], dst->ne[0]);
     switch (dst->type) {
-        case GGML_TYPE_F16: {
+        case GGML_TYPE_F16:
             printf("Type: f16\n");
             break;
-        }
-        case GGML_TYPE_F32: {
+        case GGML_TYPE_F32:
             printf("Type: f32\n");
             break;
-        }
-        default: {
+        default:
             printf("Type: unknown\n");
             break;
-        }
     }
 
     // emit last 2 dimension values
@@ -659,7 +656,6 @@ ggml_cgraph * build_phi2(
     const int64_t n_layer = hparams.n_layer;
     const int64_t n_embd = hparams.n_embd;
     const int64_t n_embd_head = hparams.n_embd_head_v;
-    const int64_t n_embd_gqa = hparams.n_embd;
     GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
 
     const uint32_t n_ctx_orig = cparams.n_ctx_orig_yarn;
@@ -689,6 +685,7 @@ ggml_cgraph * build_phi2(
         );
         moondream_set_tensor_name(attn_norm_output, "attn_norm", il);
 
+
         // Self-attention
         {
             struct ggml_tensor * q_cur = nullptr;
@@ -704,13 +701,10 @@ ggml_cgraph * build_phi2(
                 ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 0*sizeof(float)*(n_embd))
             );
             k_cur = ggml_cont(
-                ctx0, ggml_view_2d(ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd))
+                ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd))
             );
             v_cur = ggml_cont(
-                ctx0, 
-                ggml_view_2d(
-                    ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd + n_embd_gqa)
-                )
+                ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 2*sizeof(float)*(n_embd))
             );
   
             moondream_set_tensor_name(q_cur, "q_cur", il);
@@ -2074,7 +2068,7 @@ int main(int argc, char * argv[]) {
     
     /* Start of prompt tokenization. */
     //const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
-    const char * prompt = "Describe the image.";
+    const char * prompt = "Question: Is this a dog? Yes or no.\n\nAnswer:";
     size_t prompt_len = strlen(prompt);
     printf("prompt_len: %zu\n", prompt_len);
     int32_t token_ids[prompt_len];

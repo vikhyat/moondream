@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "__availability": "c",
+        "cstdarg": "c",
+        "cwchar": "c",
+        "__config": "cpp",
+        "__verbose_abort": "cpp",
+        "charconv": "cpp",
+        "cstdio": "cpp",
+        "ctime": "cpp",
+        "filesystem": "cpp",
+        "format": "cpp",
+        "locale": "cpp",
+        "regex": "cpp",
+        "vector": "cpp",
+        "version": "cpp"
+    }
+}
