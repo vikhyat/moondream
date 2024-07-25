@@ -65,28 +65,7 @@ static void moondream_set_tensor_name(ggml_tensor * cur, const char * name, int 
 
 enum projector_type {
     PROJECTOR_TYPE_MLP,
-    PROJECTOR_TYPE_MLP_NORM,
-    PROJECTOR_TYPE_LDP,
-    PROJECTOR_TYPE_LDPV2,
     PROJECTOR_TYPE_UNKNOWN,
-};
-
-/* Start of llm enums. */
-enum llm_ffn_op_type {
-    LLM_FFN_SILU,
-    LLM_FFN_GELU,
-    LLM_FFN_RELU,
-    LLM_FFN_RELU_SQR,
-};
-
-enum llm_ffn_gate_type {
-    LLM_FFN_SEQ,
-    LLM_FFN_PAR, // ffn_gate is parallel to ffn_up
-};
-
-enum llm_norm_type {
-    LLM_NORM,
-    LLM_NORM_RMS,
 };
 /* End of llm enums. */
 
@@ -451,28 +430,13 @@ ggml_tensor * lm_build_norm(
     moondream_lm_hparams & hparams,
     ggml_tensor * mw,
     ggml_tensor * mb,
-    llm_norm_type type,
     int il
 ) {
-    switch(type) {
-        case LLM_NORM:
-            cur = ggml_norm(ctx, cur, hparams.f_norm_eps);
-            break;
-        case LLM_NORM_RMS:
-            cur = ggml_rms_norm(ctx, cur, hparams.f_norm_rms_eps);
-            break;
-    }
-
-    if (mw || mb) {
-        moondream_set_tensor_name(cur, "norm", il);
-    }
-    
+    cur = ggml_norm(ctx, cur, hparams.f_norm_eps);
     // Weight
-    if (mw) {
-        cur = ggml_mul(ctx, cur, mw);
-        if (mb) {
-            moondream_set_tensor_name(cur, "norm_w", il);
-        }
+    cur = ggml_mul(ctx, cur, mw);
+    if (mb) {
+        moondream_set_tensor_name(cur, "norm_w", il);
     }
     // Bias
     if (mb) {
@@ -740,8 +704,7 @@ ggml_cgraph * build_phi2(
             ctx0, inpL, hparams,
             model.layers[il].attn_norm,
             model.layers[il].attn_norm_b,
-            // TODO: since LLM_NORM is hardcoded the arg might not be needed
-            LLM_NORM, il
+            il
         );
         moondream_set_tensor_name(attn_norm_output, "attn_norm", il);
 
@@ -831,7 +794,7 @@ ggml_cgraph * build_phi2(
         ctx0, inpL, hparams,
         model.output_norm,
         model.output_norm_b,
-        LLM_NORM, -1
+        -1
     );
     moondream_set_tensor_name(cur, "result_norm", -1);
 
@@ -2141,7 +2104,7 @@ int main(int argc, char * argv[]) {
     
     /* Start of prompt tokenization. */
     //const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
-    const char * prompt = "Describe the image.";
+    const char * prompt = "Question: Describe the image.\n\nAnswer:";
     size_t prompt_len = strlen(prompt);
     printf("prompt_len: %zu\n", prompt_len);
     int32_t token_ids[prompt_len];
