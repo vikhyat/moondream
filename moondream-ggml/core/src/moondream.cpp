@@ -670,91 +670,6 @@ ggml_tensor * lm_build_inp_out_ids(ggml_context * ctx, moondream_lm_context & mc
     return mctx.inp_out_ids;
 }
 
-ggml_tensor * lm_build_ffn(
-    ggml_context * ctx,
-    ggml_tensor * cur,
-    ggml_tensor * up,
-    ggml_tensor * up_b,
-    ggml_tensor * gate,
-    ggml_tensor * gate_b,
-    ggml_tensor * down,
-    ggml_tensor * down_b,
-    ggml_tensor * act_scales,
-    // NOTE: these flags might not be necessary if they don't vary for phi2 models.
-    llm_ffn_op_type type_op,
-    llm_ffn_gate_type type_gate,
-    int il
-) {
-    ggml_tensor * tmp = up ? ggml_mul_mat(ctx, up, cur) : cur;
-    moondream_set_tensor_name(tmp, "ffn_up", il);
-
-    if (up_b) {
-        tmp = ggml_add(ctx, tmp, up_b);
-        moondream_set_tensor_name(tmp, "ffn_up_b", il);
-    }
-    if (gate) {
-        switch (type_gate) {
-            case LLM_FFN_SEQ: {
-                cur = ggml_mul_mat(ctx, gate, tmp);
-                moondream_set_tensor_name(cur, "ffn_gate", il);
-                break;
-            }
-            case LLM_FFN_PAR: {
-                cur = ggml_mul_mat(ctx, gate, cur);
-                moondream_set_tensor_name(cur, "ffn_gate", il);
-                break;
-            }
-        }
-        if (gate_b) {
-            cur = ggml_add(ctx, cur, gate_b);
-            moondream_set_tensor_name(cur, "ffn_gate_b", il);
-        }
-    } else {
-        cur = tmp;
-    }
-
-    switch (type_op) {
-        case LLM_FFN_SILU: {
-            cur = ggml_silu(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_silu", il);
-            break;
-        }
-        case LLM_FFN_GELU: {
-            cur = ggml_gelu(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_gelu", il);
-            if (act_scales != NULL) {
-                cur = ggml_div(ctx, cur, act_scales);
-                moondream_set_tensor_name(cur, "ffn_act", il);
-            }
-            break;
-        }
-        case LLM_FFN_RELU: {
-            cur = ggml_relu(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_relu", il);
-            break;
-        }
-        case LLM_FFN_RELU_SQR: {
-            cur = ggml_relu(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_relu", il);
-            cur = ggml_sqr(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_sqr(relu)", il);
-            break;
-        }
-    }
-
-    if (type_gate == LLM_FFN_PAR) {
-        cur = ggml_mul(ctx, cur, tmp);
-        moondream_set_tensor_name(cur, "ffn_gate_par", il);
-    }
-
-    cur = ggml_mul_mat(ctx, down, cur);
-    if (down_b) {
-        cur = ggml_add(ctx, cur, down_b);
-        moondream_set_tensor_name(cur, "ffn_down_s", il);
-    }
-    return cur;
-}
-
 // Modification of llama.cpp build_phi2.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/llama.cpp
 ggml_cgraph * build_phi2(
@@ -836,37 +751,24 @@ ggml_cgraph * build_phi2(
             struct ggml_tensor * k_cur = nullptr;
             struct ggml_tensor * v_cur = nullptr;
 
-            if (model.layers[il].wqkv) {
-                cur = ggml_mul_mat(ctx0, model.layers[il].wqkv, attn_norm_output);
-                moondream_set_tensor_name(cur, "wqkv", il);
+            cur = ggml_mul_mat(ctx0, model.layers[il].wqkv, attn_norm_output);
+            moondream_set_tensor_name(cur, "wqkv", il);
+            cur = ggml_add(ctx0, cur, model.layers[il].bqkv);
+            moondream_set_tensor_name(cur, "bqkv", il);
 
-                cur = ggml_add(ctx0, cur, model.layers[il].bqkv);
-                moondream_set_tensor_name(cur, "bqkv", il);
-
-                q_cur = ggml_cont(
-                    ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 0*sizeof(float)*(n_embd))
-                );
-                k_cur = ggml_cont(
-                    ctx0, ggml_view_2d(ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd))
-                );
-                v_cur = ggml_cont(
-                    ctx0, 
-                    ggml_view_2d(
-                        ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd + n_embd_gqa)
-                    )
-                );
-            } else {
-                q_cur = ggml_add(
-                    ctx0, ggml_mul_mat(ctx0, model.layers[il].wq, attn_norm_output), model.layers[il].bq
-                );
-                k_cur = ggml_add(
-                    ctx0, ggml_mul_mat(ctx0, model.layers[il].wk, attn_norm_output), model.layers[il].bk
-                );
-                v_cur = ggml_add(
-                    ctx0, ggml_mul_mat(ctx0, model.layers[il].wv, attn_norm_output), model.layers[il].bv
-                );
-            }
- 
+            q_cur = ggml_cont(
+                ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 0*sizeof(float)*(n_embd))
+            );
+            k_cur = ggml_cont(
+                ctx0, ggml_view_2d(ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd))
+            );
+            v_cur = ggml_cont(
+                ctx0, 
+                ggml_view_2d(
+                    ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd + n_embd_gqa)
+                )
+            );
+  
             moondream_set_tensor_name(q_cur, "q_cur", il);
             moondream_set_tensor_name(k_cur, "k_cur", il);
             moondream_set_tensor_name(v_cur, "v_cur", il);
@@ -908,13 +810,12 @@ ggml_cgraph * build_phi2(
 
         // Feed forward
         {
-            ffn_output = lm_build_ffn(
-                ctx0, attn_norm_output,
-                model.layers[il].ffn_up, model.layers[il].ffn_up_b,
-                NULL, NULL, /* phi2 doesn't have a ff gate */
-                model.layers[il].ffn_down, model.layers[il].ffn_down_b,
-                NULL, LLM_FFN_GELU, LLM_FFN_SEQ, il
-            );
+            ffn_output = ggml_mul_mat(ctx0, model.layers[il].ffn_up, attn_norm_output);
+            ffn_output = ggml_add(ctx0, ffn_output, model.layers[il].ffn_up_b);
+            ffn_output = ggml_gelu(ctx0, ffn_output);
+            ffn_output = ggml_mul_mat(ctx0, model.layers[il].ffn_down, ffn_output);
+            ffn_output = ggml_add(ctx0, ffn_output, model.layers[il].ffn_down_b);
+            
             moondream_set_tensor_name(ffn_output, "ffn_out", il);
         }
 
