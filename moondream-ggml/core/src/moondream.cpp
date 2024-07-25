@@ -136,9 +136,7 @@ struct moondream_lm_hparams {
     int n_head;
     int n_head_kv;
     int n_embd_head_k;
-    int n_embd_k_gqa;
     int n_embd_head_v;
-    int n_embd_v_gqa;
     int n_vocab;
     
     float f_norm_eps;
@@ -444,8 +442,7 @@ void lm_build_kv_store(
     int il
 ) {
     const int64_t n_ctx = cparams.n_ctx;
-    const int64_t n_embd_k_gqa = hparams.n_embd_k_gqa;
-    const int64_t n_embd_v_gqa = hparams.n_embd_v_gqa;
+    const int64_t n_embd = hparams.n_embd;
     
     // Why use GGML_ASSERT here and the regular c assert below?
     GGML_ASSERT(kv.size == n_ctx);
@@ -453,27 +450,27 @@ void lm_build_kv_store(
     // NOTE: I think this creates a view into the key cache, copies the key for the current head
     // into it, then builds it into the graph, idk why the build is necessary here though.
     ggml_tensor * k_cache_view = ggml_view_1d(
-        ctx, kv.k_l[il], n_tokens*n_embd_k_gqa, 
+        ctx, kv.k_l[il], n_tokens*n_embd, 
         // Why are there parentheses around ggml_row_size?
-        (ggml_row_size(kv.k_l[il]->type, n_embd_k_gqa))*kv_head
+        (ggml_row_size(kv.k_l[il]->type, n_embd))*kv_head
     );
     moondream_set_tensor_name(k_cache_view, "k_cache_view", il);
     ggml_build_forward_expand(graph, ggml_cpy(ctx, k_cur, k_cache_view));
 
-    assert(v_cur->ne[0] == n_embd_v_gqa && v_cur->ne[1] == n_tokens);
+    assert(v_cur->ne[0] == n_embd && v_cur->ne[1] == n_tokens);
 
     ggml_tensor * v_cache_view = nullptr;
     if (cparams.flash_attn) {
         v_cache_view = ggml_view_1d(
-            ctx, kv.v_l[il], n_tokens*n_embd_v_gqa, 
+            ctx, kv.v_l[il], n_tokens*n_embd, 
             // Why are there parantheses around kv_head?
-            (kv_head)*ggml_row_size(kv.v_l[il]->type, n_embd_v_gqa)
+            (kv_head)*ggml_row_size(kv.v_l[il]->type, n_embd)
         );
     } else {
         // TODO: figure out exactly what view 2d is doing under the hood
         // The v cache is transposed when not using flash attention.
         v_cache_view = ggml_view_2d(
-            ctx, kv.v_l[il], n_tokens, n_embd_v_gqa, 
+            ctx, kv.v_l[il], n_tokens, n_embd, 
             (n_ctx)*ggml_element_size(kv.v_l[il]),
             (kv_head)*ggml_element_size(kv.v_l[il])
         );
@@ -502,17 +499,16 @@ ggml_tensor * lm_build_kqv(
     const int64_t n_ctx = cparams.n_ctx;
     const int64_t n_head = hparams.n_head;
     const int64_t n_head_kv = hparams.n_head_kv;
+    const int64_t n_embd = hparams.n_embd;
     const int64_t n_embd_head_k = hparams.n_embd_head_k;
-    const int64_t n_embd_k_gqa = hparams.n_embd_k_gqa;
     const int64_t n_embd_head_v = hparams.n_embd_head_v;
-    const int64_t n_embd_v_gqa = hparams.n_embd_v_gqa;
     
     ggml_tensor * q = ggml_permute(ctx, q_cur, 0, 2, 1, 3);
     // TODO: figure out exactly how ggml_view_3d works under the hood
     ggml_tensor * k = ggml_view_3d(
         ctx, kv.k_l[il],
         n_embd_head_v, n_kv, n_head_kv,
-        ggml_row_size(kv.k_l[il]->type, n_embd_k_gqa),
+        ggml_row_size(kv.k_l[il]->type, n_embd),
         ggml_row_size(kv.k_l[il]->type, n_embd_head_k),
         0
     );
@@ -527,7 +523,7 @@ ggml_tensor * lm_build_kqv(
         ggml_tensor * v = ggml_view_3d(
             ctx, kv.v_l[il], 
             n_embd_head_v, n_kv, n_head_kv,
-            ggml_row_size(kv.v_l[il]->type, n_embd_v_gqa),
+            ggml_row_size(kv.v_l[il]->type, n_embd),
             ggml_row_size(kv.v_l[il]->type, n_embd_head_v),
             0
         );
@@ -663,7 +659,7 @@ ggml_cgraph * build_phi2(
     const int64_t n_layer = hparams.n_layer;
     const int64_t n_embd = hparams.n_embd;
     const int64_t n_embd_head = hparams.n_embd_head_v;
-    const int64_t n_embd_gqa = hparams.n_embd_v_gqa;
+    const int64_t n_embd_gqa = hparams.n_embd;
     GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
 
     const uint32_t n_ctx_orig = cparams.n_ctx_orig_yarn;
@@ -983,8 +979,7 @@ bool moondream_kv_cache_init(
     ggml_type type_v
 ) {
     // TODO: double check this
-    const uint32_t n_embd_k_gqa = hparams.n_embd_k_gqa;
-    const uint32_t n_embd_v_gqa = hparams.n_embd_v_gqa;
+    const uint32_t n_embd = hparams.n_embd;
     const int64_t n_layer = hparams.n_layer;
     const uint32_t kv_size = cparams.n_ctx; 
     
@@ -1004,8 +999,8 @@ bool moondream_kv_cache_init(
 
     // Create k/v cache tensors for each attention layer but don't allocate memory for them.
     for (int i = 0; i < n_layer; ++i) {
-        ggml_tensor * k = ggml_new_tensor_1d(ctx, type_k, n_embd_k_gqa * kv_size);
-        ggml_tensor * v = ggml_new_tensor_1d(ctx, type_v, n_embd_v_gqa * kv_size);
+        ggml_tensor * k = ggml_new_tensor_1d(ctx, type_k, n_embd * kv_size);
+        ggml_tensor * v = ggml_new_tensor_1d(ctx, type_v, n_embd * kv_size);
         kv_cache.k_l.push_back(k);
         kv_cache.v_l.push_back(v);
     }
@@ -1430,9 +1425,6 @@ bool moondream_load_lm_from_file(const char * gguf_file_path, moondream_lm & mod
     // Calculate n_head_k and n_head_v because they are not specified.
     hparams.n_embd_head_k = hparams.n_embd / hparams.n_head;
     hparams.n_embd_head_v = hparams.n_embd_head_k;
-    // TODO: verify that the GQA hparams are correct. Reference llama.cpp lines 1922 and 1926.
-    hparams.n_embd_k_gqa = hparams.n_embd_head_k * hparams.n_head_kv;
-    hparams.n_embd_v_gqa = hparams.n_embd_head_v * hparams.n_head_kv;
     // TODO: determine this dynamically from the GGUF file instead of hardcoding it
     hparams.n_vocab = 51200;
     hparams.f_max_alibi_bias = 0.0f;
@@ -1590,8 +1582,6 @@ bool moondream_load_lm_from_file(const char * gguf_file_path, moondream_lm & mod
     printf("n_head_kv: %d\n", hparams.n_head_kv);
     printf("n_embd_head_k: %d\n", hparams.n_embd_head_k);
     printf("n_embd_head_v: %d\n", hparams.n_embd_head_v);
-    printf("n_embd_k_gqa: %d\n", hparams.n_embd_k_gqa);
-    printf("n_embd_v_gqa: %d\n", hparams.n_embd_v_gqa);
     printf("n_vocab: %d\n", hparams.n_vocab);
     printf("------------\nVocab\n------------\n");
     printf("tokenizer_model_name: %s\n", tokenizer_model_name);
