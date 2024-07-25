@@ -39,21 +39,6 @@ static double bytes_to_gib(size_t n_bytes) {
     return static_cast<double>(n_bytes) / (1024.0 * 1024.0 * 1024.0);
 }
 
-static std::string format(const char * fmt, ...) {
-    va_list ap;
-    va_list ap2;
-    va_start(ap, fmt);
-    va_copy(ap2, ap);
-    int size = vsnprintf(NULL, 0, fmt, ap);
-    GGML_ASSERT(size >= 0 && size < INT_MAX); // NOLINT
-    std::vector<char> buf(size + 1);
-    int size2 = vsnprintf(buf.data(), size + 1, fmt, ap2);
-    GGML_ASSERT(size2 == size);
-    va_end(ap2);
-    va_end(ap);
-    return std::string(buf.data(), size);
-}
-
 static void moondream_set_tensor_name(ggml_tensor * cur, const char * name, int il) {
     if (il >= 0) {
         ggml_format_name(cur, "%s-%d", name, il);
@@ -1975,11 +1960,7 @@ static std::string moondream_decode_token_str(const std::string & text) {
         try {
             decoded_text += unicode_utf8_to_byte(utf8);
         } catch (const std::out_of_range & /*e*/) {
-            decoded_text += "[UNK_BYTE_0x";
-            for (const auto c : utf8) {
-                decoded_text += format("%02x", (uint8_t) c);
-            }
-            decoded_text += text + "]";
+            decoded_text += "[UNK]";
         }
     }
     return decoded_text;
@@ -2103,7 +2084,7 @@ int main(int argc, char * argv[]) {
     
     /* Start of prompt tokenization. */
     //const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
-    const char * prompt = "Question: Describe the image.\n\nAnswer:";
+    const char * prompt = "Describe the image.";
     size_t prompt_len = strlen(prompt);
     printf("prompt_len: %zu\n", prompt_len);
     int32_t token_ids[prompt_len];
