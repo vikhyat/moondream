@@ -58,47 +58,18 @@ struct moondream_lm_layer {
     // Normalization
     ggml_tensor * attn_norm = nullptr;
     ggml_tensor * attn_norm_b = nullptr;
-    ggml_tensor * attn_norm_2 = nullptr;
-    ggml_tensor * attn_norm_2_b = nullptr;
-    ggml_tensor * attn_q_norm = nullptr;
-    ggml_tensor * attn_q_norm_b = nullptr;
-    ggml_tensor * attn_k_norm = nullptr;
-    ggml_tensor * attn_k_norm_b = nullptr;
-    ggml_tensor * attn_out_norm = nullptr;
-    ggml_tensor * attn_out_norm_b = nullptr;
-    ggml_tensor * attn_q_a_norm = nullptr;
-    ggml_tensor * attn_kv_a_norm = nullptr;
     // Attention
-    ggml_tensor * wq = nullptr;
-    ggml_tensor * wk = nullptr;
-    ggml_tensor * wv = nullptr;
     ggml_tensor * wo = nullptr;
     ggml_tensor * wqkv = nullptr;
-    ggml_tensor * wq_a = nullptr;
-    ggml_tensor * wq_b = nullptr;
-    ggml_tensor * wkv_a_mqa = nullptr;
-    ggml_tensor * wkv_b = nullptr;
     // Attention bias
-    ggml_tensor * bq = nullptr;
-    ggml_tensor * bk = nullptr;
-    ggml_tensor * bv = nullptr;
     ggml_tensor * bo = nullptr;
     ggml_tensor * bqkv = nullptr;
-    // Normalization
-    ggml_tensor * ffn_norm = nullptr;
-    ggml_tensor * ffn_norm_b = nullptr;
-    ggml_tensor * layer_out_norm = nullptr;
-    ggml_tensor * layer_out_norm_b = nullptr;
-    ggml_tensor * ffn_norm_exps = nullptr;
     // Feed forward
-    ggml_tensor * ffn_gate = nullptr; // w1
     ggml_tensor * ffn_down = nullptr;  // w2
     ggml_tensor * ffn_up = nullptr;   // w3
     // Feed forward bias
-    ggml_tensor * ffn_gate_b = nullptr;
     ggml_tensor * ffn_down_b = nullptr; // b2
     ggml_tensor * ffn_up_b = nullptr;   // b3
-    ggml_tensor * ffn_act = nullptr;
 };
 
 struct moondream_mmproj_layer {
