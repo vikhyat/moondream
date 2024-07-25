@@ -3,4 +3,5 @@ cppcheck --std=c++11 \
     --enable=all \
     --check-level=exhaustive \
     --suppress=missingIncludeSystem \
-    src/moondream.cpp
+    --suppress=missingInclude \
+    ./src/moondream.cpp
