@@ -39,21 +39,6 @@ static double bytes_to_gib(size_t n_bytes) {
     return static_cast<double>(n_bytes) / (1024.0 * 1024.0 * 1024.0);
 }
 
-static std::string format(const char * fmt, ...) {
-    va_list ap;
-    va_list ap2;
-    va_start(ap, fmt);
-    va_copy(ap2, ap);
-    int size = vsnprintf(NULL, 0, fmt, ap);
-    GGML_ASSERT(size >= 0 && size < INT_MAX); // NOLINT
-    std::vector<char> buf(size + 1);
-    int size2 = vsnprintf(buf.data(), size + 1, fmt, ap2);
-    GGML_ASSERT(size2 == size);
-    va_end(ap2);
-    va_end(ap);
-    return std::string(buf.data(), size);
-}
-
 static void moondream_set_tensor_name(ggml_tensor * cur, const char * name, int il) {
     if (il >= 0) {
         ggml_format_name(cur, "%s-%d", name, il);
@@ -65,28 +50,7 @@ static void moondream_set_tensor_name(ggml_tensor * cur, const char * name, int 
 
 enum projector_type {
     PROJECTOR_TYPE_MLP,
-    PROJECTOR_TYPE_MLP_NORM,
-    PROJECTOR_TYPE_LDP,
-    PROJECTOR_TYPE_LDPV2,
     PROJECTOR_TYPE_UNKNOWN,
-};
-
-/* Start of llm enums. */
-enum llm_ffn_op_type {
-    LLM_FFN_SILU,
-    LLM_FFN_GELU,
-    LLM_FFN_RELU,
-    LLM_FFN_RELU_SQR,
-};
-
-enum llm_ffn_gate_type {
-    LLM_FFN_SEQ,
-    LLM_FFN_PAR, // ffn_gate is parallel to ffn_up
-};
-
-enum llm_norm_type {
-    LLM_NORM,
-    LLM_NORM_RMS,
 };
 /* End of llm enums. */
 
@@ -168,13 +132,11 @@ struct moondream_lm_hparams {
     int n_ff;
     int n_layer;
     int n_rot;
-    int n_ctx_train;
+    uint32_t n_ctx_train;
     int n_head;
     int n_head_kv;
     int n_embd_head_k;
-    int n_embd_k_gqa;
     int n_embd_head_v;
-    int n_embd_v_gqa;
     int n_vocab;
     
     float f_norm_eps;
@@ -359,6 +321,38 @@ struct moondream_api_state {
 
 static moondream_api_state api_state;
 
+static void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata) {
+    if (ith != 0) {
+        // Only log from the first thread.
+        return;
+    }
+
+    printf("Shape: %lld %lld %lld %lld\n", dst->ne[3], dst->ne[2], dst->ne[1], dst->ne[0]);
+    switch (dst->type) {
+        case GGML_TYPE_F16:
+            printf("Type: f16\n");
+            break;
+        case GGML_TYPE_F32:
+            printf("Type: f32\n");
+            break;
+        default:
+            printf("Type: unknown\n");
+            break;
+    }
+
+    // emit last 2 dimension values
+    for (int j = 0; j < dst->ne[1]; j++) {
+        for (int i = 0; i < dst->ne[0]; i++) {
+            if (i > 0) {
+                printf("\t");
+            }
+            float f = ggml_get_f32_nd(dst, i, j, 0, 0);
+            printf("%.7f", (double)f);
+        }
+        printf("\n");
+    }
+}
+
 ggml_tensor * lm_build_inp_embd(
     ggml_context * ctx,
     moondream_lm_context & mctx,
@@ -416,28 +410,13 @@ ggml_tensor * lm_build_norm(
     moondream_lm_hparams & hparams,
     ggml_tensor * mw,
     ggml_tensor * mb,
-    llm_norm_type type,
     int il
 ) {
-    switch(type) {
-        case LLM_NORM:
-            cur = ggml_norm(ctx, cur, hparams.f_norm_eps);
-            break;
-        case LLM_NORM_RMS:
-            cur = ggml_rms_norm(ctx, cur, hparams.f_norm_rms_eps);
-            break;
-    }
-
-    if (mw || mb) {
-        moondream_set_tensor_name(cur, "norm", il);
-    }
-    
+    cur = ggml_norm(ctx, cur, hparams.f_norm_eps);
     // Weight
-    if (mw) {
-        cur = ggml_mul(ctx, cur, mw);
-        if (mb) {
-            moondream_set_tensor_name(cur, "norm_w", il);
-        }
+    cur = ggml_mul(ctx, cur, mw);
+    if (mb) {
+        moondream_set_tensor_name(cur, "norm_w", il);
     }
     // Bias
     if (mb) {
@@ -460,8 +439,7 @@ void lm_build_kv_store(
     int il
 ) {
     const int64_t n_ctx = cparams.n_ctx;
-    const int64_t n_embd_k_gqa = hparams.n_embd_k_gqa;
-    const int64_t n_embd_v_gqa = hparams.n_embd_v_gqa;
+    const int64_t n_embd = hparams.n_embd;
     
     // Why use GGML_ASSERT here and the regular c assert below?
     GGML_ASSERT(kv.size == n_ctx);
@@ -469,27 +447,27 @@ void lm_build_kv_store(
     // NOTE: I think this creates a view into the key cache, copies the key for the current head
     // into it, then builds it into the graph, idk why the build is necessary here though.
     ggml_tensor * k_cache_view = ggml_view_1d(
-        ctx, kv.k_l[il], n_tokens*n_embd_k_gqa, 
+        ctx, kv.k_l[il], n_tokens*n_embd, 
         // Why are there parentheses around ggml_row_size?
-        (ggml_row_size(kv.k_l[il]->type, n_embd_k_gqa))*kv_head
+        (ggml_row_size(kv.k_l[il]->type, n_embd))*kv_head
     );
     moondream_set_tensor_name(k_cache_view, "k_cache_view", il);
     ggml_build_forward_expand(graph, ggml_cpy(ctx, k_cur, k_cache_view));
 
-    assert(v_cur->ne[0] == n_embd_v_gqa && v_cur->ne[1] == n_tokens);
+    assert(v_cur->ne[0] == n_embd && v_cur->ne[1] == n_tokens);
 
     ggml_tensor * v_cache_view = nullptr;
     if (cparams.flash_attn) {
         v_cache_view = ggml_view_1d(
-            ctx, kv.v_l[il], n_tokens*n_embd_v_gqa, 
+            ctx, kv.v_l[il], n_tokens*n_embd, 
             // Why are there parantheses around kv_head?
-            (kv_head)*ggml_row_size(kv.v_l[il]->type, n_embd_v_gqa)
+            (kv_head)*ggml_row_size(kv.v_l[il]->type, n_embd)
         );
     } else {
         // TODO: figure out exactly what view 2d is doing under the hood
         // The v cache is transposed when not using flash attention.
         v_cache_view = ggml_view_2d(
-            ctx, kv.v_l[il], n_tokens, n_embd_v_gqa, 
+            ctx, kv.v_l[il], n_tokens, n_embd, 
             (n_ctx)*ggml_element_size(kv.v_l[il]),
             (kv_head)*ggml_element_size(kv.v_l[il])
         );
@@ -518,17 +496,16 @@ ggml_tensor * lm_build_kqv(
     const int64_t n_ctx = cparams.n_ctx;
     const int64_t n_head = hparams.n_head;
     const int64_t n_head_kv = hparams.n_head_kv;
+    const int64_t n_embd = hparams.n_embd;
     const int64_t n_embd_head_k = hparams.n_embd_head_k;
-    const int64_t n_embd_k_gqa = hparams.n_embd_k_gqa;
     const int64_t n_embd_head_v = hparams.n_embd_head_v;
-    const int64_t n_embd_v_gqa = hparams.n_embd_v_gqa;
     
     ggml_tensor * q = ggml_permute(ctx, q_cur, 0, 2, 1, 3);
     // TODO: figure out exactly how ggml_view_3d works under the hood
     ggml_tensor * k = ggml_view_3d(
         ctx, kv.k_l[il],
         n_embd_head_v, n_kv, n_head_kv,
-        ggml_row_size(kv.k_l[il]->type, n_embd_k_gqa),
+        ggml_row_size(kv.k_l[il]->type, n_embd),
         ggml_row_size(kv.k_l[il]->type, n_embd_head_k),
         0
     );
@@ -543,7 +520,7 @@ ggml_tensor * lm_build_kqv(
         ggml_tensor * v = ggml_view_3d(
             ctx, kv.v_l[il], 
             n_embd_head_v, n_kv, n_head_kv,
-            ggml_row_size(kv.v_l[il]->type, n_embd_v_gqa),
+            ggml_row_size(kv.v_l[il]->type, n_embd),
             ggml_row_size(kv.v_l[il]->type, n_embd_head_v),
             0
         );
@@ -635,91 +612,6 @@ ggml_tensor * lm_build_inp_out_ids(ggml_context * ctx, moondream_lm_context & mc
     return mctx.inp_out_ids;
 }
 
-ggml_tensor * lm_build_ffn(
-    ggml_context * ctx,
-    ggml_tensor * cur,
-    ggml_tensor * up,
-    ggml_tensor * up_b,
-    ggml_tensor * gate,
-    ggml_tensor * gate_b,
-    ggml_tensor * down,
-    ggml_tensor * down_b,
-    ggml_tensor * act_scales,
-    // NOTE: these flags might not be necessary if they don't vary for phi2 models.
-    llm_ffn_op_type type_op,
-    llm_ffn_gate_type type_gate,
-    int il
-) {
-    ggml_tensor * tmp = up ? ggml_mul_mat(ctx, up, cur) : cur;
-    moondream_set_tensor_name(tmp, "ffn_up", il);
-
-    if (up_b) {
-        tmp = ggml_add(ctx, tmp, up_b);
-        moondream_set_tensor_name(tmp, "ffn_up_b", il);
-    }
-    if (gate) {
-        switch (type_gate) {
-            case LLM_FFN_SEQ: {
-                cur = ggml_mul_mat(ctx, gate, tmp);
-                moondream_set_tensor_name(cur, "ffn_gate", il);
-                break;
-            }
-            case LLM_FFN_PAR: {
-                cur = ggml_mul_mat(ctx, gate, cur);
-                moondream_set_tensor_name(cur, "ffn_gate", il);
-                break;
-            }
-        }
-        if (gate_b) {
-            cur = ggml_add(ctx, cur, gate_b);
-            moondream_set_tensor_name(cur, "ffn_gate_b", il);
-        }
-    } else {
-        cur = tmp;
-    }
-
-    switch (type_op) {
-        case LLM_FFN_SILU: {
-            cur = ggml_silu(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_silu", il);
-            break;
-        }
-        case LLM_FFN_GELU: {
-            cur = ggml_gelu(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_gelu", il);
-            if (act_scales != NULL) {
-                cur = ggml_div(ctx, cur, act_scales);
-                moondream_set_tensor_name(cur, "ffn_act", il);
-            }
-            break;
-        }
-        case LLM_FFN_RELU: {
-            cur = ggml_relu(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_relu", il);
-            break;
-        }
-        case LLM_FFN_RELU_SQR: {
-            cur = ggml_relu(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_relu", il);
-            cur = ggml_sqr(ctx, cur);
-            moondream_set_tensor_name(cur, "ffn_sqr(relu)", il);
-            break;
-        }
-    }
-
-    if (type_gate == LLM_FFN_PAR) {
-        cur = ggml_mul(ctx, cur, tmp);
-        moondream_set_tensor_name(cur, "ffn_gate_par", il);
-    }
-
-    cur = ggml_mul_mat(ctx, down, cur);
-    if (down_b) {
-        cur = ggml_add(ctx, cur, down_b);
-        moondream_set_tensor_name(cur, "ffn_down_s", il);
-    }
-    return cur;
-}
-
 // Modification of llama.cpp build_phi2.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/llama.cpp
 ggml_cgraph * build_phi2(
@@ -764,7 +656,6 @@ ggml_cgraph * build_phi2(
     const int64_t n_layer = hparams.n_layer;
     const int64_t n_embd = hparams.n_embd;
     const int64_t n_embd_head = hparams.n_embd_head_v;
-    const int64_t n_embd_gqa = hparams.n_embd_v_gqa;
     GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
 
     const uint32_t n_ctx_orig = cparams.n_ctx_orig_yarn;
@@ -790,10 +681,10 @@ ggml_cgraph * build_phi2(
             ctx0, inpL, hparams,
             model.layers[il].attn_norm,
             model.layers[il].attn_norm_b,
-            // TODO: since LLM_NORM is hardcoded the arg might not be needed
-            LLM_NORM, il
+            il
         );
         moondream_set_tensor_name(attn_norm_output, "attn_norm", il);
+
 
         // Self-attention
         {
@@ -801,37 +692,21 @@ ggml_cgraph * build_phi2(
             struct ggml_tensor * k_cur = nullptr;
             struct ggml_tensor * v_cur = nullptr;
 
-            if (model.layers[il].wqkv) {
-                cur = ggml_mul_mat(ctx0, model.layers[il].wqkv, attn_norm_output);
-                moondream_set_tensor_name(cur, "wqkv", il);
+            cur = ggml_mul_mat(ctx0, model.layers[il].wqkv, attn_norm_output);
+            moondream_set_tensor_name(cur, "wqkv", il);
+            cur = ggml_add(ctx0, cur, model.layers[il].bqkv);
+            moondream_set_tensor_name(cur, "bqkv", il);
 
-                cur = ggml_add(ctx0, cur, model.layers[il].bqkv);
-                moondream_set_tensor_name(cur, "bqkv", il);
-
-                q_cur = ggml_cont(
-                    ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 0*sizeof(float)*(n_embd))
-                );
-                k_cur = ggml_cont(
-                    ctx0, ggml_view_2d(ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd))
-                );
-                v_cur = ggml_cont(
-                    ctx0, 
-                    ggml_view_2d(
-                        ctx0, cur, n_embd_gqa, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd + n_embd_gqa)
-                    )
-                );
-            } else {
-                q_cur = ggml_add(
-                    ctx0, ggml_mul_mat(ctx0, model.layers[il].wq, attn_norm_output), model.layers[il].bq
-                );
-                k_cur = ggml_add(
-                    ctx0, ggml_mul_mat(ctx0, model.layers[il].wk, attn_norm_output), model.layers[il].bk
-                );
-                v_cur = ggml_add(
-                    ctx0, ggml_mul_mat(ctx0, model.layers[il].wv, attn_norm_output), model.layers[il].bv
-                );
-            }
-
+            q_cur = ggml_cont(
+                ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 0*sizeof(float)*(n_embd))
+            );
+            k_cur = ggml_cont(
+                ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 1*sizeof(float)*(n_embd))
+            );
+            v_cur = ggml_cont(
+                ctx0, ggml_view_2d(ctx0, cur, n_embd, n_tokens, cur->nb[1], 2*sizeof(float)*(n_embd))
+            );
+  
             moondream_set_tensor_name(q_cur, "q_cur", il);
             moondream_set_tensor_name(k_cur, "k_cur", il);
             moondream_set_tensor_name(v_cur, "v_cur", il);
@@ -873,13 +748,12 @@ ggml_cgraph * build_phi2(
 
         // Feed forward
         {
-            ffn_output = lm_build_ffn(
-                ctx0, attn_norm_output,
-                model.layers[il].ffn_up, model.layers[il].ffn_up_b,
-                NULL, NULL, /* phi2 doesn't have a ff gate */
-                model.layers[il].ffn_down, model.layers[il].ffn_down_b,
-                NULL, LLM_FFN_GELU, LLM_FFN_SEQ, il
-            );
+            ffn_output = ggml_mul_mat(ctx0, model.layers[il].ffn_up, attn_norm_output);
+            ffn_output = ggml_add(ctx0, ffn_output, model.layers[il].ffn_up_b);
+            ffn_output = ggml_gelu(ctx0, ffn_output);
+            ffn_output = ggml_mul_mat(ctx0, model.layers[il].ffn_down, ffn_output);
+            ffn_output = ggml_add(ctx0, ffn_output, model.layers[il].ffn_down_b);
+            
             moondream_set_tensor_name(ffn_output, "ffn_out", il);
         }
 
@@ -895,7 +769,7 @@ ggml_cgraph * build_phi2(
         ctx0, inpL, hparams,
         model.output_norm,
         model.output_norm_b,
-        LLM_NORM, -1
+        -1
     );
     moondream_set_tensor_name(cur, "result_norm", -1);
 
@@ -1099,8 +973,7 @@ bool moondream_kv_cache_init(
     ggml_type type_v
 ) {
     // TODO: double check this
-    const uint32_t n_embd_k_gqa = hparams.n_embd_k_gqa;
-    const uint32_t n_embd_v_gqa = hparams.n_embd_v_gqa;
+    const uint32_t n_embd = hparams.n_embd;
     const int64_t n_layer = hparams.n_layer;
     const uint32_t kv_size = cparams.n_ctx; 
     
@@ -1120,8 +993,8 @@ bool moondream_kv_cache_init(
 
     // Create k/v cache tensors for each attention layer but don't allocate memory for them.
     for (int i = 0; i < n_layer; ++i) {
-        ggml_tensor * k = ggml_new_tensor_1d(ctx, type_k, n_embd_k_gqa * kv_size);
-        ggml_tensor * v = ggml_new_tensor_1d(ctx, type_v, n_embd_v_gqa * kv_size);
+        ggml_tensor * k = ggml_new_tensor_1d(ctx, type_k, n_embd * kv_size);
+        ggml_tensor * v = ggml_new_tensor_1d(ctx, type_v, n_embd * kv_size);
         kv_cache.k_l.push_back(k);
         kv_cache.v_l.push_back(v);
     }
@@ -1546,9 +1419,6 @@ bool moondream_load_lm_from_file(const char * gguf_file_path, moondream_lm & mod
     // Calculate n_head_k and n_head_v because they are not specified.
     hparams.n_embd_head_k = hparams.n_embd / hparams.n_head;
     hparams.n_embd_head_v = hparams.n_embd_head_k;
-    // TODO: verify that the GQA hparams are correct. Reference llama.cpp lines 1922 and 1926.
-    hparams.n_embd_k_gqa = hparams.n_embd_head_k * hparams.n_head_kv;
-    hparams.n_embd_v_gqa = hparams.n_embd_head_v * hparams.n_head_kv;
     // TODO: determine this dynamically from the GGUF file instead of hardcoding it
     hparams.n_vocab = 51200;
     hparams.f_max_alibi_bias = 0.0f;
@@ -1706,14 +1576,12 @@ bool moondream_load_lm_from_file(const char * gguf_file_path, moondream_lm & mod
     printf("n_head_kv: %d\n", hparams.n_head_kv);
     printf("n_embd_head_k: %d\n", hparams.n_embd_head_k);
     printf("n_embd_head_v: %d\n", hparams.n_embd_head_v);
-    printf("n_embd_k_gqa: %d\n", hparams.n_embd_k_gqa);
-    printf("n_embd_v_gqa: %d\n", hparams.n_embd_v_gqa);
     printf("n_vocab: %d\n", hparams.n_vocab);
     printf("------------\nVocab\n------------\n");
     printf("tokenizer_model_name: %s\n", tokenizer_model_name);
     printf("bos_token_id: %ld\n", vocab.bos_token_id);
     printf("eos_token_id: %ld\n", vocab.eos_token_id);
-    printf("unkown_token_id: %ld\n", vocab.separator_token_id);
+    printf("unknown_token_id: %ld\n", vocab.separator_token_id);
     printf("separator_token_id: %ld\n", vocab.separator_token_id);
     printf("padding_token_id: %ld\n", vocab.padding_token_id);
     printf("n_tokens: %d\n", vocab.n_tokens);
@@ -2058,11 +1926,10 @@ bool moondream_lm_set_inputs(moondream_lm_context & mctx, moondream_lm_batch & b
     uint32_t n_kv = mctx.kv_cache.n;
     float * inp_kq_mask_data = (float *)mctx.inp_kq_mask->data;
     for (int i = 0; i < batch.n_tokens; ++i) {
-        //int32_t cur_pos = batch.pos[i];
+        int32_t cur_pos = batch.pos[i];
         for (int k = 0; k < n_kv; ++k) {
-            // TODO: figure out correct stride for -INFINITY entries.
-            //float f = (k > cur_pos) ? -INFINITY : 0.0f;
-            inp_kq_mask_data[(i * n_kv) + k] = 0.0f;
+            float f = (k > cur_pos) ? -INFINITY : 0.0f;
+            inp_kq_mask_data[(i * n_kv) + k] = f;
         }
     }
 
@@ -2077,11 +1944,7 @@ static std::string moondream_decode_token_str(const std::string & text) {
         try {
             decoded_text += unicode_utf8_to_byte(utf8);
         } catch (const std::out_of_range & /*e*/) {
-            decoded_text += "[UNK_BYTE_0x";
-            for (const auto c : utf8) {
-                decoded_text += format("%02x", (uint8_t) c);
-            }
-            decoded_text += text + "]";
+            decoded_text += "[UNK]";
         }
     }
     return decoded_text;
@@ -2205,7 +2068,7 @@ int main(int argc, char * argv[]) {
     
     /* Start of prompt tokenization. */
     //const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
-    const char * prompt = "Describe the image.";
+    const char * prompt = "Question: Is this a dog? Yes or no.\n\nAnswer:";
     size_t prompt_len = strlen(prompt);
     printf("prompt_len: %zu\n", prompt_len);
     int32_t token_ids[prompt_len];

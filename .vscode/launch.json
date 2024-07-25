@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "vik launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/moondream-ggml/core/build/moondream_ggml_exe",
+            "args": [
+                "${workspaceFolder}/moondream-ggml/data/"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb"
+        }
+    ]
+}

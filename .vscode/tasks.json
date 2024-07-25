@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "options": {
+        "cwd": "${workspaceRoot}/moondream-ggml/core/build"
+    },
+    "tasks": [
+        {
+            "label": "cmake",
+            "command": "cmake -G 'Unix Makefiles' -DGGML_METAL=off -DCMAKE_BUILD_TYPE=Debug - ..",
+            "type": "shell",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "make",
+            "command": "make",
+            "type": "shell",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+        }
+    ]
+}
