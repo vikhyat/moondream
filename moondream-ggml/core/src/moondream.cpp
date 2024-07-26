@@ -1776,93 +1776,6 @@ static int sample_top_logit(const float * logits, const int n_logits) {
     return id_max;
 }
 
-bool moondream_api_state_init(const char * text_model_path, const char * mmproj_path, uint32_t n_threads) {
-    if (api_state.is_init) {
-        printf("API has already been initialized\n");
-        return false;
-    }
-
-    /* Start of moondream_lm load. */
-    bool result = moondream_load_lm_from_file(text_model_path, api_state.model);
-    if (!result) {
-        printf("could not load text model\n");
-        return false;
-    }
-    printf("succesfully loaded text model\n");
-    /* End of moondream_lm load. */
-
-    /* Start of moondream_mmproj load. */
-    /*
-    result = moondream_load_mmproj_from_file(mmproj_path, api_state.mmproj_model);
-    if (!result) {
-        printf("could not load mmproj model\n");
-        return false;
-    }
-    printf("succesfully loaded mmproj model\n");
-    */
-    /* End of moondream_mmproj load. */
-
-    /* Start of moondream_mmproj_context init. */
-    /*
-    result = moondream_mmproj_context_init(api_state.mmproj_ctx, api_state.mmproj_model, n_threads);
-    if (!result) {
-        printf("failed to initialze moondream_mmproj_context\n");
-        return 1;
-    }
-    printf("succesfully initialized moondream_lm_context\n");
-    */
-    /* End of moondream_mmproj_context init. */
-
-    /* Start of moondream_lm_context init. */
-    moondream_lm_cparams cparams = {
-        .n_ctx = 2048,/*api_state.model.hparams.n_ctx_train,*/
-        .n_batch = 2048,
-        .n_ubatch = 512,
-        .n_seq_max = 1,
-        .n_threads = n_threads,
-        .n_threads_batch = n_threads,
-        // TODO: figure out what these shoud be
-        .rope_freq_base = 10000.0f,
-        .rope_freq_scale = 1.0f,
-        .n_ctx_orig_yarn = api_state.model.hparams.n_ctx_train, 
-        .yarn_ext_factor = 0.0f,
-        .yarn_attn_factor = 1.0f,
-        .yarn_beta_fast = 32.0f,
-        .yarn_beta_slow = 1.0f,
-        .defrag_thold = -1.0f,
-        // -----------------
-        .embeddings = false,
-        .causal_attn = true,
-        .offload_kqv = false,
-        .flash_attn = false
-    };
-    const ggml_type type_k = GGML_TYPE_F16;
-    const ggml_type type_v = GGML_TYPE_F16;
-    result = moondream_lm_context_init(
-        api_state.mctx, api_state.model.hparams, cparams, api_state.model, type_k, type_v
-    );
-    if (!result) {
-        printf("failed to initialze moondream_lm_context\n");
-        return false;
-    }
-    api_state.mctx.n_outputs = 1;
-    printf("succesfully initialized moondream_lm_context\n");
-    /* End of moondream_lm_context init. */
-
-    api_state.is_init = true;
-    return true;
-}
-
-void moondream_api_state_cleanup(void) {
-    printf("cleaning up API state...\n");
-    moondream_lm_context_free(api_state.mctx);
-    printf("freed moondream_lm_context\n");
-    ggml_free(api_state.mmproj_model.ctx);
-    printf("freed mmproj model ggml_context\n");
-    ggml_free(api_state.model.ctx);
-    printf("freed model ggml_context\n");
-}
-
 bool moondream_lm_set_inputs(moondream_lm_context & mctx, moondream_lm_batch & batch) {
     // This function should be called after build_phi2() so the corresponding input tensors
     // in mctx should already be created.
@@ -2026,6 +1939,93 @@ bool moondream_lm_decode(
     printf("\n");
     response = local_response;
     return true;
+}
+
+bool moondream_api_state_init(const char * text_model_path, const char * mmproj_path, uint32_t n_threads) {
+    if (api_state.is_init) {
+        printf("API has already been initialized\n");
+        return false;
+    }
+
+    /* Start of moondream_lm load. */
+    bool result = moondream_load_lm_from_file(text_model_path, api_state.model);
+    if (!result) {
+        printf("could not load text model\n");
+        return false;
+    }
+    printf("succesfully loaded text model\n");
+    /* End of moondream_lm load. */
+
+    /* Start of moondream_mmproj load. */
+    /*
+    result = moondream_load_mmproj_from_file(mmproj_path, api_state.mmproj_model);
+    if (!result) {
+        printf("could not load mmproj model\n");
+        return false;
+    }
+    printf("succesfully loaded mmproj model\n");
+    */
+    /* End of moondream_mmproj load. */
+
+    /* Start of moondream_mmproj_context init. */
+    /*
+    result = moondream_mmproj_context_init(api_state.mmproj_ctx, api_state.mmproj_model, n_threads);
+    if (!result) {
+        printf("failed to initialze moondream_mmproj_context\n");
+        return 1;
+    }
+    printf("succesfully initialized moondream_lm_context\n");
+    */
+    /* End of moondream_mmproj_context init. */
+
+    /* Start of moondream_lm_context init. */
+    moondream_lm_cparams cparams = {
+        .n_ctx = 2048,/*api_state.model.hparams.n_ctx_train,*/
+        .n_batch = 2048,
+        .n_ubatch = 512,
+        .n_seq_max = 1,
+        .n_threads = n_threads,
+        .n_threads_batch = n_threads,
+        // TODO: figure out what these shoud be
+        .rope_freq_base = 10000.0f,
+        .rope_freq_scale = 1.0f,
+        .n_ctx_orig_yarn = api_state.model.hparams.n_ctx_train, 
+        .yarn_ext_factor = 0.0f,
+        .yarn_attn_factor = 1.0f,
+        .yarn_beta_fast = 32.0f,
+        .yarn_beta_slow = 1.0f,
+        .defrag_thold = -1.0f,
+        // -----------------
+        .embeddings = false,
+        .causal_attn = true,
+        .offload_kqv = false,
+        .flash_attn = false
+    };
+    const ggml_type type_k = GGML_TYPE_F16;
+    const ggml_type type_v = GGML_TYPE_F16;
+    result = moondream_lm_context_init(
+        api_state.mctx, api_state.model.hparams, cparams, api_state.model, type_k, type_v
+    );
+    if (!result) {
+        printf("failed to initialze moondream_lm_context\n");
+        return false;
+    }
+    api_state.mctx.n_outputs = 1;
+    printf("succesfully initialized moondream_lm_context\n");
+    /* End of moondream_lm_context init. */
+
+    api_state.is_init = true;
+    return true;
+}
+
+void moondream_api_state_cleanup(void) {
+    printf("cleaning up API state...\n");
+    moondream_lm_context_free(api_state.mctx);
+    printf("freed moondream_lm_context\n");
+    ggml_free(api_state.mmproj_model.ctx);
+    printf("freed mmproj model ggml_context\n");
+    ggml_free(api_state.model.ctx);
+    printf("freed model ggml_context\n");
 }
 
 bool moondream_api_prompt(
