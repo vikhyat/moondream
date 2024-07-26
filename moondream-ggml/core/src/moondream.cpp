@@ -28,6 +28,7 @@
 #define LLAMA_MAX_NODES 8192
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
+#define MOONDREAM_N_IMAGE_CHANNELS 3
 // Rope scaling type should be: LLAMA_ROPE_SCALING_TYPE_LINEAR
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
 //#define MOONDREAM_EXTRA_LOGS 
@@ -289,6 +290,13 @@ struct moondream_mmproj_context {
     ggml_backend_buffer_type_t backend_cpu_buft = nullptr;
     std::vector<uint8_t> compute_buffer;
     ggml_backend_sched_t sched = nullptr;
+};
+
+struct moondream_image {
+    int n_xy = 0;
+    int n_channels = 0;
+    int n_scalars = 0;
+    float * data = nullptr;
 };
 
 struct moondream_api_state {
@@ -794,7 +802,9 @@ ggml_cgraph * build_clip(
     ggml_context * ctx0 = ggml_init(build_ctx_params);
     ggml_cgraph * gf = ggml_new_graph(ctx0);
 
-    ggml_tensor * inp_raw = ggml_new_tensor_4d(ctx0, GGML_TYPE_F32, image_size, image_size, 3, batch_size);
+    ggml_tensor * inp_raw = ggml_new_tensor_4d(
+        ctx0, GGML_TYPE_F32, image_size, image_size, MOONDREAM_N_IMAGE_CHANNELS, batch_size
+    );
     ggml_set_name(inp_raw, "inp_raw");
     ggml_set_input(inp_raw);
 
@@ -1955,25 +1965,21 @@ bool moondream_api_state_init(const char * text_model_path, const char * mmproj_
     /* End of moondream_lm load. */
 
     /* Start of moondream_mmproj load. */
-    /*
     result = moondream_load_mmproj_from_file(mmproj_path, api_state.mmproj_model);
     if (!result) {
         printf("could not load mmproj model\n");
         return false;
     }
     printf("succesfully loaded mmproj model\n");
-    */
     /* End of moondream_mmproj load. */
 
     /* Start of moondream_mmproj_context init. */
-    /*
     result = moondream_mmproj_context_init(api_state.mmproj_ctx, api_state.mmproj_model, n_threads);
     if (!result) {
         printf("failed to initialze moondream_mmproj_context\n");
         return 1;
     }
     printf("succesfully initialized moondream_lm_context\n");
-    */
     /* End of moondream_mmproj_context init. */
 
     /* Start of moondream_lm_context init. */
@@ -2082,27 +2088,51 @@ bool moondream_api_prompt(
 }
 
 #ifndef MOONDREAM_LIBRARY_BUILD
-struct moondream_image {
-    int width, height, channels, data_len;
-    float * data = nullptr;
-};
-
-bool moondream_image_load(const char * path, moondream_image & image) {
+bool moondream_image_init(moondream_image & image, int n_xy) {
     assert(image.data == nullptr);
-    unsigned char * raw_data = stbi_load(path, &image.width, &image.height, &image.channels, 0);
-    if (!raw_data) {
+    image.n_xy = n_xy;
+    image.n_channels = MOONDREAM_N_IMAGE_CHANNELS;
+    image.n_scalars = image.n_xy * image.n_xy * image.n_channels;
+    image.data = (float *)calloc(image.n_scalars, sizeof(float));
+    if (!image.data) {
+        printf("could not allocate memory for moondreawm_image data\n");
+        return false;
+    }
+    return true;
+}
+
+bool moondream_image_load_and_set(const char * path, moondream_image & image) {
+    assert(image.data != nullptr);
+    assert(image.n_channels = MOONDREAM_N_IMAGE_CHANNELS);
+    int base_width = -1, base_height = -1, base_channels = -1;
+    unsigned char * base_stbi_data = stbi_load(
+        path, &base_width, &base_height, &base_channels, MOONDREAM_N_IMAGE_CHANNELS
+    );
+    if (!base_stbi_data) {
         printf("stb could not load %s\n", path);
         return false;
     }
-    image.data_len = image.width * image.height * image.channels;
-    image.data = (float *)malloc(sizeof(float) * image.data_len);
-    if (!image.data) {
-        printf("could not allocate memory for moondream_image data\n");
+    
+    assert(base_width > 0);
+    assert(base_height > 0);
+    int n_base_scalars = base_width * base_height * MOONDREAM_N_IMAGE_CHANNELS;
+    float * base_float_data = (float *)malloc(sizeof(float) * n_base_scalars);
+    if (!base_float_data) {
+        printf("could not allocate memory for image floating point data\n");
+        stbi_image_free(base_stbi_data);
         return false;
     }
-    for (int i = 0; i < image.data_len; ++i) {
-        image.data[i] = static_cast<float>(raw_data[i]) / 255.0f;
+    for (int i = 0; i < n_base_scalars; ++i) {
+        base_float_data[i] = static_cast<float>(base_stbi_data[i]) / 255.0f;
     }
+    stbi_image_free(base_stbi_data);
+
+    if (base_width == image.n_xy && base_height == image.n_xy) {
+        memcpy(image.data, base_float_data, sizeof(float) * n_base_scalars);
+    } else {
+        // TODO: resize image from (base_width * base_height) to (n_xy * n_xy).
+    }
+    free(base_float_data);
     return true;
 }
 
@@ -2152,10 +2182,14 @@ int main(int argc, char * argv[]) {
     }
 
     moondream_image image;
+    if (!moondream_image_init(image, api_state.mmproj_model.hparams.image_size)) {
+        printf("failed to initialize moondream_image\n");
+        return 1;
+    }
     // Assuming the binary will be run from ../build/
     const char * image_path = "../../../assets/demo-1.jpg";
-    if (!moondream_image_load(image_path, image)) {
-        printf("failed to load moondream_image\n");
+    if (!moondream_image_load_and_set(image_path, image)) {
+        printf("failed to load and set moondream_image\n");
         return 1;
     }
     /*
@@ -2166,9 +2200,6 @@ int main(int argc, char * argv[]) {
         printf("\n");
     }
     */
-    printf("image.width: %d\n", image.width);
-    printf("image.height: %d\n", image.height);
-    printf("image.channels: %d\n", image.channels);
     printf("succesfully loaded %s\n", image_path);
 
     const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
