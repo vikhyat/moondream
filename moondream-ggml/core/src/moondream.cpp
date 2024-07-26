@@ -2130,7 +2130,26 @@ bool moondream_image_load_and_set(const char * path, moondream_image & image) {
     if (base_width == image.n_xy && base_height == image.n_xy) {
         memcpy(image.data, base_float_data, sizeof(float) * n_base_scalars);
     } else {
-        // TODO: resize image from (base_width * base_height) to (n_xy * n_xy).
+        // Resize image from (base_width * base_height) to (n_xy * n_xy).
+        float scale_x = static_cast<float>(base_width) / image.n_xy;
+        float scale_y = static_cast<float>(base_height) / image.n_xy;
+
+        for (int y = 0; y < image.n_xy; ++y) {
+            for (int x = 0; x < image.n_xy; ++x) {
+                int src_x = static_cast<int>(x * scale_x);
+                int src_y = static_cast<int>(y * scale_y);
+
+                // Clamp source coordinates.
+                src_x = std::min(src_x, base_width - 1);
+                src_y = std::min(src_y, base_height - 1);
+
+                for (int c = 0; c < MOONDREAM_N_IMAGE_CHANNELS; ++c) {
+                    int dst_idx = (y * image.n_xy + x) * MOONDREAM_N_IMAGE_CHANNELS + c;
+                    int src_idx = (src_y * base_width + src_x) * MOONDREAM_N_IMAGE_CHANNELS + c;
+                    image.data[dst_idx] = base_float_data[src_idx];
+                }
+            }
+        }
     }
     free(base_float_data);
     return true;
@@ -2192,6 +2211,7 @@ int main(int argc, char * argv[]) {
         printf("failed to load and set moondream_image\n");
         return 1;
     }
+
     /*
     for (int x = 0; x < image.width; ++x) {
         for (int y = 0; y < image.height; ++y) {
