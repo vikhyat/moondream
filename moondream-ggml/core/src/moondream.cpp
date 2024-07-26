@@ -2134,13 +2134,7 @@ int main(int argc, char * argv[]) {
         printf("failed to initialize api state\n");
         return 1;
     }
-    moondream_lm & model = api_state.model;
-    moondream_lm_hparams & hparams = model.hparams;
-    moondream_mmproj & mmproj_model = api_state.mmproj_model;
-    moondream_lm_context & mctx = api_state.mctx;
-    moondream_lm_cparams & cparams = mctx.cparams;
-    moondream_mmproj_context & mmproj_ctx = api_state.mmproj_ctx;
-    
+
     const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
     std::string response = "";
     if (!moondream_api_prompt(prompt, response, 128, true)) {
