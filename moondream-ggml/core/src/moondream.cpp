@@ -274,12 +274,6 @@ struct moondream_lm_context {
     ggml_tensor * inp_pos = nullptr;       // I32 [n_batch]
     ggml_tensor * inp_out_ids = nullptr;   // I32 [n_outputs]
     ggml_tensor * inp_kq_mask = nullptr;   // F32 [kv_size, n_batch]
-    ggml_tensor * inp_K_shift = nullptr;   // I32 [kv_size]
-    ggml_tensor * inp_mean = nullptr;      // F32 [n_batch, n_batch]
-    ggml_tensor * inp_cls = nullptr;       // I32 [n_batch]
-    ggml_tensor * inp_s_copy = nullptr;    // I32 [kv_size]
-    ggml_tensor * inp_s_mask = nullptr;    // F32 [1, n_kv]
-    ggml_tensor * inp_s_seq = nullptr;     // I32 [n_kv, n_batch]
     // Memory buffers used to evaluate the model.
     std::vector<uint8_t> compute_buffer;
     ggml_backend_sched_t sched = nullptr;
