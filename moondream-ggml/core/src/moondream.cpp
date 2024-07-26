@@ -2034,6 +2034,61 @@ bool moondream_lm_decode(
     return true;
 }
 
+bool moondream_api_prompt(
+    const char * prompt, std::string & response, 
+    int n_max_gen, bool log_response_stream
+) {
+    moondream_lm & model = api_state.model;
+    moondream_lm_hparams & hparams = model.hparams;
+    moondream_lm_context & mctx = api_state.mctx;
+    moondream_lm_cparams & cparams = mctx.cparams;
+
+    moondream_lm_batch batch;
+    if (!moondream_lm_batch_init(batch, cparams.n_ctx, model.hparams.n_embd, false)) {
+        printf("failed to initialized moondream_lm_batch\n");
+        return false;
+    }
+
+    int32_t prompt_len = 0;
+    if (!size_to_int32(strlen(prompt), &prompt_len)) {
+        printf("prompt was too big (length greater than max 32 bit integer\n");
+        return false;
+    }
+    int32_t prompt_token_ids[prompt_len];
+    int32_t n_prompt_tokens = moondream_tokenize(model.vocab, prompt, prompt_len, prompt_token_ids);
+    if (n_prompt_tokens < 0) {
+        printf("failed to tokenize prompt\n");
+        return 1;
+    }
+    printf("n_prompt_tokens: %d\n", n_prompt_tokens);
+    printf("prompt_token_ids: ");
+    for (int i = 0; i < n_prompt_tokens; ++i) {
+        printf("%d ", prompt_token_ids[i]);
+    }
+    printf("\n");
+
+    if (log_response_stream) {
+        printf("------------\n");
+    }
+
+    const bool decode_success = moondream_lm_decode(
+        mctx, model, batch, response,  
+        n_prompt_tokens, prompt_token_ids,
+        n_max_gen, log_response_stream
+    );
+    if (!decode_success) {
+        printf("moondream decode failed\n");
+        return false;
+    }
+
+    if (log_response_stream) {
+        printf("------------\n");
+    }
+     
+    moondream_lm_batch_free(batch);
+    return true;
+}
+
 #ifndef MOONDREAM_LIBRARY_BUILD
 int main(int argc, char * argv[]) {
     if (argc < 2) {
@@ -2075,12 +2130,10 @@ int main(int argc, char * argv[]) {
         ggml_numa_init(numa_strat);
     }*/
 
-    bool result = moondream_api_state_init(text_model_path, mmproj_path, 8);
-    if (!result) {
+    if (!moondream_api_state_init(text_model_path, mmproj_path, 8)) {
         printf("failed to initialize api state\n");
         return 1;
     }
-    printf("succesfully initialized api state\n");
     moondream_lm & model = api_state.model;
     moondream_lm_hparams & hparams = model.hparams;
     moondream_mmproj & mmproj_model = api_state.mmproj_model;
@@ -2088,57 +2141,12 @@ int main(int argc, char * argv[]) {
     moondream_lm_cparams & cparams = mctx.cparams;
     moondream_mmproj_context & mmproj_ctx = api_state.mmproj_ctx;
     
-    /* Start of prompt tokenization. */
     const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
-    //const char * prompt = "Question: Is this a dog? Yes or no.\n\nAnswer:";
-    int32_t prompt_len = 0;
-    result = size_to_int32(strlen(prompt), &prompt_len);
-    if (!result) {
-        printf("prompt length was too large (greater than max 32 bit integer\n");
+    std::string response = "";
+    if (!moondream_api_prompt(prompt, response, 128, true)) {
+        printf("prompt failed\n");
         return 1;
     }
-    printf("prompt_len: %d\n", prompt_len);
-    int32_t prompt_token_ids[prompt_len];
-    int32_t n_prompt_tokens = moondream_tokenize(model.vocab, prompt, prompt_len, prompt_token_ids);
-    if (n_prompt_tokens < 0) {
-        printf("failed to tokenize prompt\n");
-        return 1;
-    }
-    printf("n_prompt_tokens: %d\n", n_prompt_tokens);
-    printf("prompt_token_ids: ");
-    for (int i = 0; i < n_prompt_tokens; ++i) {
-        printf("%d ", prompt_token_ids[i]);
-    }
-    printf("\n");
-    /* End of prompt tokenization. */
-
-    /* Start of moondream_lm_batch initialization. */
-    moondream_lm_batch batch;
-    result = moondream_lm_batch_init(batch, cparams.n_ctx, model.hparams.n_embd, false);
-    if (!result) {
-        printf("failed to initialized moondream_lm_batch\n");
-        return 1;
-    }
-    printf("succesfully initialized moondream_lm_batch\n");
-    /* End of moondream_lm_batch initialization. */
-
-    printf("------------\n");
-    std::string response;
-    const int n_max_gen = 128;
-    const bool log_response_stream = true;
-    result = moondream_lm_decode(
-        mctx, model, batch, response, 
-        n_prompt_tokens, prompt_token_ids,
-        n_max_gen, log_response_stream
-    );
-    if (!result) {
-        printf("moondream decode failed\n");
-        return 1;
-    }
-    printf("------------\n");
-    
-    moondream_lm_batch_free(batch);
-    printf("freed moondream_lm_batch\n");
     moondream_api_state_cleanup();
     return 0;
 }
