@@ -316,7 +316,7 @@ static void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int 
             break;
     }
 
-    // emit last 2 dimension values
+    // Emit last 2 dimension values.
     for (int j = 0; j < dst->ne[1]; j++) {
         for (int i = 0; i < dst->ne[0]; i++) {
             if (i > 0) {
@@ -391,11 +391,9 @@ ggml_tensor * lm_build_norm(
     cur = ggml_norm(ctx, cur, hparams.f_norm_eps);
     // Weight
     cur = ggml_mul(ctx, cur, mw);
-    if (mb) {
-        moondream_set_tensor_name(cur, "norm_w", il);
-    }
     // Bias
     if (mb) {
+        moondream_set_tensor_name(cur, "norm_w", il);
         cur = ggml_add(ctx, cur, mb);
     }
     return cur;
@@ -420,8 +418,6 @@ void lm_build_kv_store(
     // Why use GGML_ASSERT here and the regular c assert below?
     GGML_ASSERT(kv.size == n_ctx);
 
-    // NOTE: I think this creates a view into the key cache, copies the key for the current head
-    // into it, then builds it into the graph, idk why the build is necessary here though.
     ggml_tensor * k_cache_view = ggml_view_1d(
         ctx, kv.k_l[il], n_tokens*n_embd, 
         // Why are there parentheses around ggml_row_size?
@@ -524,7 +520,6 @@ ggml_tensor * lm_build_kqv(
             0
         );
         moondream_set_tensor_name(v, "v", il);
-        // TODO: go over caching and clarify what's happening
         ggml_tensor * kqv = ggml_mul_mat(ctx, v, kq);
         moondream_set_tensor_name(kqv, "kqv", il);
         ggml_tensor * kqv_merged = ggml_permute(ctx, kqv, 0, 2, 1, 3);
@@ -660,7 +655,6 @@ ggml_cgraph * build_phi2(
             il
         );
         moondream_set_tensor_name(attn_norm_output, "attn_norm", il);
-
 
         // Self-attention
         {
