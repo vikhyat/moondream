@@ -273,7 +273,7 @@ struct moondream_lm_context {
     // to n_ctx_active and then n_ctx_active is incremented.
     int32_t n_ctx_active = 0;
     int n_outputs = 0;
-    // Input tensors
+    // Input tensors.
     ggml_tensor * inp_tokens = nullptr;    // I32 [n_batch]
     ggml_tensor * inp_embd = nullptr;      // F32 [n_embd, n_batch]
     ggml_tensor * inp_pos = nullptr;       // I32 [n_batch]
@@ -285,9 +285,16 @@ struct moondream_lm_context {
 };
 
 struct moondream_mmproj_context {
+    int n_patches_per_side = 0;
+    int n_patches = 0;
+    int n_positions = 0;
     ggml_context * ctx = nullptr;
     ggml_backend_t backend_cpu = nullptr;
     ggml_backend_buffer_type_t backend_cpu_buft = nullptr;
+    // Input tensors.
+    ggml_tensor * inp_raw = nullptr;
+    ggml_tensor * positions = nullptr;
+    // Memory buffers used to evaluate the model.
     std::vector<uint8_t> compute_buffer;
     ggml_backend_sched_t sched = nullptr;
 };
@@ -296,7 +303,9 @@ struct moondream_image {
     int n_xy = 0;
     int n_channels = 0;
     int n_scalars = 0;
+    int n_positions = 0;
     float * data = nullptr;
+    int32_t * pos = nullptr;
 };
 
 struct moondream_api_state {
@@ -770,7 +779,6 @@ ggml_cgraph * build_phi2(
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4c0afd4fab3/examples/llava/clip.cpp
 ggml_cgraph * build_clip(
     moondream_mmproj & model,
-    moondream_mmproj_batch & batch,
     moondream_mmproj_context & mctx
 ) {
     moondream_mmproj_hparams & hparams = model.hparams;
@@ -781,9 +789,9 @@ ggml_cgraph * build_clip(
     // everywhere.
     const int image_size = hparams.image_size;
     const int patch_size = hparams.patch_size;
-    const int num_patches_per_side = image_size / patch_size;
-    const int num_patches = num_patches_per_side * num_patches_per_side;
-    const int num_positions = num_patches; /* + (ctx->has_class_embedding ? 1 : 0); */
+    const int num_patches_per_side = mctx.n_patches_per_side;
+    const int num_patches = mctx.n_patches;
+    const int num_positions = mctx.n_positions;
     const int n_embd = hparams.n_embd;
     const int n_head = hparams.n_head;
     const int n_head_qkv = n_embd / n_head;
@@ -791,8 +799,7 @@ ggml_cgraph * build_clip(
     const float eps = hparams.f_norm_eps; 
     
     // TODO: move this into moondream_mmproj_batch struct.
-    const int batch_size = 1;
-    assert(batch_size == 1);
+    constexpr int batch_size = 1;
 
     ggml_init_params build_ctx_params = {
         mctx.compute_buffer.size(),
@@ -807,6 +814,7 @@ ggml_cgraph * build_clip(
     );
     ggml_set_name(inp_raw, "inp_raw");
     ggml_set_input(inp_raw);
+    mctx.inp_raw = inp_raw;
 
     ggml_tensor * inp = ggml_conv_2d(ctx0, model.patch_embd, inp_raw, patch_size, patch_size, 0, 0, 1, 1);
     inp = ggml_reshape_3d(ctx0, inp, num_patches, n_embd, batch_size);
@@ -820,6 +828,7 @@ ggml_cgraph * build_clip(
     ggml_tensor * positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_positions);
     ggml_set_name(positions, "positions");
     ggml_set_input(positions);
+    mctx.positions = positions;
     embeddings = ggml_add(ctx0, embeddings, ggml_get_rows(ctx0, model.pos_embd, positions));
     // NOTE: skipped pre-layernorm.
     
@@ -1080,6 +1089,11 @@ bool moondream_mmproj_context_init(
     moondream_mmproj & model, 
     int n_threads
 ) {
+    const moondream_mmproj_hparams & hparams = model.hparams;
+    mctx.n_patches_per_side = hparams.image_size / hparams.patch_size;
+    mctx.n_patches = mctx.n_patches_per_side * mctx.n_patches_per_side;
+    mctx.n_positions = mctx.n_patches; /* + (ctx->has_class_embedding ? 1 : 0); */
+
     mctx.backend_cpu = ggml_backend_cpu_init();
     if (!mctx.backend_cpu) {
         printf("failed to initialize mmproj cpu backend\n");
@@ -1101,8 +1115,7 @@ bool moondream_mmproj_context_init(
     mctx.compute_buffer.resize(compute_buf_size);
     
     // Initialize scheduler.
-    moondream_mmproj_batch dummy_batch;
-    ggml_cgraph * gf = build_clip(model, dummy_batch, mctx);
+    ggml_cgraph * gf = build_clip(model, mctx);
     if (!gf) {
         printf("failed to build mmrpoj compute graph\n");
         return false;
@@ -1874,7 +1887,6 @@ static int moondream_lm_decode_inner(
     const int sampled_token_id = sample_top_logit(logits_data, logits_n_elements);
 
     ggml_backend_sched_reset(mctx.sched);
-    
     return sampled_token_id;
 }
 
@@ -1946,6 +1958,41 @@ bool moondream_lm_decode(
     }
     printf("\n");
     response = local_response;
+    return true;
+}
+
+bool moondream_mmproj_embed(
+    moondream_mmproj_context & mctx, 
+    moondream_mmproj & model,
+    moondream_image & image
+) {
+    ggml_cgraph * gf = build_clip(model, mctx);
+    if (!gf) {
+        printf("failed to build mmproj compute graph\n");
+        return false;
+    }
+    if (!ggml_backend_sched_alloc_graph(mctx.sched, gf)) {
+        printf("failed to allocate graph for ggml_backend_sched_t\n");
+        return false;
+    }
+
+    ggml_backend_tensor_set(
+        mctx.inp_raw, image.data, 0, image.n_scalars * ggml_element_size(mctx.inp_raw)
+    );
+    ggml_backend_tensor_set(
+        mctx.positions, image.pos, 0, image.n_positions * ggml_element_size(mctx.positions)
+    );
+    
+    const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
+    if (compute_status != GGML_STATUS_SUCCESS) {
+        printf("graph computation failed (%s)\n", ggml_status_to_string(compute_status));
+        return false;
+    }
+    ggml_backend_sched_synchronize(mctx.sched);
+    
+    // TODO: extract embeddings here.
+
+    ggml_backend_sched_reset(mctx.sched);
     return true;
 }
 
@@ -2087,20 +2134,29 @@ bool moondream_api_prompt(
     return true;
 }
 
-#ifndef MOONDREAM_LIBRARY_BUILD
-bool moondream_image_init(moondream_image & image, int n_xy) {
+bool moondream_image_init(moondream_image & image, int n_xy, int n_positions) {
     assert(image.data == nullptr);
     image.n_xy = n_xy;
     image.n_channels = MOONDREAM_N_IMAGE_CHANNELS;
     image.n_scalars = image.n_xy * image.n_xy * image.n_channels;
+    image.n_positions = n_positions;
     image.data = (float *)calloc(image.n_scalars, sizeof(float));
     if (!image.data) {
-        printf("could not allocate memory for moondreawm_image data\n");
+        printf("could not allocate memory for moondream_image data\n");
         return false;
+    }
+    image.pos = (int32_t *)malloc(sizeof(int32_t) * image.n_positions);
+    if (!image.pos) {
+        printf("could not allocate memory for moondream_image pos\n");
+        return false;
+    }
+    for (int i = 0; i < image.n_positions; ++i) {
+        image.pos[i] = i;
     }
     return true;
 }
 
+#ifndef MOONDREAM_LIBRARY_BUILD
 bool moondream_image_load_and_set(const char * path, moondream_image & image) {
     assert(image.data != nullptr);
     assert(image.n_channels = MOONDREAM_N_IMAGE_CHANNELS);
@@ -2200,8 +2256,10 @@ int main(int argc, char * argv[]) {
         return 1;
     }
 
+    const int image_size = api_state.mmproj_model.hparams.image_size;
+    const int n_positions_mm = api_state.mmproj_ctx.n_positions;
     moondream_image image;
-    if (!moondream_image_init(image, api_state.mmproj_model.hparams.image_size)) {
+    if (!moondream_image_init(image, image_size, n_positions_mm)) {
         printf("failed to initialize moondream_image\n");
         return 1;
     }
@@ -2211,16 +2269,13 @@ int main(int argc, char * argv[]) {
         printf("failed to load and set moondream_image\n");
         return 1;
     }
-
-    /*
-    for (int x = 0; x < image.width; ++x) {
-        for (int y = 0; y < image.height; ++y) {
-            printf("%f ", image.data[x*y*image.channels + y*image.channels]);
-        }
-        printf("\n");
-    }
-    */
     printf("succesfully loaded %s\n", image_path);
+    
+    if (!moondream_mmproj_embed(api_state.mmproj_ctx, api_state.mmproj_model, image)) {
+        printf("failed to create image embeddings\n");
+        return 1;
+    }
+    printf("succesfully created image embeddings\n");
 
     const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
     std::string response = "";
