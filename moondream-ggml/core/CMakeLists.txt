@@ -17,19 +17,24 @@ endif()
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build ggml as a static library" FORCE)
 add_subdirectory(./dependencies/ggml)
 
+
 set(SOURCES src/moondream.cpp src/unicode_data.cpp src/unicode.cpp)
 
 # Library target.
 add_library(moondream_ggml STATIC ${SOURCES})
 target_link_libraries(moondream_ggml PRIVATE ggml)
 target_include_directories(moondream_ggml PRIVATE ./dependencies/ggml/include)
+target_include_directories(moondream_ggml PRIVATE ./dependencies/single_header/include)
 # Define MOONDREAM_LIBRARY_BUILD in order to exclude main function.
 target_compile_definitions(moondream_ggml PRIVATE MOONDREAM_LIBRARY_BUILD)
 
 # Executable target.
-add_executable(moondream_ggml_exe ${SOURCES})
+# We only want to use stb_image for testing the executable, 
+# it should be omitted from the library target.
+add_executable(moondream_ggml_exe ${SOURCES} ./src/stb_image.cpp)
 target_link_libraries(moondream_ggml_exe PRIVATE ggml)
 target_include_directories(moondream_ggml_exe PRIVATE ./dependencies/ggml/include)
+target_include_directories(moondream_ggml_exe PRIVATE ./dependencies/single_header/include)
 
 if(DEBUG_BUILD)
     target_compile_options(moondream_ggml PRIVATE -g)

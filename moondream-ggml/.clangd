@@ -1,2 +1,2 @@
 CompileFlags:
-  Add: [-I./core/dependencies/ggml/include]
+  Add: [-I./core/dependencies/ggml/include -I./core/dependencies/single_header/include]

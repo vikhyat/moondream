@@ -16,6 +16,10 @@
 #include "ggml.h"
 #include "ggml-backend.h"
 
+#ifndef MOONDREAM_LIBRARY_BUILD
+#include "stb_image.h" 
+#endif
+
 #define MD_TEXT_MODEL_FNAME "moondream2-text-model-f16.gguf"
 #define MD_MMPROJ_FNAME "moondream2-mmproj-f16.gguf"
 #define DATA_PATH_MAX_LEN 512
