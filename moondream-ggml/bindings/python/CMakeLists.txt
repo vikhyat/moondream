@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.3)
-project(moondream_ggml_python)
+project(moondream_ggml)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -13,9 +13,9 @@ add_subdirectory(../../core ../../core/build)
 include_directories(../../core/include)
 
 pybind11_add_module(
-    moondream_ggml_ffi 
+    cpp_ffi 
     ${CMAKE_CURRENT_LIST_DIR}/ffi.cpp
 )
 
-target_link_libraries(moondream_ggml_ffi PRIVATE moondream_ggml)
-install(TARGETS moondream_ggml_ffi DESTINATION moondream_ggml_python)
+target_link_libraries(cpp_ffi PRIVATE moondream_ggml)
+install(TARGETS cpp_ffi DESTINATION moondream_ggml)

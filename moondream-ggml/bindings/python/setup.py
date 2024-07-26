@@ -10,7 +10,7 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 
 class CMakeBuildExt(build_ext):
     def build_extensions(self):
-        # First: configure CMake build
+        # First, configure CMake build.
         import platform
         import sys
         import sysconfig
@@ -73,18 +73,11 @@ class CMakeBuildExt(build_ext):
         )
 
 extensions = [
-    Extension(
-        # Python dotted name, whose final component should be a buildable target defined in CMakeLists.txt.
-        "moondream_ggml_python.moondream_ggml_ffi",
-        [  
-            # Source paths, relative to this setup.py file.
-            "./ffi.cpp",
-        ],
-    ),
+    Extension("moondream_ggml.cpp_ffi", ["./ffi.cpp"]),
 ]
 
 setup(
-    name="moondream-ggml-python",
+    name="moondream-ggml",
     author="managerial accounting",
     package_dir={"": "."},
     packages=find_packages("."),

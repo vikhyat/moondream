@@ -12,7 +12,7 @@
 }:
 
 buildPythonPackage rec {
-    pname = "moondream_ggml_python";
+    pname = "moondream-ggml-python";
     version = "0.1.0";
     src = ./.;  # Assuming the setup.py is in the same directory as flake.nix
     format = "pyproject";
@@ -40,7 +40,7 @@ buildPythonPackage rec {
 
     preFixup = ''
         patchelf --set-rpath "${lib.makeLibraryPath buildInputs}" \
-            $out/lib/python${python3.pythonVersion}/site-packages/moondream_ggml_python/*.so
+            $out/lib/python${python3.pythonVersion}/site-packages/moondream_ggml/*.so
     '';
 
 }
