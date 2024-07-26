@@ -39,6 +39,14 @@ static double bytes_to_gib(size_t n_bytes) {
     return static_cast<double>(n_bytes) / (1024.0 * 1024.0 * 1024.0);
 }
 
+static bool size_to_int32(size_t s, int32_t * i) {
+    if (s <= static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+        *i = static_cast<int32_t>(s);
+        return true;
+    }
+    return false;
+}
+
 static void moondream_set_tensor_name(ggml_tensor * cur, const char * name, int il) {
     if (il >= 0) {
         ggml_format_name(cur, "%s-%d", name, il);
@@ -205,6 +213,7 @@ struct moondream_mmproj {
 
 // Arrays must have size of n_tokens
 struct moondream_lm_batch {
+    int32_t n_tokens_alloc;
     int32_t n_tokens;
     // The token ids of the input (used when embd is NULL).
     int32_t * token = nullptr;
@@ -254,9 +263,11 @@ struct moondream_lm_context {
     ggml_backend_t backend_cpu = nullptr;
     ggml_backend_buffer_type_t backend_cpu_buft = nullptr;
 
+    // The number of tokens in the current sequence, including prompt tokens, previously generated tokens,
+    // and tokens in the current batch. When a token is added to the current batch, its pos is set 
+    // to n_ctx_active and then n_ctx_active is incremented.
+    int32_t n_ctx_active = 0;
     int n_outputs = 0;
-     // Number of tokens sampled.
-    int32_t n_sample = 0;
     // Input tensors
     ggml_tensor * inp_tokens = nullptr;    // I32 [n_batch]
     ggml_tensor * inp_embd = nullptr;      // F32 [n_embd, n_batch]
@@ -902,7 +913,6 @@ bool moondream_lm_batch_init(
     int32_t n_embd, 
     bool alloc_embd
 ) {
-    batch.n_tokens = 0;
     if (alloc_embd) {
         batch.embd = (float *)malloc(sizeof(float) * n_tokens_alloc * n_embd);
         if (!batch.embd) {
@@ -921,11 +931,12 @@ bool moondream_lm_batch_init(
         printf("could not allocate memory for moondream_lm_batch token positions\n");
         return false;
     }
-    // TODO: maybe n_tokens_alloc should be capped at n_ctx?
     for (int i = 0; i < n_tokens_alloc; ++i) {
-        batch.pos[i] = i;
+        batch.pos[i] = -1;
     }
    
+    batch.n_tokens = 0;
+    batch.n_tokens_alloc = n_tokens_alloc;
     return true;
 }
 
@@ -1180,24 +1191,19 @@ static void add_new_bigram(
 
 // token_ids should point to a buffer with `sizeof(int32_t) * text_len` bytes because text_len
 // is the maximum number of tokens.
-bool moondream_tokenize(
+int32_t moondream_tokenize(
     moondream_vocab & vocab, 
     const char * text,
-    size_t text_len,
-    int32_t * token_ids_output,
-    size_t * n_token_ids_output
+    int32_t text_len,
+    int32_t * token_ids_output
 ) {
     if (!text || text[0] == '\0') {
         printf("could not tokenize text because text is NULL or empty");
-        return false;
+        return -1;
     }
     if (!token_ids_output) {
         printf("could not tokenize text because pointer to output buffer for token ids is NULL\n");
-        return false;
-    }
-    if (!n_token_ids_output) {
-        printf("could not tokenize text because pointer to n_token_ids_output is NULL\n");
-        return false;
+        return -1;
     }
     
     // Moondream 2 uses BPE tokenizer.
@@ -1216,13 +1222,13 @@ bool moondream_tokenize(
     lm_symbol * symbols = (lm_symbol *)malloc(symbol_buf_size);
     if (!symbols) {
         printf("failed to allocate memory for symbols buffer during tokenization\n");
-        return false;
+        return -1;
     }
     lm_symbol * symbols_final = (lm_symbol *)malloc(symbol_buf_size);
     if (!symbols_final) {
         printf("failed to allocate memory for symbols_final buffer during tokenization\n");
         free(symbols);
-        return false;
+        return -1;
     }
     int n_symbols = 0;
     int n_symbols_final = 0;
@@ -1313,7 +1319,7 @@ bool moondream_tokenize(
     }
 #endif // MOONDREAM_EXTRA_LOGS
 
-    size_t token_ids_output_offset = 0;
+    int32_t n_token_ids = 0;
     //token_ids_output[token_ids_output_offset++] = vocab.bos_token_id; 
     if (n_symbols_final >= 0) {
         int cur_symbol_idx = 0;
@@ -1334,31 +1340,30 @@ bool moondream_tokenize(
                         printf("byte note found in vocab\n");
                         free(symbols);
                         free(symbols_final);
-                        return false;
-                    } else if (token_ids_output_offset >= text_len) {
+                        return -1;
+                    } else if (n_token_ids >= text_len) {
                         printf("exceeded maximum number of tokens in token id output buffer\n");
                         free(symbols);
                         free(symbols_final);
-                        return false;
+                        return -1;
                     } else {
-                        token_ids_output[token_ids_output_offset++] = (*token_multibyte).second;
+                        token_ids_output[n_token_ids++] = (*token_multibyte).second;
                     }
                 }
-            } else if (token_ids_output_offset >= text_len) {
+            } else if (n_token_ids >= text_len) {
                 printf("exceed maximum number of tokens in token id output buffer\n");
                 free(symbols);
                 free(symbols_final);
-                return false;
+                return -1;
             } else {
-                token_ids_output[token_ids_output_offset++] = (*token).second;
+                token_ids_output[n_token_ids++] = (*token).second;
             }
         }
     }
 
     free(symbols);
     free(symbols_final);
-    *n_token_ids_output = token_ids_output_offset;
-    return true;
+    return n_token_ids;
 }
 
 bool moondream_load_lm_from_file(const char * gguf_file_path, moondream_lm & model) {
@@ -1890,7 +1895,7 @@ bool moondream_lm_set_inputs(moondream_lm_context & mctx, moondream_lm_batch & b
         // Only keep last output.
         inp_out_ids_data[0] = batch.n_tokens - 1;
     } else {
-        printf("only mctx.n_outputs = 1 is supported but got mctx.n_outpouts = %d\n", mctx.n_outputs);
+        printf("only mctx.n_outputs = 1 is supported but got mctx.n_outputs = %d\n", mctx.n_outputs);
         return false;
     }
     
@@ -1921,59 +1926,105 @@ static std::string moondream_decode_token_str(const std::string & text) {
     return decoded_text;
 }
 
+static int moondream_lm_decode_inner(
+    moondream_lm_context & mctx, 
+    moondream_lm & model, 
+    moondream_lm_batch & batch
+) {
+    ggml_cgraph * gf = build_phi2(model, batch, mctx);
+        
+    bool result = ggml_backend_sched_alloc_graph(mctx.sched, gf);
+    if (!result) {
+        printf("failed to allocate graph for ggml_backend_sched_t\n");
+        return -1;
+    }
+    
+    result = moondream_lm_set_inputs(mctx, batch);
+    if (!result) {
+        printf("failed to set model inputs\n");
+        return -1;
+    }
+
+    const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
+    if (compute_status != GGML_STATUS_SUCCESS) {
+        printf("graph computation failed (%s)\n", ggml_status_to_string(compute_status));
+        return -1;
+    }
+    ggml_backend_sched_synchronize(mctx.sched);
+
+    // Extract logits and sample.
+    ggml_tensor * logits = gf->nodes[gf->n_nodes - 1];
+    const int64_t logits_n_elements = ggml_nelements(logits);
+    const float * logits_data = (float *)logits->data;
+    const int sampled_token_id = sample_top_logit(logits_data, logits_n_elements);
+
+    ggml_backend_sched_reset(mctx.sched);
+    
+    return sampled_token_id;
+}
+
 bool moondream_lm_decode(
     moondream_lm_context & mctx, 
     moondream_lm & model, 
     moondream_lm_batch & batch,
     std::string & response,
+    int32_t n_prompt_tokens,
+    int32_t * prompt_token_ids,
     int n_max_gen,
     bool log_response_stream
 ) {
+    assert(n_prompt_tokens <= batch.n_tokens_alloc);
+    
+    mctx.n_ctx_active = 0;
+    int sampled_token_id = -1;
     std::string local_response = "";
+
+    // Evaluate prompt and generate first response token.
+    batch.n_tokens = n_prompt_tokens;
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i] = prompt_token_ids[i];
+        batch.pos[i] = mctx.n_ctx_active;
+        ++mctx.n_ctx_active;
+    }
+    sampled_token_id = moondream_lm_decode_inner(mctx, model, batch);
+    if (sampled_token_id < 0) {
+        // Negative token IDs are invalid, so something went wrong.
+        return false;
+    }
+    local_response += moondream_decode_token_str(model.vocab.id_to_token[sampled_token_id]);
+    if (log_response_stream) {
+        printf("%s\n", local_response.c_str());
+    }
+    if (sampled_token_id == model.vocab.eos_token_id) {
+        // Return early (but without error) if the first response token was the eos token.
+        response = local_response;
+        return true;
+    }
+
+    // Clear batch.
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i] = -1;
+        batch.pos[i] = -1;
+    }
+    // We only evaluate one token per step from this point onwards.
+    // Previous tokens are accessed through the KV cache.
+    batch.n_tokens = 1;
+
+    // Generate the rest of the response tokens.
     for (int i = 0; i < n_max_gen; ++i) {
-        ggml_cgraph * gf = build_phi2(model, batch, mctx);
+        batch.token[0] = sampled_token_id;
+        batch.pos[0] = mctx.n_ctx_active;
+        ++mctx.n_ctx_active;
         
-        bool result = ggml_backend_sched_alloc_graph(mctx.sched, gf);
-        if (!result) {
-            printf("failed to allocate graph for ggml_backend_sched_t\n");
+        sampled_token_id = moondream_lm_decode_inner(mctx, model, batch);
+        if (sampled_token_id < 0) {
+            // Negative token IDs are invalid, so something went wrong.
             return false;
         }
-        
-        result = moondream_lm_set_inputs(mctx, batch);
-        if (!result) {
-            printf("failed to set model inputs\n");
-            return false;
-        }
-
-        const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
-        if (compute_status != GGML_STATUS_SUCCESS) {
-            printf("graph computation failed (%s)\n", ggml_status_to_string(compute_status));
-            return false;
-        }
-        ggml_backend_sched_synchronize(mctx.sched);
-
-        // Extract logits and sample.
-        ggml_tensor * logits = gf->nodes[gf->n_nodes - 1];
-        const int64_t logits_n_elements = ggml_nelements(logits);
-        const float * logits_data = (float *)logits->data;
-        const int sampled_token_id = sample_top_logit(logits_data, logits_n_elements);
-        batch.token[batch.n_tokens] = sampled_token_id;
-        
-        ++mctx.n_sample;
-        ++batch.n_tokens;
-        ++mctx.kv_cache.head;
-        
-        // Ensure kv cache head points to a valid index.
-        if (mctx.kv_cache.head >= mctx.kv_cache.size) {
-            mctx.kv_cache.size = 0;
-        }
-        
         local_response += moondream_decode_token_str(model.vocab.id_to_token[sampled_token_id]);
         if (log_response_stream) {
             printf("%s\n", local_response.c_str());
         }
-
-        ggml_backend_sched_reset(mctx.sched);
         if (sampled_token_id == model.vocab.eos_token_id) {
             break;
         }
@@ -2038,21 +2089,25 @@ int main(int argc, char * argv[]) {
     moondream_mmproj_context & mmproj_ctx = api_state.mmproj_ctx;
     
     /* Start of prompt tokenization. */
-    //const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
-    const char * prompt = "Question: Is this a dog? Yes or no.\n\nAnswer:";
-    size_t prompt_len = strlen(prompt);
-    printf("prompt_len: %zu\n", prompt_len);
-    int32_t token_ids[prompt_len];
-    size_t n_token_ids = 0;
-    result = moondream_tokenize(model.vocab, prompt, prompt_len, token_ids, &n_token_ids);
+    const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
+    //const char * prompt = "Question: Is this a dog? Yes or no.\n\nAnswer:";
+    int32_t prompt_len = 0;
+    result = size_to_int32(strlen(prompt), &prompt_len);
     if (!result) {
+        printf("prompt length was too large (greater than max 32 bit integer\n");
+        return 1;
+    }
+    printf("prompt_len: %d\n", prompt_len);
+    int32_t prompt_token_ids[prompt_len];
+    int32_t n_prompt_tokens = moondream_tokenize(model.vocab, prompt, prompt_len, prompt_token_ids);
+    if (n_prompt_tokens < 0) {
         printf("failed to tokenize prompt\n");
         return 1;
     }
-    printf("n_token_ids: %zu\n", n_token_ids);
-    printf("token_ids: ");
-    for (int i = 0; i < n_token_ids; ++i) {
-        printf("%d ", token_ids[i]);
+    printf("n_prompt_tokens: %d\n", n_prompt_tokens);
+    printf("prompt_token_ids: ");
+    for (int i = 0; i < n_prompt_tokens; ++i) {
+        printf("%d ", prompt_token_ids[i]);
     }
     printf("\n");
     /* End of prompt tokenization. */
@@ -2064,10 +2119,6 @@ int main(int argc, char * argv[]) {
         printf("failed to initialized moondream_lm_batch\n");
         return 1;
     }
-    batch.n_tokens = n_token_ids;
-    for (int i = 0; i < n_token_ids; ++i) {
-        batch.token[i] = token_ids[i];
-    }
     printf("succesfully initialized moondream_lm_batch\n");
     /* End of moondream_lm_batch initialization. */
 
@@ -2075,7 +2126,11 @@ int main(int argc, char * argv[]) {
     std::string response;
     const int n_max_gen = 128;
     const bool log_response_stream = true;
-    result = moondream_lm_decode(mctx, model, batch, response, n_max_gen, log_response_stream);
+    result = moondream_lm_decode(
+        mctx, model, batch, response, 
+        n_prompt_tokens, prompt_token_ids,
+        n_max_gen, log_response_stream
+    );
     if (!result) {
         printf("moondream decode failed\n");
         return 1;
