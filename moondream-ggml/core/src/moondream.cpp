@@ -2082,6 +2082,30 @@ bool moondream_api_prompt(
 }
 
 #ifndef MOONDREAM_LIBRARY_BUILD
+struct moondream_image {
+    int width, height, channels, data_len;
+    float * data = nullptr;
+};
+
+bool moondream_image_load(const char * path, moondream_image & image) {
+    assert(image.data == nullptr);
+    unsigned char * raw_data = stbi_load(path, &image.width, &image.height, &image.channels, 0);
+    if (!raw_data) {
+        printf("stb could not load %s\n", path);
+        return false;
+    }
+    image.data_len = image.width * image.height * image.channels;
+    image.data = (float *)malloc(sizeof(float) * image.data_len);
+    if (!image.data) {
+        printf("could not allocate memory for moondream_image data\n");
+        return false;
+    }
+    for (int i = 0; i < image.data_len; ++i) {
+        image.data[i] = static_cast<float>(raw_data[i]) / 255.0f;
+    }
+    return true;
+}
+
 int main(int argc, char * argv[]) {
     if (argc < 2) {
         printf("incorrect number of arguments\n");
@@ -2126,6 +2150,26 @@ int main(int argc, char * argv[]) {
         printf("failed to initialize api state\n");
         return 1;
     }
+
+    moondream_image image;
+    // Assuming the binary will be run from ../build/
+    const char * image_path = "../../../assets/demo-1.jpg";
+    if (!moondream_image_load(image_path, image)) {
+        printf("failed to load moondream_image\n");
+        return 1;
+    }
+    /*
+    for (int x = 0; x < image.width; ++x) {
+        for (int y = 0; y < image.height; ++y) {
+            printf("%f ", image.data[x*y*image.channels + y*image.channels]);
+        }
+        printf("\n");
+    }
+    */
+    printf("image.width: %d\n", image.width);
+    printf("image.height: %d\n", image.height);
+    printf("image.channels: %d\n", image.channels);
+    printf("succesfully loaded %s\n", image_path);
 
     const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
     std::string response = "";
