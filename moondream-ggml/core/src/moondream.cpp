@@ -228,11 +228,6 @@ struct moondream_lm_batch {
     int32_t * pos = nullptr;
 };
 
-// Batch for mmproj/clip input.
-struct moondream_mmproj_batch {
-    float * images = nullptr;
-};
-
 struct moondream_kv_cache {
     bool has_shift = false;
     bool do_defrag = false;
@@ -288,6 +283,7 @@ struct moondream_mmproj_context {
     int n_patches_per_side = 0;
     int n_patches = 0;
     int n_positions = 0;
+    int n_output_elements = 0;
     ggml_context * ctx = nullptr;
     ggml_backend_t backend_cpu = nullptr;
     ggml_backend_buffer_type_t backend_cpu_buft = nullptr;
@@ -297,6 +293,7 @@ struct moondream_mmproj_context {
     // Memory buffers used to evaluate the model.
     std::vector<uint8_t> compute_buffer;
     ggml_backend_sched_t sched = nullptr;
+    float * output_buffer = nullptr;
 };
 
 struct moondream_image {
@@ -1093,6 +1090,13 @@ bool moondream_mmproj_context_init(
     mctx.n_patches_per_side = hparams.image_size / hparams.patch_size;
     mctx.n_patches = mctx.n_patches_per_side * mctx.n_patches_per_side;
     mctx.n_positions = mctx.n_patches; /* + (ctx->has_class_embedding ? 1 : 0); */
+    
+    mctx.n_output_elements = mctx.n_patches * hparams.n_proj;
+    mctx.output_buffer = (float *)malloc(sizeof(float) * mctx.n_output_elements);
+    if (!mctx.output_buffer) {
+        printf("failed to allocate memory for mmproj output buffer\n");
+        return false;
+    }
 
     mctx.backend_cpu = ggml_backend_cpu_init();
     if (!mctx.backend_cpu) {
@@ -1990,7 +1994,14 @@ bool moondream_mmproj_embed(
     }
     ggml_backend_sched_synchronize(mctx.sched);
     
-    // TODO: extract embeddings here.
+    ggml_tensor * embeddings = gf->nodes[gf->n_nodes - 1];
+    assert(mctx.n_output_elements == ggml_nelements(embeddings));
+    memcpy(mctx.output_buffer, embeddings->data, sizeof(float) * mctx.n_output_elements); 
+    // NOTE: embeddings may need to be transposed.
+    /*printf(
+        "embeddings shape: %d %d %d %d\n", 
+        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]
+    );*/
 
     ggml_backend_sched_reset(mctx.sched);
     return true;
@@ -2276,6 +2287,7 @@ int main(int argc, char * argv[]) {
         return 1;
     }
     printf("succesfully created image embeddings\n");
+    const float * image_embeddings = api_state.mmproj_ctx.output_buffer;
 
     const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
     std::string response = "";
