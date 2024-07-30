@@ -496,7 +496,7 @@ ggml_tensor * lm_build_kqv(
     // TODO: figure out exactly how ggml_view_3d works under the hood
     ggml_tensor * k = ggml_view_3d(
         ctx, kv.k_l[il],
-        n_embd_head_v, n_kv, n_head_kv,
+        n_embd_head_k, n_kv, n_head_kv,
         ggml_row_size(kv.k_l[il]->type, n_embd),
         ggml_row_size(kv.k_l[il]->type, n_embd_head_k),
         0
