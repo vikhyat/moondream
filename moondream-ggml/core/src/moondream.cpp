@@ -32,6 +32,8 @@
 // Rope scaling type should be: LLAMA_ROPE_SCALING_TYPE_LINEAR
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
 //#define MOONDREAM_EXTRA_LOGS 
+// Define MOONDREAM_MULTI_MODAL if you want image embeddings to be generated and used for text model.
+//#define MOONDREAM_MULTI_MODAL
 
 /* Start of helpers. */
 static size_t utf8_len(char src) {
@@ -2182,12 +2184,23 @@ bool moondream_api_prompt(
         printf("------------\n");
     }
 
+#ifdef MOONDREAM_MULTI_MODAL
     const bool decode_success = moondream_lm_decode(
         mctx, model, batch, response,  
         n_prompt_tokens, prompt_token_ids,
         n_max_gen, log_response_stream, 
         mmproj_ctx.output_buffer, mmproj_ctx.n_patches, mmproj.hparams.n_proj
     );
+#else
+    // Don't pass any mmproj embeddings.
+    const bool decode_success = moondream_lm_decode(
+        mctx, model, batch, response,  
+        n_prompt_tokens, prompt_token_ids,
+        n_max_gen, log_response_stream, 
+        nullptr, 0, 0
+    );
+
+#endif
     if (!decode_success) {
         printf("moondream decode failed\n");
         return false;
@@ -2323,6 +2336,7 @@ int main(int argc, char * argv[]) {
         return 1;
     }
 
+#ifdef MOONDREAM_MULTI_MODAL
     const int image_size = api_state.mmproj_model.hparams.image_size;
     const int n_positions_mm = api_state.mmproj_ctx.n_positions;
     moondream_image image;
@@ -2344,6 +2358,7 @@ int main(int argc, char * argv[]) {
     }
     printf("succesfully created image embeddings\n");
     const float * image_embeddings = api_state.mmproj_ctx.output_buffer;
+#endif
 
     const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
     std::string response = "";
