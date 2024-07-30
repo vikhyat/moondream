@@ -1918,6 +1918,9 @@ static int moondream_lm_decode_inner(
     }
     ggml_backend_sched_synchronize(mctx.sched);
 
+    // Increment the head of the KV cache so previous entries are not overwritten.
+    mctx.kv_cache.head += batch.n_tokens;
+
     // Extract logits and sample.
     ggml_tensor * logits = gf->nodes[gf->n_nodes - 1];
     const int64_t logits_n_elements = ggml_nelements(logits);
