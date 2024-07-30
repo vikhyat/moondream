@@ -1858,21 +1858,53 @@ static std::string moondream_decode_token_str(const std::string & text) {
     return decoded_text;
 }
 
+static bool moondream_lm_prefill_embeddings(
+    moondream_lm_context & mctx,
+    moondream_lm & model,
+    moondream_lm_batch & batch,
+    int embd_dim
+) {
+    // TODO: set n_output to zero. We don't want any logits when pre-filling the embeddings.
+
+    ggml_cgraph * gf = build_phi2(model, batch, mctx);
+    
+    if (!ggml_backend_sched_alloc_graph(mctx.sched, gf)) {
+        printf("failed to allocate graph for ggml_backend_sched_t\n");
+        return false;
+    }
+
+    ggml_backend_tensor_set(
+        mctx.inp_embd, batch.embd, 0,
+        batch.n_tokens * embd_dim * ggml_element_size(mctx.inp_embd)
+    );
+    ggml_backend_tensor_set(
+        mctx.inp_pos, batch.pos, 0,
+        batch.n_tokens * ggml_element_size(mctx.inp_pos)
+    );
+    
+    const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
+    if (compute_status != GGML_STATUS_SUCCESS) {
+        printf("graph computation failed (%s)\n", ggml_status_to_string(compute_status));
+        return false;
+    }
+    ggml_backend_sched_synchronize(mctx.sched);
+    ggml_backend_sched_reset(mctx.sched);
+    return true;
+}
+
 static int moondream_lm_decode_inner(
-    moondream_lm_context & mctx, 
-    moondream_lm & model, 
+    moondream_lm_context & mctx,
+    moondream_lm & model,
     moondream_lm_batch & batch
 ) {
     ggml_cgraph * gf = build_phi2(model, batch, mctx);
         
-    bool result = ggml_backend_sched_alloc_graph(mctx.sched, gf);
-    if (!result) {
+    if (!ggml_backend_sched_alloc_graph(mctx.sched, gf)) {
         printf("failed to allocate graph for ggml_backend_sched_t\n");
         return -1;
     }
     
-    result = moondream_lm_set_inputs(mctx, batch);
-    if (!result) {
+    if (!moondream_lm_set_inputs(mctx, batch)) {
         printf("failed to set model inputs\n");
         return -1;
     }
@@ -1902,7 +1934,10 @@ bool moondream_lm_decode(
     int32_t n_prompt_tokens,
     int32_t * prompt_token_ids,
     int n_max_gen,
-    bool log_response_stream
+    bool log_response_stream,
+    float * mmproj_embd,
+    int n_embd,
+    int embd_dim
 ) {
     assert(n_prompt_tokens <= batch.n_tokens_alloc);
     
@@ -1910,6 +1945,24 @@ bool moondream_lm_decode(
     int sampled_token_id = -1;
     std::string local_response = "";
 
+    if (mmproj_embd) {
+        // TODO: cleanup this interface. moondream_batch is too entangled with everything.
+        
+        // Temporarily replace token ID batch with embd batch while re-using position buffer.
+        assert(batch.n_token_alloc >= n_embd);
+        int32_t * temp_token = batch.token;
+        batch.token = nullptr;
+        batch.embd = mmproj_embd;
+        batch.n_tokens = n_embd;
+        for (int i = 0; i < batch.n_tokens; ++i) {
+            batch.pos[i] = mctx.n_ctx_active;
+            ++mctx.n_ctx_active;
+        }
+        moondream_lm_prefill_embeddings(mctx, model, batch, embd_dim);
+        batch.token = temp_token;
+        batch.embd = nullptr;
+    }
+    
     // Evaluate prompt and generate first response token.
     batch.n_tokens = n_prompt_tokens;
     for (int i = 0; i < batch.n_tokens; ++i) {
@@ -2098,6 +2151,8 @@ bool moondream_api_prompt(
     moondream_lm_hparams & hparams = model.hparams;
     moondream_lm_context & mctx = api_state.mctx;
     moondream_lm_cparams & cparams = mctx.cparams;
+    moondream_mmproj_context & mmproj_ctx = api_state.mmproj_ctx;
+    moondream_mmproj & mmproj = api_state.mmproj_model;
 
     moondream_lm_batch batch;
     if (!moondream_lm_batch_init(batch, cparams.n_ctx, model.hparams.n_embd, false)) {
@@ -2130,7 +2185,8 @@ bool moondream_api_prompt(
     const bool decode_success = moondream_lm_decode(
         mctx, model, batch, response,  
         n_prompt_tokens, prompt_token_ids,
-        n_max_gen, log_response_stream
+        n_max_gen, log_response_stream, 
+        mmproj_ctx.output_buffer, mmproj_ctx.n_patches, mmproj.hparams.n_proj
     );
     if (!decode_success) {
         printf("moondream decode failed\n");
