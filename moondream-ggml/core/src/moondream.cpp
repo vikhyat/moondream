@@ -1946,6 +1946,11 @@ bool moondream_lm_decode(
 ) {
     assert(n_prompt_tokens <= batch.n_tokens_alloc);
     
+    if (log_response_stream) {
+        fprintf(stdout, "Response:");
+        fflush(stdout);
+    }
+
     mctx.n_ctx_active = 0;
     int sampled_token_id = -1;
     std::string local_response = "";
@@ -1980,9 +1985,11 @@ bool moondream_lm_decode(
         // Negative token IDs are invalid, so something went wrong.
         return false;
     }
-    local_response += moondream_decode_token_str(model.vocab.id_to_token[sampled_token_id]);
+    std::string cur_token_str = moondream_decode_token_str(model.vocab.id_to_token[sampled_token_id]);
+    local_response += cur_token_str;
     if (log_response_stream) {
-        printf("%s\n", local_response.c_str());
+        fprintf(stdout, "%s", cur_token_str.c_str());
+        fflush(stdout);
     }
     if (sampled_token_id == model.vocab.eos_token_id) {
         // Return early (but without error) if the first response token was the eos token.
@@ -2010,9 +2017,11 @@ bool moondream_lm_decode(
             // Negative token IDs are invalid, so something went wrong.
             return false;
         }
-        local_response += moondream_decode_token_str(model.vocab.id_to_token[sampled_token_id]);
+        cur_token_str = moondream_decode_token_str(model.vocab.id_to_token[sampled_token_id]);
+        local_response += cur_token_str;
         if (log_response_stream) {
-            printf("%s\n", local_response.c_str());
+            fprintf(stdout, "%s", cur_token_str.c_str());
+            fflush(stdout);
         }
         if (sampled_token_id == model.vocab.eos_token_id) {
             break;
