@@ -1951,7 +1951,7 @@ bool moondream_lm_decode(
         // TODO: cleanup this interface. moondream_batch is too entangled with everything.
         
         // Temporarily replace token ID batch with embd batch while re-using position buffer.
-        assert(batch.n_token_alloc >= n_embd);
+        assert(batch.n_tokens_alloc >= n_embd);
         int32_t * temp_token = batch.token;
         batch.token = nullptr;
         batch.embd = mmproj_embd;
