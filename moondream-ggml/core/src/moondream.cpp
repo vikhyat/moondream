@@ -91,13 +91,12 @@ bool moondream_api_state_init(
 }
 
 void moondream_api_state_cleanup(void) {
-    printf("cleaning up API state...\n");
+    if (!api_state.is_init) { return; }
     moondream_lm_context_free(api_state.mctx);
-    printf("freed moondream_lm_context\n");
+    moondream_mmproj_context_free(api_state.mmproj_ctx);
     ggml_free(api_state.mmproj_model.ctx);
-    printf("freed mmproj model ggml_context\n");
     ggml_free(api_state.model.ctx);
-    printf("freed model ggml_context\n");
+    api_state.is_init = false;
 }
 
 bool moondream_api_prompt(
@@ -169,7 +168,6 @@ bool moondream_api_prompt(
     return true;
 }
 
-
 #ifndef MOONDREAM_LIBRARY_BUILD
 int main(int argc, char * argv[]) {
     if (argc < 2) {
@@ -236,6 +234,7 @@ int main(int argc, char * argv[]) {
         printf("failed to create image embeddings\n");
         return 1;
     }
+    moondream_image_free(image);
     printf("succesfully created image embeddings\n");
     const float * image_embeddings = api_state.mmproj_ctx.output_buffer;
 #endif

@@ -204,6 +204,24 @@ bool moondream_mmproj_context_init(
     return true;
 }
 
+void moondream_mmproj_context_free(moondream_mmproj_context & mctx) {
+    if (mctx.backend_cpu) {
+        ggml_backend_free(mctx.backend_cpu);
+        mctx.backend_cpu = nullptr;
+    }
+    if (mctx.output_buffer) {
+        free(mctx.output_buffer);
+        mctx.output_buffer = nullptr;
+    }
+    if (mctx.sched) {
+        ggml_backend_sched_free(mctx.sched);
+        mctx.sched = nullptr;
+    }
+    if (mctx.ctx) {
+        ggml_free(mctx.ctx);
+        mctx.ctx = nullptr;
+    }
+}
 
 bool moondream_mmproj_load_from_file(const char * gguf_file_path, moondream_mmproj & model) {
     ggml_context * ctx;
@@ -244,7 +262,7 @@ bool moondream_mmproj_load_from_file(const char * gguf_file_path, moondream_mmpr
         printf("expected n_image_mean = 3 but got n_image_mean = %d\n", n_image_mean);
         return false;
     }
-    hparams.image_mean = (float *)gguf_get_arr_data(meta, image_mean_key_id);
+    memcpy(hparams.image_mean, gguf_get_arr_data(meta, image_mean_key_id), sizeof(float) * 3);
 
     const int image_std_key_id = gguf_find_key(meta, "clip.vision.image_std");
     const int n_image_std = gguf_get_arr_n(meta, image_std_key_id);
@@ -252,7 +270,7 @@ bool moondream_mmproj_load_from_file(const char * gguf_file_path, moondream_mmpr
         printf("expected n_image_std = 3 but got n_image_std = %d\n", n_image_std);
         return false;
     }
-    hparams.image_std = (float *)gguf_get_arr_data(meta, image_std_key_id);
+    memcpy(hparams.image_std, gguf_get_arr_data(meta, image_std_key_id), sizeof(float) * 3);
     model.hparams = hparams;
     /* End of hparams load. */
 
@@ -464,6 +482,17 @@ bool moondream_image_init(moondream_image & image, int n_xy, int n_positions) {
         image.pos[i] = i;
     }
     return true;
+}
+
+void moondream_image_free(moondream_image & image) {
+    if (image.data) {
+        free(image.data);
+        image.data = nullptr;
+    }
+    if (image.pos) {
+        free(image.pos);
+        image.pos = nullptr;
+    }
 }
 
 bool moondream_image_load_and_set(const char * path, moondream_image & image) {

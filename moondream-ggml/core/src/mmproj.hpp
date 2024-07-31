@@ -45,8 +45,8 @@ struct moondream_mmproj_hparams {
     float f_norm_eps;
     bool use_gelu;
     projector_type proj_type;
-    float * image_mean;
-    float * image_std;
+    float image_mean[3];
+    float image_std[3];
 };
 
 struct moondream_mmproj {
@@ -63,7 +63,6 @@ struct moondream_mmproj {
     ggml_tensor * post_ln_w = nullptr;
     ggml_tensor * post_ln_b = nullptr;
 };
-
 
 struct moondream_mmproj_context {
     int n_patches_per_side = 0;
@@ -96,6 +95,7 @@ bool moondream_mmproj_context_init(
     moondream_mmproj & model,
     int n_threads
 );
+void moondream_mmproj_context_free(moondream_mmproj_context & mctx);
 bool moondream_mmproj_load_from_file(const char * gguf_file_path, moondream_mmproj & model);
 bool moondream_mmproj_embed(
     moondream_mmproj_context & mctx,
@@ -103,4 +103,5 @@ bool moondream_mmproj_embed(
     moondream_image & image
 );
 bool moondream_image_init(moondream_image & image, int n_xy, int n_positions);
+void moondream_image_free(moondream_image & image);
 bool moondream_image_load_and_set(const char * path, moondream_image & image);

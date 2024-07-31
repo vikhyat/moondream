@@ -472,9 +472,18 @@ bool moondream_lm_batch_init(
 }
 
 void moondream_lm_batch_free(moondream_lm_batch & batch) {
-    if (batch.token) { free(batch.token); }
-    if (batch.embd) { free(batch.embd); }
-    if (batch.pos) { free(batch.pos); }
+    if (batch.token) {
+        free(batch.token);
+        batch.token = nullptr;
+    }
+    if (batch.embd) {
+        free(batch.embd);
+        batch.embd = nullptr;
+    }
+    if (batch.pos) {
+        free(batch.pos);
+        batch.pos = nullptr;
+    }
 }
 
 bool moondream_kv_cache_init(
@@ -601,11 +610,26 @@ bool moondream_lm_context_init(
 }
 
 void moondream_lm_context_free(moondream_lm_context & mctx) {
-    if (mctx.backend_cpu) { ggml_backend_free(mctx.backend_cpu); }
-    if (mctx.sched) { ggml_backend_sched_free(mctx.sched); }
-    if (mctx.kv_cache.buf) { ggml_backend_buffer_free(mctx.kv_cache.buf); }
-    if (mctx.kv_cache.ctx) { ggml_free(mctx.kv_cache.ctx); }
-    if (mctx.ctx) { ggml_free(mctx.ctx); }
+    if (mctx.backend_cpu) {
+        ggml_backend_free(mctx.backend_cpu);
+        mctx.backend_cpu = nullptr;
+    }
+    if (mctx.sched) {
+        ggml_backend_sched_free(mctx.sched);
+        mctx.sched = nullptr;
+    }
+    if (mctx.kv_cache.buf) {
+        ggml_backend_buffer_free(mctx.kv_cache.buf);
+        mctx.kv_cache.buf = nullptr;
+    }
+    if (mctx.kv_cache.ctx) {
+        ggml_free(mctx.kv_cache.ctx);
+        mctx.kv_cache.ctx = nullptr;
+    }
+    if (mctx.ctx) {
+        ggml_free(mctx.ctx);
+        mctx.ctx = nullptr;
+    }
 }
 
 struct lm_symbol {
