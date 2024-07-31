@@ -33,7 +33,7 @@
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
 //#define MOONDREAM_EXTRA_LOGS 
 // Define MOONDREAM_MULTI_MODAL if you want image embeddings to be generated and used for text model.
-//#define MOONDREAM_MULTI_MODAL
+#define MOONDREAM_MULTI_MODAL
 
 /* Start of helpers. */
 static size_t utf8_len(char src) {
@@ -840,29 +840,29 @@ ggml_cgraph * build_clip(
         cur = ggml_add(ctx0, ggml_mul(ctx0, cur, model.layers[il].ln_1_w), model.layers[il].ln_1_b);
 
         // Self-attention
-        ggml_tensor * Q = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].q_w, cur), model.layers[il].q_b);
-        Q = ggml_scale_inplace(ctx0, Q, 1.0f / sqrt((float)n_head_qkv));
-        Q = ggml_reshape_4d(ctx0, Q, n_head_qkv, n_head, num_positions, batch_size);
-        Q = ggml_cont(ctx0, ggml_permute(ctx0, Q, 0, 2, 1, 3));
-        Q = ggml_reshape_3d(ctx0, Q, n_head_qkv, num_positions, n_head * batch_size);
+        ggml_tensor * q = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].q_w, cur), model.layers[il].q_b);
+        q = ggml_scale_inplace(ctx0, q, 1.0f / sqrt((float)n_head_qkv));
+        q = ggml_reshape_4d(ctx0, q, n_head_qkv, n_head, num_positions, batch_size);
+        q = ggml_cont(ctx0, ggml_permute(ctx0, q, 0, 2, 1, 3));
+        q = ggml_reshape_3d(ctx0, q, n_head_qkv, num_positions, n_head * batch_size);
 
-        ggml_tensor * K = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].k_w, cur), model.layers[il].k_b);
-        K = ggml_reshape_4d(ctx0, K, n_head_qkv, n_head, num_positions, batch_size);
-        K = ggml_cont(ctx0, ggml_permute(ctx0, K, 0, 2, 1, 3));
-        K = ggml_reshape_3d(ctx0, K, n_head_qkv, num_positions, n_head * batch_size);
+        ggml_tensor * k = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].k_w, cur), model.layers[il].k_b);
+        k = ggml_reshape_4d(ctx0, k, n_head_qkv, n_head, num_positions, batch_size);
+        k = ggml_cont(ctx0, ggml_permute(ctx0, k, 0, 2, 1, 3));
+        k = ggml_reshape_3d(ctx0, k, n_head_qkv, num_positions, n_head * batch_size);
 
-        ggml_tensor * V = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].v_w, cur), model.layers[il].v_b);
-        V = ggml_reshape_4d(ctx0, V, n_head_qkv, n_head, num_positions, batch_size);
-        V = ggml_cont(ctx0, ggml_permute(ctx0, V, 1, 2, 0, 3));
-        V = ggml_reshape_3d(ctx0, V, num_positions, n_head_qkv, n_head * batch_size);
+        ggml_tensor * v = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].v_w, cur), model.layers[il].v_b);
+        v = ggml_reshape_4d(ctx0, v, n_head_qkv, n_head, num_positions, batch_size);
+        v = ggml_cont(ctx0, ggml_permute(ctx0, v, 1, 2, 0, 3));
+        v = ggml_reshape_3d(ctx0, v, num_positions, n_head_qkv, n_head * batch_size);
 
-        ggml_tensor * KQ = ggml_mul_mat(ctx0, K, Q);
-        KQ = ggml_soft_max_inplace(ctx0, KQ);
-        ggml_tensor * KQV = ggml_mul_mat(ctx0, V, KQ);
-        KQV = ggml_reshape_4d(ctx0, KQV, n_head_qkv, num_positions, n_head, batch_size);
-        KQV = ggml_permute(ctx0, KQV, 0, 2, 1, 3);
+        ggml_tensor * kq = ggml_mul_mat(ctx0, k, q);
+        kq = ggml_soft_max_inplace(ctx0, kq);
+        ggml_tensor * kqv = ggml_mul_mat(ctx0, v, kq);
+        kqv = ggml_reshape_4d(ctx0, kqv, n_head_qkv, num_positions, n_head, batch_size);
+        kqv = ggml_permute(ctx0, kqv, 0, 2, 1, 3);
 
-        cur = ggml_cont_3d(ctx0, KQV, n_embd, num_positions, batch_size);
+        cur = ggml_cont_3d(ctx0, kqv, n_embd, num_positions, batch_size);
         cur = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].o_w, cur), model.layers[il].o_b);
         // Add the residual.
         cur = ggml_add(ctx0, cur, embeddings);
