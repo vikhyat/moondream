@@ -22,8 +22,8 @@
  * SOFTWARE.
  ******************************************************************************/
 
-#include "unicode.h"
-#include "unicode_data.h"
+#include "unicode.hpp"
+#include "unicode_data.hpp"
 
 #include <cassert>
 #include <cstddef>

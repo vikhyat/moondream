@@ -24,7 +24,7 @@
 
 // generated with scripts/gen-unicode-data.py
 
-#include "unicode_data.h"
+#include "unicode_data.hpp"
 
 #include <cstdint>
 #include <vector>

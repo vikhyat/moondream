@@ -12,7 +12,7 @@
 #include <map>
 #include <unordered_map>
 #include <queue>
-#include "unicode.h"
+#include "unicode.hpp"
 #include "ggml.h"
 #include "ggml-backend.h"
 
