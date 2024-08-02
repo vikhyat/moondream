@@ -7,6 +7,9 @@
 #define MOONDREAM_LM_FNAME "moondream2-text-model-f16.gguf"
 #define MOONDREAM_MMPROJ_FNAME "moondream2-mmproj-f16.gguf"
 #define MOONDREAM_N_IMAGE_CHANNELS 3
+#define MOONDREAM_MAX_IMAGE_SIDE_LENGTH 756
+#define MOONDREAM_MAX_IMAGE_PATCHES 4
+#define MOONDREAM_IMAGE_PATCH_SIDE_LENGTH 378
 // Corresponds to LLAMA_ROPE_TYPE_NEOX from llama.cpp which is what is used for phi2.
 #define MOONDREAM_ROPE_TYPE 2
 #define DATA_PATH_MAX_LEN 512

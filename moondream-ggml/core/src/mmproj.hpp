@@ -94,6 +94,19 @@ struct moondream_image {
     int32_t * pos = nullptr;
 };
 
+// NOTE: this is a temporary name. It will replace moondream_image and be renamed when it does.
+struct moondream_image_alt {
+    int width = 0;
+    int height = 0;
+    int n_channels = 0;
+    float * data = nullptr;
+};
+
+struct moondream_mmproj_batch {
+    int image_side_length;
+    float * patches = nullptr;
+};
+
 bool moondream_mmproj_context_init(
     moondream_mmproj_context & mctx,
     moondream_mmproj & model,

@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cmath>
+#include <limits>
 
 #include "stb_image.h"
 #include "stb_image_write.h"
@@ -551,8 +552,109 @@ bool moondream_image_load_and_set(const char * path, moondream_image & image) {
     return true;
 }
 
-float * mmproj_bilinear_downsample(
+bool moondream_mmproj_batch_init(moondream_mmproj_batch & batch) {
+    constexpr int n_elements_per_patch =
+        MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS;
+    constexpr int n_elements_total = (1 + MOONDREAM_MAX_IMAGE_PATCHES) * n_elements_per_patch;
+    batch.patches = (float *)malloc(sizeof(float) * n_elements_total);
+    if (!batch.patches) {
+        printf("failed to allocate memory for moondream_mmproj_batch.patches\n");
+        return false;
+    }
+    return true;
+}
+
+void moondream_mmproj_batch_free(moondream_mmproj_batch & batch) {
+    if (batch.patches) {
+        free(batch.patches);
+        batch.patches = nullptr;
+    }
+}
+
+void moondream_mmproj_image_preprocess(moondream_image_alt & image, moondream_mmproj_batch & batch) {
+    int target_width, target_height;
+    static const int n_supported_sizes = 4;
+    static const int supported_sizes[][2] = {{378, 378}, {378, 756}, {756, 378}, {756, 756}};
+    const int max_dim = image.width > image.height ? image.width : image.height;
+    if (max_dim < 512) {
+        target_width = 378;
+        target_height = 378;
+    } else {
+        float min_aspect_ratio_diff = std::numeric_limits<float>::max();
+        int min_side_length_diff = std::numeric_limits<int>::max();
+        const float aspect_ratio = (float)image.width / (float)image.height;
+        for (int i = 0; i < n_supported_sizes; ++i) {
+            const int cur_width = supported_sizes[i][0];
+            const int cur_height = supported_sizes[i][1];
+            const float cur_aspect_ratio = (float)cur_width / (float)cur_height;
+            const float cur_aspect_ratio_diff = fabsf(cur_aspect_ratio - aspect_ratio);
+            const int cur_side_length_diff = abs(cur_width - image.width) + abs(cur_height - image.height);
+            // TODO: figure out how python resolves the two values in the min key and implement it here.
+            // Ref:
+            /*
+                im_size = min(
+                    self.supported_sizes,
+                    key=lambda size: (
+                        abs((size[1] / size[0]) - aspect_ratio),
+                        abs(size[0] - width) + abs(size[1] - height),
+                    ),
+                )
+            */
+            if (cur_side_length_diff < min_side_length_diff) {
+                min_side_length_diff = cur_side_length_diff;
+                target_width = cur_width;
+                target_height = cur_height;
+            }
+        }
+    }
+
+    // TODO:
+    // - Resize image to (target_width, target_height)
+    // - Normalize image
+    // - Split image into patches
+    // - Resize image to (378, 378) if it isn't already that size
+    // - Combined resized image with patches
+    // - Copy combined image/patches into the batch buffer
+}
+
+struct mmproj_image_downsample_buffer {
+    int n_channels = 0;
+    int n_data_elements = 0;
+    float * inter_image = nullptr;
+    float * final_image = nullptr;
+};
+
+bool mmproj_image_downsample_buffer_init(mmproj_image_downsample_buffer & buf, int n_channels) {
+    buf.n_channels = n_channels;
+    constexpr int n_spatial_elements = MOONDREAM_MAX_IMAGE_SIDE_LENGTH * MOONDREAM_MAX_IMAGE_SIDE_LENGTH;
+    buf.n_data_elements = n_spatial_elements * buf.n_channels;
+    buf.inter_image = (float *)calloc(buf.n_data_elements, sizeof(float));
+    if (!buf.inter_image) {
+        printf("failed to allocate memory for mmproj_image_downsample_buffer.inter_image\n");
+        return false;
+    }
+    buf.final_image = (float *)calloc(buf.n_data_elements, sizeof(float));
+    if (!buf.final_image) {
+        printf("failed to allocate memory for mmproj_image_downsample_buffer.final_image\n");
+        return false;
+    }
+    return true;
+}
+
+void mmproj_image_downsample_buffer_free(mmproj_image_downsample_buffer & buf) {
+    if (buf.inter_image) {
+        free(buf.inter_image);
+        buf.inter_image = nullptr;
+    }
+    if (buf.final_image) {
+        free(buf.final_image);
+        buf.final_image = nullptr;
+    }
+}
+
+void mmproj_bilinear_downsample(
     const float * base_image,
+    mmproj_image_downsample_buffer & buf,
     int base_width, int base_height,
     int new_width, int new_height,
     int channels
@@ -561,9 +663,6 @@ float * mmproj_bilinear_downsample(
     printf("channels: %d\n", channels);
     printf("base_width: %d, base_height: %d\n", base_width, base_height);
     printf("new_width: %d, new_height: %d\n", new_width, new_height);
-
-    float * inter_image = (float *)calloc(new_width * base_height * channels, sizeof(float));
-    float * new_image = (float *)calloc(new_width * new_height * channels, sizeof(float));
 
     const int x_gaps = new_width - 1;
     const float x_gap_size = (float)base_width / (float)(x_gaps);
@@ -585,7 +684,7 @@ float * mmproj_bilinear_downsample(
             for (int k = 0; k < channels; ++k) {
                 const float base_left_val = base_image[base_left_offset + k];
                 const float base_right_val = base_image[base_right_offset + k];
-                inter_image[inter_offset + k] = (base_left_val + base_right_val) / 2.0f;
+                buf.inter_image[inter_offset + k] = (base_left_val + base_right_val) / 2.0f;
             }
         }
     }
@@ -598,15 +697,12 @@ float * mmproj_bilinear_downsample(
             const int inter_down_offset = (inter_up_row_offset + x) * channels;
             const int new_offset = (y * new_width + x) * channels;
             for (int k = 0; k < channels; ++k) {
-                const float inter_up_val = inter_image[inter_up_offset + k];
-                const float inter_down_val = inter_image[inter_down_offset + k];
-                new_image[new_offset + k] = (inter_up_val + inter_down_val) / 2.0f;
+                const float inter_up_val = buf.inter_image[inter_up_offset + k];
+                const float inter_down_val = buf.inter_image[inter_down_offset + k];
+                buf.final_image[new_offset + k] = (inter_up_val + inter_down_val) / 2.0f;
             }
         }
     }
-
-    free(inter_image);
-    return new_image;
 }
 
 void test_bilinear_downsample(void) {
@@ -621,6 +717,10 @@ void test_bilinear_downsample(void) {
         return;
     }
     base_channels = MOONDREAM_N_IMAGE_CHANNELS;
+
+    mmproj_image_downsample_buffer buf;
+    mmproj_image_downsample_buffer_init(buf, base_channels);
+
     int new_width = 378;
     int new_height = 378;
 
@@ -633,13 +733,13 @@ void test_bilinear_downsample(void) {
     }
     stbi_image_free(base_stbi_data);
 
-
-    float * new_image = mmproj_bilinear_downsample(
-        base_image,
+    mmproj_bilinear_downsample(
+        base_image, buf,
         base_width, base_height,
         new_width, new_height,
         base_channels
     );
+    float * new_image = buf.final_image;
 
     const int new_image_elements = new_width * new_height * base_channels;
     uint8_t * pre_save_image = (uint8_t *)malloc(sizeof(uint8_t) * new_image_elements);
@@ -652,8 +752,7 @@ void test_bilinear_downsample(void) {
         pre_save_image,
         new_width * base_channels
     );
-
     free(pre_save_image);
     free(base_image);
-    free(new_image);
+    mmproj_image_downsample_buffer_free(buf);
 }
