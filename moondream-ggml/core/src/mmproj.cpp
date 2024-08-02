@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "stb_image.h"
+#include "stb_image_write.h"
 #include "helpers.hpp"
 #include "mmproj.hpp"
 
@@ -132,6 +133,7 @@ static ggml_cgraph * mmproj_build_clip(
     ggml_tensor * patches = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_patches);
     ggml_set_name(patches, "patches");
     ggml_set_input(patches);
+    mctx.inp_patches = patches;
     embeddings = ggml_get_rows(ctx0, embeddings, patches);
     if (hparams.proj_type == PROJECTOR_TYPE_MLP) {
         embeddings = ggml_mul_mat(ctx0, model.mm_0_w, embeddings);
@@ -190,7 +192,7 @@ bool moondream_mmproj_context_init(
     // Initialize scheduler.
     ggml_cgraph * gf = mmproj_build_clip(model, mctx);
     if (!gf) {
-        printf("failed to build mmrpoj compute graph\n");
+        printf("failed to build mmproj compute graph\n");
         return false;
     }
     printf("n_nodes: %d\n", gf->n_nodes);
@@ -547,4 +549,111 @@ bool moondream_image_load_and_set(const char * path, moondream_image & image) {
     }
     free(base_float_data);
     return true;
+}
+
+float * mmproj_bilinear_downsample(
+    const float * base_image,
+    int base_width, int base_height,
+    int new_width, int new_height,
+    int channels
+) {
+    printf("start downsample\n");
+    printf("channels: %d\n", channels);
+    printf("base_width: %d, base_height: %d\n", base_width, base_height);
+    printf("new_width: %d, new_height: %d\n", new_width, new_height);
+
+    float * inter_image = (float *)calloc(new_width * base_height * channels, sizeof(float));
+    float * new_image = (float *)calloc(new_width * new_height * channels, sizeof(float));
+
+    const int x_gaps = new_width - 1;
+    const float x_gap_size = (float)base_width / (float)(x_gaps);
+
+    const int y_gaps = new_height - 1;
+    const float y_gap_size = (float)base_height / (float)(y_gaps);
+
+    printf("x_gaps: %d, x_gap_size: %f\n", x_gaps, x_gap_size);
+    printf("y_gaps: %d, y_gap_size: %f\n", y_gaps, y_gap_size);
+
+    // TODO: not quite right. Base values need to be weighted based on distance from the sample point.
+
+    for (int x = 0; x < x_gaps; ++x) {
+        const int base_left_col_offset = (int)floorf(x * x_gap_size);
+        for (int y = 0; y < base_height; ++y) {
+            const int base_left_offset = (y * base_width + base_left_col_offset) * channels;
+            const int base_right_offset = base_left_offset + channels;
+            const int inter_offset = (y * new_width + x) * channels;
+            for (int k = 0; k < channels; ++k) {
+                const float base_left_val = base_image[base_left_offset + k];
+                const float base_right_val = base_image[base_right_offset + k];
+                inter_image[inter_offset + k] = (base_left_val + base_right_val) / 2.0f;
+            }
+        }
+    }
+
+    for (int y = 0; y < y_gaps; ++y) {
+        const int inter_up_row_offset = (int)floorf(y * y_gap_size) * new_width;
+        const int inter_down_row_offset = inter_up_row_offset + new_width;
+        for (int x = 0; x < new_width; ++x) {
+            const int inter_up_offset = (inter_up_row_offset + x) * channels;
+            const int inter_down_offset = (inter_up_row_offset + x) * channels;
+            const int new_offset = (y * new_width + x) * channels;
+            for (int k = 0; k < channels; ++k) {
+                const float inter_up_val = inter_image[inter_up_offset + k];
+                const float inter_down_val = inter_image[inter_down_offset + k];
+                new_image[new_offset + k] = (inter_up_val + inter_down_val) / 2.0f;
+            }
+        }
+    }
+
+    free(inter_image);
+    return new_image;
+}
+
+void test_bilinear_downsample(void) {
+    int base_width = -1, base_height = -1, base_channels = -1;
+    unsigned char * base_stbi_data = stbi_load(
+        "../../../assets/demo-1.jpg",
+        &base_width, &base_height, &base_channels,
+        MOONDREAM_N_IMAGE_CHANNELS
+    );
+    if (!base_stbi_data) {
+        printf("stb could not load image\n");
+        return;
+    }
+    base_channels = MOONDREAM_N_IMAGE_CHANNELS;
+    int new_width = 378;
+    int new_height = 378;
+
+    int image_elements = base_width * base_height * base_channels;
+    size_t image_size_bytes = sizeof(float) * image_elements;
+    float * base_image = (float *)malloc(image_size_bytes);
+    for (int i = 0; i < image_elements; ++i) {
+        const uint8_t int_element = static_cast<uint8_t>(base_stbi_data[i]);
+        base_image[i] = static_cast<float>(int_element) / 255.0f;
+    }
+    stbi_image_free(base_stbi_data);
+
+
+    float * new_image = mmproj_bilinear_downsample(
+        base_image,
+        base_width, base_height,
+        new_width, new_height,
+        base_channels
+    );
+
+    const int new_image_elements = new_width * new_height * base_channels;
+    uint8_t * pre_save_image = (uint8_t *)malloc(sizeof(uint8_t) * new_image_elements);
+    for (int i = 0; i < new_image_elements; ++i) {
+        pre_save_image[i] = static_cast<uint8_t>(new_image[i] * 255.0f);
+    }
+    stbi_write_png(
+        "../../../data/bilinear_downsample_preview.png",
+        new_width, new_height, base_channels,
+        pre_save_image,
+        new_width * base_channels
+    );
+
+    free(pre_save_image);
+    free(base_image);
+    free(new_image);
 }

@@ -170,6 +170,8 @@ bool moondream_api_prompt(
 
 #ifndef MOONDREAM_LIBRARY_BUILD
 int main(int argc, char * argv[]) {
+    test_bilinear_downsample();
+
     if (argc < 2) {
         printf("incorrect number of arguments\n");
         return 1;

@@ -6,6 +6,8 @@
 #include "ggml.h"
 #include "ggml-backend.h"
 
+void test_bilinear_downsample(void);
+
 enum projector_type {
     PROJECTOR_TYPE_MLP,
     PROJECTOR_TYPE_UNKNOWN,
@@ -74,6 +76,7 @@ struct moondream_mmproj_context {
     ggml_backend_buffer_type_t backend_cpu_buft = nullptr;
     // Input tensors.
     ggml_tensor * inp_raw = nullptr;
+    ggml_tensor * inp_patches = nullptr;
     ggml_tensor * positions = nullptr;
     // Memory buffers used to evaluate the model.
     std::vector<uint8_t> compute_buffer;
@@ -87,6 +90,7 @@ struct moondream_image {
     int n_scalars = 0;
     int n_positions = 0;
     float * data = nullptr;
+    float * patch_view = nullptr;
     int32_t * pos = nullptr;
 };
 
