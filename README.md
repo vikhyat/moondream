@@ -31,7 +31,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from PIL import Image
 
 model_id = "vikhyatk/moondream2"
-revision = "2024-05-20"
+revision = "2024-07-23"
 model = AutoModelForCausalLM.from_pretrained(
     model_id, trust_remote_code=True, revision=revision
 )

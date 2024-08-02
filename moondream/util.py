@@ -1,6 +1,6 @@
 import torch
 
-LATEST_REVISION = "2024-05-20"
+LATEST_REVISION = "2024-07-23"
 
 def detect_device():
     """
