@@ -32,7 +32,7 @@ struct moondream_lm_hparams {
     int n_ff;
     int n_layer;
     int n_rot;
-    uint32_t n_ctx_train;
+    int n_ctx_train;
     int n_head;
     int n_head_kv;
     int n_embd_head_k;
@@ -48,19 +48,19 @@ struct moondream_lm_hparams {
 
 struct moondream_lm_cparams {
     // Context size used during inference.
-    uint32_t n_ctx;
-    uint32_t n_batch;
-    uint32_t n_ubatch;
-    uint32_t n_seq_max;
+    int n_ctx;
+    int n_batch;
+    int n_ubatch;
+    int n_seq_max;
     // Number of threads to use for generation.
-    uint32_t n_threads;
+    int n_threads;
     // Number of threads to use for batch processing.
-    uint32_t n_threads_batch;
+    int n_threads_batch;
 
     float rope_freq_base;
     float rope_freq_scale;
 
-    uint32_t n_ctx_orig_yarn;
+    int n_ctx_orig_yarn;
     // These hyperparameters are not exposed in GGUF, because all
     // existing YaRN models use the same values for them.
     float yarn_ext_factor;
@@ -76,11 +76,11 @@ struct moondream_lm_cparams {
 };
 
 struct moondream_vocab {
-    int64_t bos_token_id;
-    int64_t eos_token_id;
-    int64_t unknown_token_id;
-    int64_t separator_token_id;
-    int64_t padding_token_id;
+    int32_t bos_token_id;
+    int32_t eos_token_id;
+    int32_t unknown_token_id;
+    int32_t separator_token_id;
+    int32_t padding_token_id;
     int n_tokens;
     int n_merges;
     const float * scores;
@@ -104,8 +104,8 @@ struct moondream_lm {
 
 // Arrays must have size of n_tokens
 struct moondream_lm_batch {
-    int32_t n_tokens_alloc;
-    int32_t n_tokens;
+    int n_tokens_alloc;
+    int n_tokens;
     // The token ids of the input (used when embd is NULL).
     int32_t * token = nullptr;
     // The token embeddings (used when token is NULL).
@@ -152,7 +152,7 @@ struct moondream_lm_context {
     // The number of tokens in the current sequence, including prompt tokens, previously generated tokens,
     // and tokens in the current batch. When a token is added to the current batch, its pos is set
     // to n_ctx_active and then n_ctx_active is incremented.
-    int32_t n_ctx_active = 0;
+    int n_ctx_active = 0;
     int n_outputs = 0;
     // Input tensors.
     ggml_tensor * inp_tokens = nullptr;    // I32 [n_batch]
@@ -167,8 +167,8 @@ struct moondream_lm_context {
 
 bool moondream_lm_batch_init(
     moondream_lm_batch & batch,
-    int32_t n_tokens_alloc,
-    int32_t n_embd,
+    int n_tokens_alloc,
+    int n_embd,
     bool alloc_embd
 );
 void moondream_lm_batch_free(moondream_lm_batch & batch);
@@ -193,7 +193,7 @@ void moondream_lm_context_free(moondream_lm_context & mctx);
 int32_t moondream_lm_tokenize(
     moondream_vocab & vocab,
     const char * text,
-    int32_t text_len,
+    int text_len,
     int32_t * token_ids_output
 );
 bool moondream_lm_load_from_file(
@@ -204,7 +204,7 @@ bool moondream_lm_decode(
     moondream_lm & model,
     moondream_lm_batch & batch,
     std::string & response,
-    int32_t n_prompt_tokens,
+    int n_prompt_tokens,
     int32_t * prompt_token_ids,
     int n_max_gen,
     bool log_response_stream,

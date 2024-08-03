@@ -16,11 +16,6 @@ static ggml_cgraph * mmproj_build_clip(
     moondream_mmproj_context & mctx
 ) {
     moondream_mmproj_hparams & hparams = model.hparams;
-    // TODO: find some way to do narrowing conversions safely.
-    // Maybe convert all unsigned ints to signed ints when hyperparameters are loaded
-    // and do a max val check there. We can't keep them as unsigned ints because most of
-    // the ggml API calls take signed ints and we don't want to scatter narrowing conversions
-    // everywhere.
     const int image_size = hparams.image_size;
     const int patch_size = hparams.patch_size;
     const int num_patches_per_side = mctx.n_patches_per_side;
@@ -32,7 +27,6 @@ static ggml_cgraph * mmproj_build_clip(
     const int n_layer = hparams.n_layer;
     const float eps = hparams.f_norm_eps;
 
-    // TODO: move this into moondream_mmproj_batch struct.
     constexpr int batch_size = 1;
 
     ggml_init_params build_ctx_params = {
@@ -245,13 +239,13 @@ bool moondream_mmproj_load_from_file(
 
     /* Start of hparams load. */
     moondream_mmproj_hparams hparams;
-    hparams.image_size = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.image_size"));
-    hparams.patch_size = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.patch_size"));
-    hparams.n_embd = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.embedding_length"));
-    hparams.n_ff = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.feed_forward_length"));
-    hparams.n_proj = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.projection_dim"));
-    hparams.n_head = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.attention.head_count"));
-    hparams.n_layer = gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.block_count"));
+    hparams.image_size = (int)gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.image_size"));
+    hparams.patch_size = (int)gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.patch_size"));
+    hparams.n_embd = (int)gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.embedding_length"));
+    hparams.n_ff = (int)gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.feed_forward_length"));
+    hparams.n_proj = (int)gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.projection_dim"));
+    hparams.n_head = (int)gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.attention.head_count"));
+    hparams.n_layer = (int)gguf_get_val_u32(meta, gguf_find_key(meta, "clip.vision.block_count"));
     hparams.f_norm_eps = gguf_get_val_f32(meta, gguf_find_key(meta, "clip.vision.attention.layer_norm_epsilon"));
     hparams.use_gelu = gguf_get_val_bool(meta, gguf_find_key(meta, "clip.use_gelu"));
 
@@ -409,15 +403,15 @@ bool moondream_mmproj_load_from_file(
         printf("model_arch: %s\n", model_arch);
         printf("mem_size: %lf GiB\n", bytes_to_gib(ggml_get_mem_size(model.ctx)));
         printf("------------\nMMPROJ Hyperparameters\n------------\n");
-        printf("image_size: %u\n", hparams.image_size);
-        printf("patch_size: %u\n", hparams.patch_size);
-        printf("n_embd: %u\n", hparams.n_embd);
-        printf("n_ff: %u\n", hparams.n_ff);
-        printf("n_proj: %u\n", hparams.n_proj);
-        printf("n_head: %u\n", hparams.n_head);
-        printf("n_layer: %u\n", hparams.n_layer);
+        printf("image_size: %d\n", hparams.image_size);
+        printf("patch_size: %d\n", hparams.patch_size);
+        printf("n_embd: %d\n", hparams.n_embd);
+        printf("n_ff: %d\n", hparams.n_ff);
+        printf("n_proj: %d\n", hparams.n_proj);
+        printf("n_head: %d\n", hparams.n_head);
+        printf("n_layer: %d\n", hparams.n_layer);
         printf("f_norm_eps: %f\n", hparams.f_norm_eps);
-        printf("n_head: %u\n", hparams.n_head);
+        printf("n_head: %d\n", hparams.n_head);
         printf("image_mean: %f %f %f\n", hparams.image_mean[0], hparams.image_mean[1], hparams.image_mean[2]);
         printf("image_std: %f %f %f\n", hparams.image_std[0], hparams.image_std[1], hparams.image_std[2]);
         printf("proj_type_str: %s\n", proj_type_str);

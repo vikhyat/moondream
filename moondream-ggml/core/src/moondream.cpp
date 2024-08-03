@@ -20,7 +20,7 @@ static moondream_api_state api_state;
 
 bool moondream_api_state_init(
     const char * text_model_path, const char * mmproj_path,
-    uint32_t n_threads, bool normal_logs_enabled
+    int n_threads, bool normal_logs_enabled
 ) {
     if (api_state.is_init) {
         printf("API has already been initialized\n");

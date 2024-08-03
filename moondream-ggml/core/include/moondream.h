@@ -5,7 +5,7 @@
 
 bool moondream_api_state_init(
     const char * text_model_path, const char * mmproj_path,
-    uint32_t n_threads, bool normal_logs_enabled
+    int n_threads, bool normal_logs_enabled
 );
 void moondream_api_state_cleanup(void);
 bool moondream_api_prompt(

@@ -37,13 +37,13 @@ struct moondream_mmproj_layer {
 };
 
 struct moondream_mmproj_hparams {
-    uint32_t image_size;
-    uint32_t patch_size;
-    uint32_t n_embd;
-    uint32_t n_ff;
-    uint32_t n_proj;
-    uint32_t n_head;
-    uint32_t n_layer;
+    int image_size;
+    int patch_size;
+    int n_embd;
+    int n_ff;
+    int n_proj;
+    int n_head;
+    int n_layer;
     float f_norm_eps;
     bool use_gelu;
     projector_type proj_type;

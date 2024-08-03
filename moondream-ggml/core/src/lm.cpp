@@ -695,10 +695,10 @@ static void add_new_bigram(
 
 // token_ids should point to a buffer with `sizeof(int32_t) * text_len` bytes because text_len
 // is the maximum number of tokens.
-int32_t moondream_lm_tokenize(
+int moondream_lm_tokenize(
     moondream_vocab & vocab,
     const char * text,
-    int32_t text_len,
+    int text_len,
     int32_t * token_ids_output
 ) {
     if (!text || text[0] == '\0') {
@@ -823,7 +823,7 @@ int32_t moondream_lm_tokenize(
     }
 #endif // MOONDREAM_EXTRA_LOGS
 
-    int32_t n_token_ids = 0;
+    int n_token_ids = 0;
     //token_ids_output[token_ids_output_offset++] = vocab.bos_token_id;
     if (n_symbols_final >= 0) {
         int cur_symbol_idx = 0;
@@ -885,13 +885,13 @@ bool moondream_lm_load_from_file(const char * gguf_file_path, moondream_lm & mod
 
     /* Start of hparams load. */
     moondream_lm_hparams hparams;
-    hparams.n_ctx_train = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("context_length")));
-    hparams.n_embd = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("embedding_length")));
-    hparams.n_rot = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("rope.dimension_count")));
-    hparams.n_layer = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("block_count")));
-    hparams.n_ff = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("feed_forward_length")));
-    hparams.n_head = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count")));
-    hparams.n_head_kv = gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count_kv")));
+    hparams.n_ctx_train = (int)gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("context_length")));
+    hparams.n_embd = (int)gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("embedding_length")));
+    hparams.n_rot = (int)gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("rope.dimension_count")));
+    hparams.n_layer = (int)gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("block_count")));
+    hparams.n_ff = (int)gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("feed_forward_length")));
+    hparams.n_head = (int)gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count")));
+    hparams.n_head_kv = (int)gguf_get_val_u32(meta, gguf_find_key(meta, ARCH_PREFIX("attention.head_count_kv")));
     hparams.f_norm_eps = gguf_get_val_f32(
         meta, gguf_find_key(meta, ARCH_PREFIX("attention.layer_norm_epsilon"))
     );
@@ -899,7 +899,6 @@ bool moondream_lm_load_from_file(const char * gguf_file_path, moondream_lm & mod
     // Calculate n_head_k and n_head_v because they are not specified.
     hparams.n_embd_head_k = hparams.n_embd / hparams.n_head;
     hparams.n_embd_head_v = hparams.n_embd_head_k;
-    // TODO: determine this dynamically from the GGUF file instead of hardcoding it
     hparams.n_vocab = 51200;
     hparams.f_max_alibi_bias = 0.0f;
     model.hparams = hparams;
@@ -909,16 +908,17 @@ bool moondream_lm_load_from_file(const char * gguf_file_path, moondream_lm & mod
     moondream_vocab vocab;
     // NOTE: the pre-tokenizer is missing, this might degrade generation quality.
     const char * tokenizer_model_name = gguf_get_val_str(meta, gguf_find_key(meta, TOK_PREFIX("model")));
-    vocab.bos_token_id = (int64_t)gguf_get_val_u32(meta, gguf_find_key(meta, TOK_PREFIX("bos_token_id")));
-    vocab.eos_token_id = (int64_t)gguf_get_val_u32(meta, gguf_find_key(meta, TOK_PREFIX("eos_token_id")));
-    vocab.unknown_token_id = (int64_t)gguf_get_val_u32(
+    vocab.bos_token_id = (int32_t)gguf_get_val_u32(meta, gguf_find_key(meta, TOK_PREFIX("bos_token_id")));
+    vocab.eos_token_id = (int32_t)gguf_get_val_u32(meta, gguf_find_key(meta, TOK_PREFIX("eos_token_id")));
+    vocab.unknown_token_id = (int32_t)gguf_get_val_u32(
         meta, gguf_find_key(meta, TOK_PREFIX("unknown_token_id"))
     );
     vocab.separator_token_id = -1;
     vocab.padding_token_id = -1;
     const int tokens_key_id = gguf_find_key(meta, TOK_PREFIX("tokens"));
     vocab.n_tokens = gguf_get_arr_n(meta, tokens_key_id);
-    if (vocab.n_tokens != hparams.n_vocab) {
+    if (vocab.n_tokens != model.hparams.n_vocab) {
+        model.hparams.n_vocab = vocab.n_tokens;
         printf("expected gguf vocab size to be %d but got %d\n", hparams.n_vocab, vocab.n_tokens);
         return false;
     }
@@ -1060,11 +1060,11 @@ bool moondream_lm_load_from_file(const char * gguf_file_path, moondream_lm & mod
         printf("n_vocab: %d\n", hparams.n_vocab);
         printf("------------\nVocab\n------------\n");
         printf("tokenizer_model_name: %s\n", tokenizer_model_name);
-        printf("bos_token_id: %ld\n", vocab.bos_token_id);
-        printf("eos_token_id: %ld\n", vocab.eos_token_id);
-        printf("unknown_token_id: %ld\n", vocab.separator_token_id);
-        printf("separator_token_id: %ld\n", vocab.separator_token_id);
-        printf("padding_token_id: %ld\n", vocab.padding_token_id);
+        printf("bos_token_id: %d\n", vocab.bos_token_id);
+        printf("eos_token_id: %d\n", vocab.eos_token_id);
+        printf("unknown_token_id: %d\n", vocab.separator_token_id);
+        printf("separator_token_id: %d\n", vocab.separator_token_id);
+        printf("padding_token_id: %d\n", vocab.padding_token_id);
         printf("n_tokens: %d\n", vocab.n_tokens);
         printf("n_merges: %d\n", vocab.n_merges);
         printf("------------\n");
