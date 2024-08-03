@@ -84,6 +84,8 @@ struct moondream_mmproj_context {
     float * output_buffer = nullptr;
 };
 
+// NOTE: this is currently used as input for moondream_mmproj_embed but it will be replaced by
+// moondream_image_alt and moondream_mmproj_batch.
 struct moondream_image {
     int n_xy = 0;
     int n_channels = 0;
