@@ -6,7 +6,7 @@
 
 PYBIND11_MODULE(cpp_ffi, m) {
     m.def(
-        "init", 
+        "init",
         &moondream_api_state_init,
         pybind11::arg("text_model_path"),
         pybind11::arg("mmproj_path"),
@@ -15,20 +15,26 @@ PYBIND11_MODULE(cpp_ffi, m) {
     );
 
     m.def(
-        "cleanup", 
+        "cleanup",
         &moondream_api_state_cleanup,
         "Clean up the Moondream API state"
     );
 
     m.def(
         "prompt",
-        [](const std::string & prompt_str, int n_max_gen, bool log_response_stream) {
+        [](
+            const std::string & image_path,
+            const std::string & prompt_str,
+            int n_max_gen, bool log_response_stream
+        ) {
             std::string response;
             bool result = moondream_api_prompt(
-                prompt_str.c_str(), response, n_max_gen, log_response_stream
+                image_path.c_str(), prompt_str.c_str(),
+                response, n_max_gen, log_response_stream
             );
             return std::make_tuple(result, response);
         },
+        pybind11::arg("image_path"),
         pybind11::arg("prompt_str"),
         pybind11::arg("n_max_gen"),
         pybind11::arg("log_response_stream"),

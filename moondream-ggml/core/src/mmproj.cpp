@@ -506,7 +506,10 @@ bool moondream_image_load_and_set(const char * path, moondream_image & image) {
         path, &base_width, &base_height, &base_channels, MOONDREAM_N_IMAGE_CHANNELS
     );
     if (!base_stbi_data) {
-        printf("stb could not load %s\n", path);
+        printf(
+            "(%s) could not load \"%s\", stbi_failure_reason \"%s\"\n",
+            __func__, path, stbi_failure_reason()
+        );
         return false;
     }
 

@@ -8,6 +8,6 @@ bool moondream_api_state_init(
 );
 void moondream_api_state_cleanup(void);
 bool moondream_api_prompt(
-    const char * prompt, std::string & response, 
+    const char * image_path, const char * prompt, std::string & response,
     int n_max_gen, bool log_response_stream
 );
