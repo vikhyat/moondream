@@ -197,6 +197,9 @@ bool moondream_api_prompt(
 int main(int argc, char * argv[]) {
     test_bilinear_downsample();
 
+    const char * lm_fname = "moondream2-text-model-f16.gguf";
+    const char * mmproj_fname = "moondream2-mmproj-f16.gguf";
+
     if (argc < 2) {
         printf("incorrect number of arguments\n");
         return 1;
@@ -209,22 +212,20 @@ int main(int argc, char * argv[]) {
     }
 
     // Resolve text model file path.
-    const char * text_model_fname = MOONDREAM_LM_FNAME;
-    const size_t text_model_fname_length = strlen(text_model_fname);
+    const size_t lm_fname_length = strlen(lm_fname);
     // Add 1 to give space for null-terminator in concatenated string.
-    const size_t text_model_path_length = data_path_length + text_model_fname_length + 1;
-    char text_model_path[text_model_path_length];
-    snprintf(text_model_path, text_model_path_length, "%s%s", data_path, text_model_fname);
+    const size_t lm_path_length = data_path_length + lm_fname_length + 1;
+    char lm_path[lm_path_length];
+    snprintf(lm_path, lm_path_length, "%s%s", data_path, lm_fname);
 
     // Resolve mmproj file path.
-    const char * mmproj_fname = MOONDREAM_MMPROJ_FNAME;
     const size_t mmproj_fname_length = strlen(mmproj_fname);
     // Add 1 to give space for null-terminator in concatenated string.
-    const size_t mmproj_path_length = data_path_length + text_model_fname_length + 1;
-    char mmproj_path[text_model_path_length];
+    const size_t mmproj_path_length = data_path_length + mmproj_fname_length + 1;
+    char mmproj_path[mmproj_path_length];
     snprintf(mmproj_path, mmproj_path_length, "%s%s", data_path, mmproj_fname);
 
-    printf("text model path: %s\n", text_model_path);
+    printf("lm path: %s\n", lm_path);
     printf("mmproj path: %s\n", mmproj_path);
 
     // Initialize GGML.
@@ -238,7 +239,7 @@ int main(int argc, char * argv[]) {
 
     const int n_threads = 8;
     const bool normal_logs_enabled = true;
-    if (!moondream_api_state_init(text_model_path, mmproj_path, n_threads, normal_logs_enabled)) {
+    if (!moondream_api_state_init(lm_path, mmproj_path, n_threads, normal_logs_enabled)) {
         printf("failed to initialize api state\n");
         return 1;
     }

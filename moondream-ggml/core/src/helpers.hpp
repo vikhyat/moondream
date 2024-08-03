@@ -4,8 +4,6 @@
 
 #include "ggml.h"
 
-#define MOONDREAM_LM_FNAME "moondream2-text-model-f16.gguf"
-#define MOONDREAM_MMPROJ_FNAME "moondream2-mmproj-f16.gguf"
 #define MOONDREAM_N_IMAGE_CHANNELS 3
 #define MOONDREAM_MAX_IMAGE_SIDE_LENGTH 756
 #define MOONDREAM_MAX_IMAGE_PATCHES 4
