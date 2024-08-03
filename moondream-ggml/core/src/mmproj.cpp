@@ -156,7 +156,8 @@ static ggml_cgraph * mmproj_build_clip(
 bool moondream_mmproj_context_init(
     moondream_mmproj_context & mctx,
     moondream_mmproj & model,
-    int n_threads
+    int n_threads,
+    bool normal_logs_enabled
 ) {
     const moondream_mmproj_hparams & hparams = model.hparams;
     mctx.n_patches_per_side = hparams.image_size / hparams.patch_size;
@@ -175,7 +176,6 @@ bool moondream_mmproj_context_init(
         printf("failed to initialize mmproj cpu backend\n");
         return false;
     }
-    printf("succesfully initialized mmproj cpu backend\n");
     ggml_backend_cpu_set_n_threads(mctx.backend_cpu, n_threads);
     mctx.backend_cpu_buft = ggml_backend_get_default_buffer_type(mctx.backend_cpu);
     //const size_t compute_buf_size = GGML_DEFAULT_GRAPH_SIZE * ggml_tensor_overhead() + ggml_graph_overhead();
@@ -184,10 +184,10 @@ bool moondream_mmproj_context_init(
     const size_t compute_buf_size =
         ggml_tensor_overhead() * LLAMA_MAX_NODES
         + ggml_graph_overhead_custom(LLAMA_MAX_NODES, false);
-#ifdef MOONDREAM_EXTRA_LOGS
-    const double compute_buf_size_gib = bytes_to_gib(compute_buf_size);
-    printf("new mmproj compute_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
-#endif // MOONDREAM_EXTRA_LOGS
+    if (normal_logs_enabled) {
+        const double compute_buf_size_gib = bytes_to_gib(compute_buf_size);
+        printf("new mmproj compute_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
+    }
     mctx.compute_buffer.resize(compute_buf_size);
 
     // Initialize scheduler.
@@ -196,14 +196,15 @@ bool moondream_mmproj_context_init(
         printf("failed to build mmproj compute graph\n");
         return false;
     }
-    printf("n_nodes: %d\n", gf->n_nodes);
-    printf("built mmproj graph\n");
+    if (normal_logs_enabled) {
+        printf("n_nodes: %d\n", gf->n_nodes);
+        printf("built mmproj graph\n");
+    }
     mctx.sched = ggml_backend_sched_new(&mctx.backend_cpu, &mctx.backend_cpu_buft, 1, gf->n_nodes, false);
     if (!ggml_backend_sched_reserve(mctx.sched, gf)) {
         printf("failed to reserve buffers for mmproj compute graph\n");
         return false;
     }
-    printf("succesfully reserved buffers for mmproj compute graph\n");
     return true;
 }
 
@@ -226,7 +227,9 @@ void moondream_mmproj_context_free(moondream_mmproj_context & mctx) {
     }
 }
 
-bool moondream_mmproj_load_from_file(const char * gguf_file_path, moondream_mmproj & model) {
+bool moondream_mmproj_load_from_file(
+    const char * gguf_file_path, moondream_mmproj & model, bool normal_logs_enabled
+) {
     ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
     gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
@@ -398,27 +401,28 @@ bool moondream_mmproj_load_from_file(const char * gguf_file_path, moondream_mmpr
 
     model.ctx = ctx;
 
-    printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
-    printf("gguf_version: %d\n", gguf_version);
-    printf("gguf_alignment: %zu\n", gguf_alignment);
-    printf("gguf_data_offset: %zu\n", gguf_data_offset);
-    printf("model_arch: %s\n", model_arch);
-    printf("mem_size: %lf GiB\n", bytes_to_gib(ggml_get_mem_size(model.ctx)));
-    printf("------------\nMMPROJ Hyperparameters\n------------\n");
-    printf("image_size: %u\n", hparams.image_size);
-    printf("patch_size: %u\n", hparams.patch_size);
-    printf("n_embd: %u\n", hparams.n_embd);
-    printf("n_ff: %u\n", hparams.n_ff);
-    printf("n_proj: %u\n", hparams.n_proj);
-    printf("n_head: %u\n", hparams.n_head);
-    printf("n_layer: %u\n", hparams.n_layer);
-    printf("f_norm_eps: %f\n", hparams.f_norm_eps);
-    printf("n_head: %u\n", hparams.n_head);
-    printf("image_mean: %f %f %f\n", hparams.image_mean[0], hparams.image_mean[1], hparams.image_mean[2]);
-    printf("image_std: %f %f %f\n", hparams.image_std[0], hparams.image_std[1], hparams.image_std[2]);
-    printf("proj_type_str: %s\n", proj_type_str);
-    printf("------------\n");
-
+    if (normal_logs_enabled) {
+        printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
+        printf("gguf_version: %d\n", gguf_version);
+        printf("gguf_alignment: %zu\n", gguf_alignment);
+        printf("gguf_data_offset: %zu\n", gguf_data_offset);
+        printf("model_arch: %s\n", model_arch);
+        printf("mem_size: %lf GiB\n", bytes_to_gib(ggml_get_mem_size(model.ctx)));
+        printf("------------\nMMPROJ Hyperparameters\n------------\n");
+        printf("image_size: %u\n", hparams.image_size);
+        printf("patch_size: %u\n", hparams.patch_size);
+        printf("n_embd: %u\n", hparams.n_embd);
+        printf("n_ff: %u\n", hparams.n_ff);
+        printf("n_proj: %u\n", hparams.n_proj);
+        printf("n_head: %u\n", hparams.n_head);
+        printf("n_layer: %u\n", hparams.n_layer);
+        printf("f_norm_eps: %f\n", hparams.f_norm_eps);
+        printf("n_head: %u\n", hparams.n_head);
+        printf("image_mean: %f %f %f\n", hparams.image_mean[0], hparams.image_mean[1], hparams.image_mean[2]);
+        printf("image_std: %f %f %f\n", hparams.image_std[0], hparams.image_std[1], hparams.image_std[2]);
+        printf("proj_type_str: %s\n", proj_type_str);
+        printf("------------\n");
+    }
     gguf_free(meta);
     return true;
 }
@@ -507,8 +511,8 @@ bool moondream_image_load_and_set(const char * path, moondream_image & image) {
     );
     if (!base_stbi_data) {
         printf(
-            "(%s) could not load \"%s\", stbi_failure_reason \"%s\"\n",
-            __func__, path, stbi_failure_reason()
+            "could not load \"%s\", stbi_failure_reason \"%s\"\n",
+            path, stbi_failure_reason()
         );
         return false;
     }

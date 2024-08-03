@@ -186,7 +186,8 @@ bool moondream_lm_context_init(
     moondream_lm_cparams & cparams,
     moondream_lm & model,
     ggml_type type_k,
-    ggml_type type_v
+    ggml_type type_v,
+    bool normal_logs_enabled
 );
 void moondream_lm_context_free(moondream_lm_context & mctx);
 int32_t moondream_lm_tokenize(
@@ -195,7 +196,9 @@ int32_t moondream_lm_tokenize(
     int32_t text_len,
     int32_t * token_ids_output
 );
-bool moondream_lm_load_from_file(const char * gguf_file_path, moondream_lm & model);
+bool moondream_lm_load_from_file(
+    const char * gguf_file_path, moondream_lm & model, bool normal_logs_enabled
+);
 bool moondream_lm_decode(
     moondream_lm_context & mctx,
     moondream_lm & model,

@@ -529,7 +529,6 @@ bool moondream_kv_cache_init(
         printf("failed to allocate ggml_backend_buffer for kv cache\n");
         return false;
     }
-    printf("succesfully allocated memory for moondream_kv_cache tensors\n");
     // Initialize buffer to avoid NaNs in the padding.
     ggml_backend_buffer_clear(buf, 0);
 
@@ -551,7 +550,8 @@ bool moondream_lm_context_init(
     moondream_lm_cparams & cparams,
     moondream_lm & model,
     ggml_type type_k,
-    ggml_type type_v
+    ggml_type type_v,
+    bool normal_logs_enabled
 ) {
     memcpy(&mctx.cparams, &cparams, sizeof(moondream_lm_cparams));
 
@@ -562,7 +562,6 @@ bool moondream_lm_context_init(
         printf("failed to initialize cpu backend\n");
         return false;
     }
-    printf("succesfully initialized cpu backend\n");
     ggml_backend_cpu_set_n_threads(mctx.backend_cpu, cparams.n_threads);
     mctx.backend_cpu_buft = ggml_backend_get_default_buffer_type(mctx.backend_cpu);
 
@@ -571,16 +570,15 @@ bool moondream_lm_context_init(
         printf("failed to initialize moondream_kv_cache\n");
         return false;
     }
-    printf("succesfully initialized moondream_kv_cache\n");
 
     // Buffer used to store the computation graph and the tensor meta data.
     const size_t compute_buf_size =
         ggml_tensor_overhead() * LLAMA_MAX_NODES
         + ggml_graph_overhead_custom(LLAMA_MAX_NODES, false);
-#ifdef MOONDREAM_EXTRA_LOGS
-    const double compute_buf_size_gib = bytes_to_gib(compute_buf_size);
-    printf("new compute_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
-#endif // MOONDREAM_EXTRA_LOGS
+    if (normal_logs_enabled) {
+        const double compute_buf_size_gib = bytes_to_gib(compute_buf_size);
+        printf("new compute_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
+    }
     mctx.compute_buffer.resize(compute_buf_size);
 
     // Initialize scheduler with worst-case graph.
@@ -601,7 +599,6 @@ bool moondream_lm_context_init(
         printf("failed to reserve buffers for compute graph\n");
         return false;
     }
-    printf("succesfully reserved buffers for compute graph\n");
     moondream_lm_batch_free(dummy_batch);
 
     // TODO: equivalent of llama_output_reserve()
@@ -873,7 +870,7 @@ int32_t moondream_lm_tokenize(
     return n_token_ids;
 }
 
-bool moondream_lm_load_from_file(const char * gguf_file_path, moondream_lm & model) {
+bool moondream_lm_load_from_file(const char * gguf_file_path, moondream_lm & model, bool normal_logs_enabled) {
     ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
     gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
@@ -1044,32 +1041,34 @@ bool moondream_lm_load_from_file(const char * gguf_file_path, moondream_lm & mod
 
     model.ctx = ctx;
 
-    printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
-    printf("gguf_version: %d\n", gguf_version);
-    printf("gguf_alignment: %zu\n", gguf_alignment);
-    printf("gguf_data_offset: %zu\n", gguf_data_offset);
-    printf("model_arch: %s\n", model_arch);
-    printf("mem_size: %lf GiB\n", bytes_to_gib(ggml_get_mem_size(model.ctx)));
-    printf("------------\nHyperparameters\n------------\n");
-    printf("n_ctx_train: %u\n", hparams.n_ctx_train);
-    printf("n_embd: %d\n", hparams.n_embd);
-    printf("n_layer: %d\n", hparams.n_layer);
-    printf("n_ff: %d\n", hparams.n_ff);
-    printf("n_head: %d\n", hparams.n_head);
-    printf("n_head_kv: %d\n", hparams.n_head_kv);
-    printf("n_embd_head_k: %d\n", hparams.n_embd_head_k);
-    printf("n_embd_head_v: %d\n", hparams.n_embd_head_v);
-    printf("n_vocab: %d\n", hparams.n_vocab);
-    printf("------------\nVocab\n------------\n");
-    printf("tokenizer_model_name: %s\n", tokenizer_model_name);
-    printf("bos_token_id: %ld\n", vocab.bos_token_id);
-    printf("eos_token_id: %ld\n", vocab.eos_token_id);
-    printf("unknown_token_id: %ld\n", vocab.separator_token_id);
-    printf("separator_token_id: %ld\n", vocab.separator_token_id);
-    printf("padding_token_id: %ld\n", vocab.padding_token_id);
-    printf("n_tokens: %d\n", vocab.n_tokens);
-    printf("n_merges: %d\n", vocab.n_merges);
-    printf("------------\n");
+    if (normal_logs_enabled) {
+        printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
+        printf("gguf_version: %d\n", gguf_version);
+        printf("gguf_alignment: %zu\n", gguf_alignment);
+        printf("gguf_data_offset: %zu\n", gguf_data_offset);
+        printf("model_arch: %s\n", model_arch);
+        printf("mem_size: %lf GiB\n", bytes_to_gib(ggml_get_mem_size(model.ctx)));
+        printf("------------\nHyperparameters\n------------\n");
+        printf("n_ctx_train: %u\n", hparams.n_ctx_train);
+        printf("n_embd: %d\n", hparams.n_embd);
+        printf("n_layer: %d\n", hparams.n_layer);
+        printf("n_ff: %d\n", hparams.n_ff);
+        printf("n_head: %d\n", hparams.n_head);
+        printf("n_head_kv: %d\n", hparams.n_head_kv);
+        printf("n_embd_head_k: %d\n", hparams.n_embd_head_k);
+        printf("n_embd_head_v: %d\n", hparams.n_embd_head_v);
+        printf("n_vocab: %d\n", hparams.n_vocab);
+        printf("------------\nVocab\n------------\n");
+        printf("tokenizer_model_name: %s\n", tokenizer_model_name);
+        printf("bos_token_id: %ld\n", vocab.bos_token_id);
+        printf("eos_token_id: %ld\n", vocab.eos_token_id);
+        printf("unknown_token_id: %ld\n", vocab.separator_token_id);
+        printf("separator_token_id: %ld\n", vocab.separator_token_id);
+        printf("padding_token_id: %ld\n", vocab.padding_token_id);
+        printf("n_tokens: %d\n", vocab.n_tokens);
+        printf("n_merges: %d\n", vocab.n_merges);
+        printf("------------\n");
+    }
 
     gguf_free(meta);
     return true;

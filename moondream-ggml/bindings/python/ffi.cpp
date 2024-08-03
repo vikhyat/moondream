@@ -11,6 +11,7 @@ PYBIND11_MODULE(cpp_ffi, m) {
         pybind11::arg("text_model_path"),
         pybind11::arg("mmproj_path"),
         pybind11::arg("n_threads"),
+        pybind11::arg("normal_logs_enabled"),
         "Initialize the Moondream API state"
     );
 

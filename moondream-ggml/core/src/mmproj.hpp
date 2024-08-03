@@ -110,10 +110,13 @@ struct moondream_mmproj_batch {
 bool moondream_mmproj_context_init(
     moondream_mmproj_context & mctx,
     moondream_mmproj & model,
-    int n_threads
+    int n_threads,
+    bool normal_logs_enabled
 );
 void moondream_mmproj_context_free(moondream_mmproj_context & mctx);
-bool moondream_mmproj_load_from_file(const char * gguf_file_path, moondream_mmproj & model);
+bool moondream_mmproj_load_from_file(
+    const char * gguf_file_path, moondream_mmproj & model, bool normal_logs_enabled
+);
 bool moondream_mmproj_embed(
     moondream_mmproj_context & mctx,
     moondream_mmproj & model,

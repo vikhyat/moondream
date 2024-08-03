@@ -8,6 +8,7 @@
 
 struct moondream_api_state {
     bool is_init = false;
+    bool normal_logs_enabled = false;
     moondream_lm model;
     moondream_mmproj mmproj_model;
     moondream_lm_context mctx;
@@ -18,7 +19,8 @@ struct moondream_api_state {
 static moondream_api_state api_state;
 
 bool moondream_api_state_init(
-    const char * text_model_path, const char * mmproj_path, uint32_t n_threads
+    const char * text_model_path, const char * mmproj_path,
+    uint32_t n_threads, bool normal_logs_enabled
 ) {
     if (api_state.is_init) {
         printf("API has already been initialized\n");
@@ -26,30 +28,29 @@ bool moondream_api_state_init(
     }
 
     /* Start of moondream_lm load. */
-    bool result = moondream_lm_load_from_file(text_model_path, api_state.model);
+    bool result = moondream_lm_load_from_file(text_model_path, api_state.model, normal_logs_enabled);
     if (!result) {
         printf("could not load text model\n");
         return false;
     }
-    printf("succesfully loaded text model\n");
     /* End of moondream_lm load. */
 
     /* Start of moondream_mmproj load. */
-    result = moondream_mmproj_load_from_file(mmproj_path, api_state.mmproj_model);
+    result = moondream_mmproj_load_from_file(mmproj_path, api_state.mmproj_model, normal_logs_enabled);
     if (!result) {
         printf("could not load mmproj model\n");
         return false;
     }
-    printf("succesfully loaded mmproj model\n");
     /* End of moondream_mmproj load. */
 
     /* Start of moondream_mmproj_context init. */
-    result = moondream_mmproj_context_init(api_state.mmproj_ctx, api_state.mmproj_model, n_threads);
+    result = moondream_mmproj_context_init(
+        api_state.mmproj_ctx, api_state.mmproj_model, n_threads, normal_logs_enabled
+    );
     if (!result) {
         printf("failed to initialze moondream_mmproj_context\n");
         return 1;
     }
-    printf("succesfully initialized moondream_lm_context\n");
     /* End of moondream_mmproj_context init. */
 
     /* Start of moondream_lm_context init. */
@@ -77,14 +78,14 @@ bool moondream_api_state_init(
     const ggml_type type_k = GGML_TYPE_F16;
     const ggml_type type_v = GGML_TYPE_F16;
     result = moondream_lm_context_init(
-        api_state.mctx, api_state.model.hparams, cparams, api_state.model, type_k, type_v
+        api_state.mctx, api_state.model.hparams, cparams, api_state.model,
+        type_k, type_v, normal_logs_enabled
     );
     if (!result) {
         printf("failed to initialze moondream_lm_context\n");
         return false;
     }
     api_state.mctx.n_outputs = 1;
-    printf("succesfully initialized moondream_lm_context\n");
     /* End of moondream_lm_context init. */
 
     /* Start of moondream_image init. */
@@ -96,6 +97,7 @@ bool moondream_api_state_init(
     }
     /* End of moondream_image init. */
 
+    api_state.normal_logs_enabled = normal_logs_enabled;
     api_state.is_init = true;
     return true;
 }
@@ -121,6 +123,7 @@ bool moondream_api_prompt(
     moondream_mmproj_context & mmproj_ctx = api_state.mmproj_ctx;
     moondream_mmproj & mmproj = api_state.mmproj_model;
     moondream_image & image = api_state.image;
+    const bool normal_logs_enabled = api_state.normal_logs_enabled;
 
     moondream_lm_batch batch;
     if (!moondream_lm_batch_init(batch, cparams.n_ctx, model.hparams.n_embd, false)) {
@@ -139,12 +142,15 @@ bool moondream_api_prompt(
         printf("failed to tokenize prompt\n");
         return 1;
     }
-    printf("n_prompt_tokens: %d\n", n_prompt_tokens);
-    printf("prompt_token_ids: ");
-    for (int i = 0; i < n_prompt_tokens; ++i) {
-        printf("%d ", prompt_token_ids[i]);
+
+    if (api_state.normal_logs_enabled) {
+        printf("n_prompt_tokens: %d\n", n_prompt_tokens);
+        printf("prompt_token_ids: ");
+        for (int i = 0; i < n_prompt_tokens; ++i) {
+            printf("%d ", prompt_token_ids[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
 
     if (log_response_stream) {
         printf("------------\n");
@@ -230,7 +236,9 @@ int main(int argc, char * argv[]) {
         ggml_numa_init(numa_strat);
     }*/
 
-    if (!moondream_api_state_init(text_model_path, mmproj_path, 8)) {
+    const int n_threads = 8;
+    const bool normal_logs_enabled = true;
+    if (!moondream_api_state_init(text_model_path, mmproj_path, n_threads, normal_logs_enabled)) {
         printf("failed to initialize api state\n");
         return 1;
     }

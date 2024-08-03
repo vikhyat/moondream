@@ -4,11 +4,12 @@ from moondream_ggml import cpp_ffi as ffi
 TEXT_MODEL_FNAME = 'moondream2-text-model-f16.gguf'
 MMPROJ_MODEL_FNAME = 'moondream2-mmproj-f16.gguf'
 
-def init(data_path:str, n_threads:int) -> None:
+def init(data_path:str, n_threads:int, normal_logs_enabled:bool=False) -> None:
     success = ffi.init(
         os.path.join(data_path, TEXT_MODEL_FNAME), 
         os.path.join(data_path, MMPROJ_MODEL_FNAME), 
-        n_threads
+        n_threads,
+        normal_logs_enabled
     )
     if not success:
         raise RuntimeError()
