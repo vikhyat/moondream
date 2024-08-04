@@ -98,12 +98,10 @@ static void lm_build_kv_cache(
     const int64_t n_ctx = cparams.n_ctx;
     const int64_t n_embd = hparams.n_embd;
 
-    // Why use GGML_ASSERT here and the regular c assert below?
     GGML_ASSERT(kv.size == n_ctx);
 
     ggml_tensor * k_cache_view = ggml_view_1d(
         ctx, kv.k_l[il], n_tokens*n_embd,
-        // Why are there parentheses around ggml_row_size?
         (ggml_row_size(kv.k_l[il]->type, n_embd))*kv_head
     );
     set_tensor_name(k_cache_view, "k_cache_view", il);
@@ -115,7 +113,6 @@ static void lm_build_kv_cache(
     if (cparams.flash_attn) {
         v_cache_view = ggml_view_1d(
             ctx, kv.v_l[il], n_tokens*n_embd,
-            // Why are there parantheses around kv_head?
             (kv_head)*ggml_row_size(kv.v_l[il]->type, n_embd)
         );
     } else {
@@ -166,8 +163,6 @@ static ggml_tensor * lm_build_kqv(
 
     ggml_tensor * cur;
     if (cparams.flash_attn) {
-        // llama uses GGML_UNUSED here but I'm not sure what it does
-
         // Split cached v into n_head heads (not transposed).
         ggml_tensor * v = ggml_view_3d(
             ctx, kv.v_l[il],

@@ -123,12 +123,54 @@ static ggml_cgraph * mmproj_build_clip(
     ggml_set_name(embeddings, "post_ln");
     embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
 
-    // LLaVa projector
+    // TODO: merge patch features and concatenate with image features.
+    // The concatenated features will then be passed as input to the projector.
+    // REF:
+    /*
+        reshaped_patch_features = []
+        patch_idx = 0
+        for i, patch_set in enumerate(patches):
+            if len(patch_set) == 0:
+                reshaped_patch_features.append(
+                    full_img_features[i].transpose(0, 1).view(1152, 27, 27)
+                )
+            else:
+                sample_features = []
+                for row_patches in patch_set:
+                    row_len = len(row_patches)
+                    row_features = patch_features[
+                        patch_idx : patch_idx + row_len
+                    ]  # row_len, T, C
+                    row_features = torch.cat(
+                        list(row_features), dim=2
+                    )  # T, C * row_len
+                    patch_idx += row_len
+                    sample_features.append(row_features)
+                sample_features = torch.cat(sample_features, dim=1)
+                sample_features = F.interpolate(
+                    sample_features.unsqueeze(0), size=(27, 27), mode="bilinear"
+                ).squeeze(0)
+                reshaped_patch_features.append(sample_features)
+        reshaped_patch_features = (
+            torch.stack(reshaped_patch_features).view(-1, 1152, 729).transpose(1, 2)
+        )
+
+        final_features = torch.cat([full_img_features, reshaped_patch_features], dim=2)
+    */
+
     embeddings = ggml_reshape_2d(ctx0, embeddings, embeddings->ne[0], embeddings->ne[1]);
+
+    // NOTE: the `patches` tensor can be used to select the patch features corresponding
+    // to an image feature, but this requires the input to be batched with the image and patches
+    // concatenated along the batch dimension.
     ggml_tensor * patches = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_patches);
     ggml_set_name(patches, "patches");
     ggml_set_input(patches);
+    // TODO: this is an input tensor so its values have to be set after sched alloc,
+    // but there's no point in doing that until batching and image/patch feature
+    // merging is implemented because the output will still likely be nonsense to the LM.
     mctx.inp_patches = patches;
+
     embeddings = ggml_get_rows(ctx0, embeddings, patches);
     if (hparams.proj_type == PROJECTOR_TYPE_MLP) {
         embeddings = ggml_mul_mat(ctx0, model.mm_0_w, embeddings);
@@ -156,8 +198,8 @@ bool moondream_mmproj_context_init(
     const moondream_mmproj_hparams & hparams = model.hparams;
     mctx.n_patches_per_side = hparams.image_size / hparams.patch_size;
     mctx.n_patches = mctx.n_patches_per_side * mctx.n_patches_per_side;
-    mctx.n_positions = mctx.n_patches; /* + (ctx->has_class_embedding ? 1 : 0); */
-
+    // NOTE: n_positions should be (mctx.n_patches + 1) if there is a class embedding.
+    mctx.n_positions = mctx.n_patches;
     mctx.n_output_elements = mctx.n_patches * hparams.n_proj;
     mctx.output_buffer = (float *)malloc(sizeof(float) * mctx.n_output_elements);
     if (!mctx.output_buffer) {
@@ -172,7 +214,6 @@ bool moondream_mmproj_context_init(
     }
     ggml_backend_cpu_set_n_threads(mctx.backend_cpu, n_threads);
     mctx.backend_cpu_buft = ggml_backend_get_default_buffer_type(mctx.backend_cpu);
-    //const size_t compute_buf_size = GGML_DEFAULT_GRAPH_SIZE * ggml_tensor_overhead() + ggml_graph_overhead();
     // TODO: figure out a way to dynamically determine the number of required nodes because LLAMA_MAX_NODES
     // is probably overkill for the clip graph.
     const size_t compute_buf_size =
@@ -442,6 +483,7 @@ bool moondream_mmproj_embed(
     ggml_backend_tensor_set(
         mctx.positions, image.pos, 0, image.n_positions * ggml_element_size(mctx.positions)
     );
+    printf("WARNING: moondream_mmproj_context.positions values were not initialized!\n");
 
     const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
     if (compute_status != GGML_STATUS_SUCCESS) {

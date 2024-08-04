@@ -42,7 +42,6 @@ struct moondream_lm_hparams {
     float f_norm_eps;
     float f_norm_rms_eps;
 
-    // max bias for attention, not sure if it's used for anything else
     float f_max_alibi_bias;
 };
 
