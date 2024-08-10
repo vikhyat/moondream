@@ -1,9 +1,9 @@
 import argparse
 import torch
 import gradio as gr
-from moondream import detect_device, LATEST_REVISION
+from moondream import detect_device, LATEST_REVISION, Moondream
 from threading import Thread
-from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
+from transformers import TextIteratorStreamer, AutoTokenizer
 from PIL import ImageDraw
 import re
 from torchvision.transforms.v2 import Resize
@@ -24,8 +24,8 @@ else:
 
 model_id = "vikhyatk/moondream2"
 tokenizer = AutoTokenizer.from_pretrained(model_id, revision=LATEST_REVISION)
-moondream = AutoModelForCausalLM.from_pretrained(
-    model_id, trust_remote_code=True, revision=LATEST_REVISION, torch_dtype=dtype
+moondream = Moondream.from_pretrained(
+    model_id, revision=LATEST_REVISION, torch_dtype=dtype
 ).to(device=device)
 moondream.eval()
 
@@ -89,7 +89,7 @@ with gr.Blocks() as demo:
         """
     )
     with gr.Row():
-        prompt = gr.Textbox(label="Input Prompt", placeholder="Type here...", scale=4)
+        prompt = gr.Textbox(label="Input Prompt", value="Describe this image.", scale=4)
         submit = gr.Button("Submit")
     with gr.Row():
         img = gr.Image(type="pil", label="Upload an Image")
