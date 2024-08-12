@@ -44,8 +44,7 @@ cd core
 bash scripts/cppcheck.sh
 ```
 
-## Debugging
-To build in debug mode, add the -DDEBUG_MODE=ON flag when calling cmake.
-```
-cmake -DDEBUG_BUILD=ON ..
-```
+## CMake Build Options
+- `-DDEBUG_BUILD=`, default: `OFF`, description: adds debug symbols when `ON`
+- `-DMOONDREAM_SHARED_LIBS=`, default `OFF`, description: builds shared libraries when `ON`
+- `-DMOONDREAM_EXE=`, default `off`, description: builds standalone executable instead of library when `ON`
