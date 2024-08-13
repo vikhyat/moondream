@@ -7,7 +7,7 @@ Moondream inference with GGML (work in progress).
 - c++11 capable compiler
 - ggml (comes packaged in this repo)
 
-## Instructions
+## Standalone Executable Instructions 
 0. Make sure there is a directory called `data` one level above this one (i.e. `../data/`),
 and make sure it contains the moondream2 gguf files
 (`moondream2-text-model-f16.gguf` and `moondream2-mmproj-f16.gguf`, obtained 
@@ -23,7 +23,7 @@ mkdir build && cd build
 ```
 3. Generate makefile with cmake.
 ```
-cmake -DDEBUG_BUILD=OFF ..
+cmake -DDEBUG_BUILD=OFF -DMOONDREAM_EXE=ON ..
 ```
 4. Build with make.
 ```
@@ -31,7 +31,7 @@ make
 ```
 5. Run executable with data path argument.
 ```
-./moondream_ggml_exe ../../../data/
+./moondream_ggml ../../../data/
 ```
 
 ## Static Analysis
