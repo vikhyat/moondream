@@ -3,6 +3,7 @@ project(moondream_ggml)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(DEBUG_BUILD "Build with debug flags" OFF)
 option(MOONDREAM_SHARED_LIBS "Build shared libraries" OFF)
@@ -20,7 +21,6 @@ if(NOT MOONDREAM_SHARED_LIBS)
     set(GGML_STATIC ON)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build ggml as a static library" FORCE)
 endif()
-set(GGML_METAL OFF)
 add_subdirectory(./dependencies/ggml)
 
 set(SOURCES 
