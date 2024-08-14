@@ -20,6 +20,7 @@ if(NOT MOONDREAM_SHARED_LIBS)
     set(GGML_STATIC ON)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build ggml as a static library" FORCE)
 endif()
+set(GGML_METAL OFF)
 add_subdirectory(./dependencies/ggml)
 
 set(SOURCES 
