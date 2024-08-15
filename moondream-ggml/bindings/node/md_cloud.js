@@ -4,21 +4,15 @@ import { fileTypeFromFile } from "file-type";
 
 const api_url = "https://beta.api.moondream.ai";
 
-export async function query_cloud(
-  api_key,
-  options,
-  image_path,
-  query,
-  callback
-) {
-  const fileType = await fileTypeFromFile(image_path);
-  const imgData = await fileFrom(image_path, fileType.mime);
+async function invoke_cloud(api_key, query, image, options, verb) {
+  const fileType = await fileTypeFromFile(image);
+  const imgData = await fileFrom(image, fileType.mime);
   if (!imgData) {
-    throw new Error(`Could not read file ${image_path}`);
+    throw new Error(`Could not read file ${image}`);
   }
 
   const body = JSON.stringify({ prompt: query });
-  const uri = `${api_url}/v1/query`;
+  const uri = `${api_url}/v1/${verb}`;
   const formData = new FormData();
   formData.append("body", body);
   formData.append("content", imgData);
@@ -35,4 +29,34 @@ export async function query_cloud(
     status: response.status,
     answer: await response.json(),
   };
+}
+
+export async function query_cloud(
+  api_key,
+  options,
+  image_path,
+  query,
+  callback
+) {
+  return invoke_cloud(api_key, query, image_path, options, "query");
+}
+
+export async function find_cloud(
+  api_key,
+  options,
+  image_path,
+  query,
+  callback
+) {
+  return invoke_cloud(api_key, query, image_path, options, "find");
+}
+
+export async function describe_cloud(
+  api_key,
+  options,
+  image_path,
+  query,
+  callback
+) {
+  return invoke_cloud(api_key, query, image_path, options, "describe");
 }

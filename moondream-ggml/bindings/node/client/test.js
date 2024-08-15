@@ -1,15 +1,32 @@
 import moondream from "moondream";
 
-// const a = moondream.add(2, 3);
-// console.log(a); // 5
-
-const api_key =
-  "XCP.lLS6a3wiJ8-ea3Jkil3xuuU4ZRy35DK8idBA65Jqild8ryqSs2FjNlGy3Bn4k5FHRkqxObEbtSuVBMgHbFubOTf8CyXr5ApjZ5ayDwqZ70sNyMoj9_XqV-isnpl4z2r8pBl8ZIFWfSboQ1D0jGCRNlwGaGkYPPd0dA";
-
-async function test() {
+async function test_cloud(api_key) {
   const md = moondream(api_key);
-  const result = await md.query("./dog.png", "What is this?");
-  console.log(result.answer);
+
+  const query = await md.query("./dog.png", "What is this?");
+  console.log("answer ======================");
+  console.log(query.answer);
+
+  const find = await md.find("./dog.png", "nose");
+  console.log("find ======================");
+  console.log(find.answer);
+
+  const describe = await md.describe("./dog.png", "");
+  console.log("describe ======================");
+  console.log(describe.answer);
 }
 
-test();
+async function test_local() {
+  const arg = {
+    text_model: "/Users/jasonallen/Downloads/moondream2-text-model-f16.gguf",
+    mmproj: "/Users/jasonallen/Downloads/moondream2-mmproj-f16.gguf",
+  };
+  const md = moondream(arg);
+  const query = await md.query("./dog.png", "What is this?");
+  console.log("answer ======================");
+  console.log(query);
+}
+
+const k = process.argv.at(-1);
+// test_cloud(k);
+test_local();
