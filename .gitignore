@@ -5,3 +5,4 @@ data
 wandb
 CMakeFiles
 CMakeCache.txt
+*.egg-info
