@@ -97,7 +97,7 @@ class Moondream(PreTrainedModel):
             image_embeds,
             prompt,
             tokenizer=tokenizer,
-            max_new_tokens=max_new_tokens=,
+            max_new_tokens=max_new_tokens,
             **kwargs,
         )[0]
         cleaned_answer = answer.strip()
