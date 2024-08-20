@@ -93,7 +93,7 @@ class Moondream(PreTrainedModel):
         tokenizer,
         chat_history="",        
         result_queue=None,        
-        max_new_tokens=256
+        max_new_tokens=256,
         **kwargs,
     ):
         prompt = f"<image>\n\n{chat_history}Question: {question}\n\nAnswer:"
