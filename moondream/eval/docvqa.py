@@ -5,7 +5,7 @@ from tqdm import tqdm
 from .. import detect_device
 
 MODEL_ID = "vikhyatk/moondream2"
-REVISION = "2024-05-20"
+REVISION = "2024-07-23"
 DEVICE, DTYPE = detect_device()
 
 tokenizer = AutoTokenizer.from_pretrained(
