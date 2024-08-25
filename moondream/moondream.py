@@ -1,10 +1,11 @@
 import torch
-from .vision_encoder import VisionEncoder
-from .configuration_moondream import MoondreamConfig
 from transformers import PreTrainedModel
 
-from .modeling_phi import PhiForCausalLM
 from .configuration_moondream import PhiConfig
+from .configuration_moondream import MoondreamConfig
+from .vision_encoder import VisionEncoder
+from .region_model import RegionModel
+from .modeling_phi import PhiForCausalLM
 
 class Moondream(PreTrainedModel):
     config_class = MoondreamConfig
@@ -15,6 +16,7 @@ class Moondream(PreTrainedModel):
         self.vision_encoder = VisionEncoder(
             use_flash_attn=config._attn_implementation == "flash_attention_2"
         )
+        self.region_model = RegionModel()
 
         if type(config.text_config) == dict:
             phi_config = PhiConfig(
@@ -91,8 +93,8 @@ class Moondream(PreTrainedModel):
         image_embeds,
         question,
         tokenizer,
-        chat_history="",        
-        result_queue=None,        
+        chat_history="",
+        result_queue=None,
         max_new_tokens=256,
         **kwargs,
     ):
