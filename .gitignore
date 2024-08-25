@@ -2,4 +2,4 @@
 __pycache__
 checkpoints
 data
-wandb
+pyproject.toml

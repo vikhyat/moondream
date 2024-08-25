@@ -1,5 +1,8 @@
 import torch
+
+from typing import List, Union, Literal, Optional
 from transformers import PreTrainedModel
+from PIL import Image
 
 from .configuration_moondream import PhiConfig
 from .configuration_moondream import MoondreamConfig
@@ -87,6 +90,46 @@ class Moondream(PreTrainedModel):
             )
 
         return tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+
+    # Note: Not ready for use yet, intended for September release.
+    def caption(
+        self,
+        images: List[Image.Image],
+        tokenizer,
+        length: Optional[Literal["short"]] = None,
+        **kwargs,
+    ):
+        image_embeds = self.encode_image(images)
+
+        templated_prompts = [
+            f"<image>\n\n{'Short caption' if length == 'short' else 'Caption'}:" for _ in images
+        ]
+        inputs_embeds = torch.stack([
+            self.input_embeds(prompt, image_embed.unsqueeze(0), tokenizer)[0]
+            for prompt, image_embed in zip(templated_prompts, image_embeds)
+        ])
+        attention_mask = torch.ones((inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device)
+
+        generate_config = {
+            "eos_token_id": tokenizer.eos_token_id,
+            "bos_token_id": tokenizer.bos_token_id,
+            "pad_token_id": tokenizer.bos_token_id,
+            "repetition_penalty": 1.2,
+            "max_new_tokens": 512,
+            **kwargs,
+        }
+
+        with torch.no_grad():
+            output_ids = self.text_model.generate(
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+                **generate_config,
+            )
+
+        return [
+            x.strip()
+            for x in tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+        ]
 
     def answer_question(
         self,
