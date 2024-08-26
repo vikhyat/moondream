@@ -85,8 +85,11 @@ class Moondream(PreTrainedModel):
 
         with torch.no_grad():
             inputs_embeds = self.input_embeds(prompt, image_embeds, tokenizer)
+            attention_mask = torch.ones((inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device)
             output_ids = self.text_model.generate(
-                inputs_embeds=inputs_embeds, **generate_config
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+                **generate_config,
             )
 
         return tokenizer.batch_decode(output_ids, skip_special_tokens=True)
@@ -222,3 +225,6 @@ class Moondream(PreTrainedModel):
             x.strip()
             for x in tokenizer.batch_decode(output_ids, skip_special_tokens=True)
         ]
+
+    def detect(self, image: Image.Image, query: str, tokenizer):
+        pass
