@@ -34,7 +34,7 @@ for row in tqdm(pope_dataset):
         for qa in row[split]:
             question = qa["question"]
             answer = qa["answer"]
-            prompt = f"{question}. Answer yes or no."
+            prompt = f"{question}\nAnswer yes or no."
             model_answer = moondream.answer_question(enc_image, prompt, tokenizer)
             if model_answer.lower() == answer.lower():
                 stats[split] = (stats[split][0] + 1, stats[split][1] + 1)

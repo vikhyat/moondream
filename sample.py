@@ -27,10 +27,11 @@ if __name__ == "__main__":
     image_path = args.image
     prompt = args.prompt
 
-    model_id = "vikhyatk/moondream-next"
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model_id = "vikhyatk/moondream2"
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=LATEST_REVISION)
     moondream = Moondream.from_pretrained(
         model_id,
+        revision=LATEST_REVISION,
         torch_dtype=dtype,
     ).to(device=device)
     moondream.eval()
