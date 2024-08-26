@@ -6,16 +6,16 @@ a tiny vision language model that kicks ass and runs anywhere
 
 ## Benchmarks
 
-| Model | VQAv2 | GQA | TextVQA | TallyQA (simple) | TallyQA (full) |
-| --- | --- | --- | --- | --- | --- |
-| moondream1 | 74.7 | 57.9 | 35.6 | - | - |
-| **moondream2** (latest) | 79.4 | 63.1 | 57.2 | 82.1 | 76.6 |
+| Model                   | VQAv2 | GQA  | TextVQA | TallyQA (simple) | TallyQA (full) |
+| ----------------------- | ----- | ---- | ------- | ---------------- | -------------- |
+| moondream1              | 74.7  | 57.9 | 35.6    | -                | -              |
+| **moondream2** (latest) | 79.4  | 63.1 | 57.2    | 82.1             | 76.6           |
 
 ## Examples
 
-| Image | Example |
-| --- | --- |
-| ![](assets/demo-1.jpg) | **What is the girl doing?**<br>The girl is sitting at a table and eating a large hamburger.<br><br>**What color is the girl's hair?**<br>The girl's hair is white. |
+| Image                  | Example                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![](assets/demo-1.jpg) | **What is the girl doing?**<br>The girl is sitting at a table and eating a large hamburger.<br><br>**What color is the girl's hair?**<br>The girl's hair is white.                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ![](assets/demo-2.jpg) | **What is this?**<br>This is a computer server rack, which is a device used to store and manage multiple computer servers. The rack is filled with various computer servers, each with their own dedicated space and power supply. The servers are connected to the rack via multiple cables, indicating that they are part of a larger system. The rack is placed on a carpeted floor, and there is a couch nearby, suggesting that the setup is in a living or entertainment area.<br><br>**What is behind the stand?**<br>Behind the stand, there is a brick wall. |
 
 ## Usage
@@ -31,7 +31,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from PIL import Image
 
 model_id = "vikhyatk/moondream2"
-revision = "2024-07-23"
+revision = "2024-08-26"
 model = AutoModelForCausalLM.from_pretrained(
     model_id, trust_remote_code=True, revision=revision
 )
@@ -90,9 +90,3 @@ python gradio_demo.py
 ```bash
 python webcam_gradio_demo.py
 ```
-
-**Limitations**
-
-* The model may generate inaccurate statements, and struggle to understand intricate or nuanced instructions.
-* The model may not be free from societal biases. Users should be aware of this and exercise caution and critical thinking when using the model.
-* The model may generate offensive, inappropriate, or hurtful content if it is prompted to do so.

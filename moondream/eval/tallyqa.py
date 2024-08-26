@@ -26,13 +26,11 @@ BATCH_SIZE = 16
 DEVICE, DTYPE = detect_device()
 
 model_id = "vikhyatk/moondream2"
-revision = "2024-07-23"
 tokenizer = AutoTokenizer.from_pretrained(
-    model_id, revision=revision, trust_remote_code=True
+    model_id, trust_remote_code=True
 )
 model = Moondream.from_pretrained(
     model_id,
-    revision=revision,
     attn_implementation="flash_attention_2",
     torch_dtype=DTYPE,
     device_map={"": DEVICE},

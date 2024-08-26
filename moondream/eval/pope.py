@@ -4,15 +4,13 @@ from tqdm import tqdm
 from .. import detect_device
 
 MODEL_ID = "vikhyatk/moondream2"
-REVISION = "2024-07-23"
 DEVICE, DTYPE = detect_device()
 
 tokenizer = AutoTokenizer.from_pretrained(
-    MODEL_ID, revision=REVISION, trust_remote_code=True
+    MODEL_ID, trust_remote_code=True
 )
 moondream = AutoModelForCausalLM.from_pretrained(
     MODEL_ID,
-    revision=REVISION,
     trust_remote_code=True,
     attn_implementation="flash_attention_2",
     torch_dtype=DTYPE,
