@@ -4,13 +4,6 @@ a tiny vision language model that kicks ass and runs anywhere
 
 [Website](https://moondream.ai/) | [Hugging Face](https://huggingface.co/vikhyatk/moondream2) | [Demo](https://huggingface.co/spaces/vikhyatk/moondream2)
 
-## Benchmarks
-
-| Model                   | VQAv2 | GQA  | TextVQA | TallyQA (simple) | TallyQA (full) |
-| ----------------------- | ----- | ---- | ------- | ---------------- | -------------- |
-| moondream1              | 74.7  | 57.9 | 35.6    | -                | -              |
-| **moondream2** (latest) | 79.4  | 63.1 | 57.2    | 82.1             | 76.6           |
-
 ## Examples
 
 | Image                  | Example                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
