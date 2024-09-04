@@ -31,9 +31,9 @@ class RegionModel(nn.Module):
         return self.confidence_decoder(x)
 
     def encode(self, position, size):
-        return torch.stack(
-            [self.encode_position(position), self.encode_size(size)], dim=0
-        )
+        position_encoded = self.encode_position(position)
+        size_encoded = self.encode_size(size)
+        return torch.stack([position_encoded, size_encoded], dim=0)
 
     def decode(self, position_logits, size_logits):
         return (
@@ -41,3 +41,4 @@ class RegionModel(nn.Module):
             self.decode_size(size_logits),
             self.decode_confidence(size_logits),
         )
+
