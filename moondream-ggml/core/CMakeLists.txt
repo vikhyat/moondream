@@ -18,14 +18,16 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build ggml as a static library" FORCE)
 add_subdirectory(./dependencies/ggml)
 
 
-set(SOURCES 
+set(SOURCES
     src/moondream.cpp
     src/lm.cpp
     src/mmproj.cpp
     src/helpers.cpp
     src/stb_image.cpp
-    src/unicode_data.cpp 
+    src/unicode_data.cpp
     src/unicode.cpp
+    src/patch.cpp
+    src/image.cpp
 )
 
 # Library target.

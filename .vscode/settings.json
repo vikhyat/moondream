@@ -15,6 +15,19 @@
     "vector": "cpp",
     "version": "cpp",
     "stdexcept": "cpp",
-    "string": "cpp"
+    "string": "cpp",
+    "ios": "cpp",
+    "__hash_table": "cpp",
+    "__split_buffer": "cpp",
+    "__tree": "cpp",
+    "array": "cpp",
+    "bitset": "cpp",
+    "deque": "cpp",
+    "initializer_list": "cpp",
+    "map": "cpp",
+    "queue": "cpp",
+    "string_view": "cpp",
+    "unordered_map": "cpp",
+    "unordered_set": "cpp"
   }
 }
