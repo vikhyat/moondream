@@ -312,9 +312,9 @@ class VisionEncoder(nn.Module):
                     patch_idx += row_len
                     sample_features.append(row_features)
                 sample_features = torch.cat(sample_features, dim=1)
-                sample_features = F.interpolate(
-                    sample_features.unsqueeze(0), size=(27, 27), mode="bilinear"
-                ).squeeze(0)
+                sample_features = F.adaptive_avg_pool2d(
+                    sample_features, output_size=(27, 27)
+                )
                 reshaped_patch_features.append(sample_features)
         reshaped_patch_features = (
             torch.stack(reshaped_patch_features).view(-1, 1152, 729).transpose(1, 2)

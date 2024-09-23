@@ -226,5 +226,120 @@ class Moondream(PreTrainedModel):
             for x in tokenizer.batch_decode(output_ids, skip_special_tokens=True)
         ]
 
-    def detect(self, image: Image.Image, query: str, tokenizer):
-        pass
+    def detect(
+        self,
+        image: Image.Image,
+        query: str,
+        tokenizer,
+        max_objects=50,
+    ):
+        prompt = f"<image>\n\nDetect: {query}\n\n"
+        image_embeds = self.encode_image(image)
+        inputs_embeds = self.input_embeds(prompt, image_embeds, tokenizer)
+        generate_config = {
+            "eos_token_id": tokenizer.eos_token_id,
+            "bos_token_id": tokenizer.bos_token_id,
+            "pad_token_id": tokenizer.bos_token_id,
+            "max_new_tokens": 1,
+        }
+
+        past_key_values = None
+        generated_boxes = []
+
+        with torch.no_grad():
+            while len(generated_boxes) < max_objects:
+                # x coordinate
+                attention_mask = torch.ones(
+                    (inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device
+                )
+                output = self.text_model.generate(
+                    inputs_embeds=inputs_embeds,
+                    past_key_values=past_key_values,
+                    attention_mask=attention_mask,
+                    return_dict_in_generate=True,
+                    output_hidden_states=True,
+                    **generate_config,
+                )
+                if output["sequences"][0][0].item() == tokenizer.eos_token_id:
+                    break
+
+                x_coord_hidden = output["hidden_states"][0][-1][:, -1, :]
+                x_coord_logits = self.region_model.decode_coordinate(x_coord_hidden)
+                x_coord_decoded = (
+                    torch.argmax(x_coord_logits, dim=-1).to(torch.float32) / 1024
+                ).to(torch.float16)
+                x_coord_encoded = self.region_model.encode_coordinate(
+                    x_coord_decoded
+                ).unsqueeze(0)
+                inputs_embeds = torch.cat(
+                    [inputs_embeds, x_coord_encoded.unsqueeze(0)], dim=1
+                )
+                past_key_values = output["past_key_values"]
+
+                # y coordinate
+                attention_mask = torch.ones(
+                    (inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device
+                )
+                output = self.text_model.generate(
+                    inputs_embeds=inputs_embeds,
+                    past_key_values=past_key_values,
+                    attention_mask=attention_mask,
+                    return_dict_in_generate=True,
+                    output_hidden_states=True,
+                    **generate_config,
+                )
+                y_coord_hidden = output["hidden_states"][0][-1][:, -1, :]
+                y_coord_logits = self.region_model.decode_coordinate(y_coord_hidden)
+                y_coord_decoded = (
+                    torch.argmax(y_coord_logits, dim=-1).to(torch.float32) / 1024
+                ).to(torch.float16)
+                y_coord_encoded = self.region_model.encode_coordinate(
+                    y_coord_decoded
+                ).unsqueeze(0)
+                inputs_embeds = torch.cat(
+                    [inputs_embeds, y_coord_encoded.unsqueeze(0)], dim=1
+                )
+                past_key_values = output["past_key_values"]
+
+                # size (h and w)
+                attention_mask = torch.ones(
+                    (inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device
+                )
+                output = self.text_model.generate(
+                    inputs_embeds=inputs_embeds,
+                    past_key_values=past_key_values,
+                    attention_mask=attention_mask,
+                    return_dict_in_generate=True,
+                    output_hidden_states=True,
+                    **generate_config,
+                )
+                size_hidden = output["hidden_states"][0][-1][:, -1, :]
+                size_logits = self.region_model.decode_size(size_hidden)
+                size_decoded = (
+                    torch.argmax(size_logits, dim=-1).to(torch.float32) / 1024
+                ).to(torch.float16)
+                size_encoded = self.region_model.encode_size(size_decoded)
+                inputs_embeds = torch.cat(
+                    [inputs_embeds, size_encoded.unsqueeze(0)], dim=1
+                )
+                past_key_values = output["past_key_values"]
+
+                x_center = x_coord_decoded[0].item()
+                y_center = y_coord_decoded[0].item()
+                w_center = size_decoded[0][0].item()
+                h_center = size_decoded[0][1].item()
+                x_min = max(x_center - w_center / 2, 0)
+                y_min = max(y_center - h_center / 2, 0)
+                x_max = min(x_center + w_center / 2, 1)
+                y_max = min(y_center + h_center / 2, 1)
+
+                generated_boxes.append(
+                    {
+                        "x_min": x_min,
+                        "y_min": y_min,
+                        "x_max": x_max,
+                        "y_max": y_max,
+                    }
+                )
+
+        return generated_boxes
