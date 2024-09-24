@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "moondream"
+version = "0.0.1"
+description = "Python client library for moondream"
+authors = ["vik <vik@moondream.ai>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+ggml-python = "0.0.37"
+pillow = "^10.4.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
