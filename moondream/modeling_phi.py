@@ -1397,28 +1397,56 @@ class PhiForCausalLM(PhiPreTrainedModel):
         num_logits_to_keep=0,
         **kwargs,
     ):
+        if input_ids is not None:
+            print("input_ids", input_ids.shape)
+        if inputs_embeds is not None:
+            print("inputs_embeds", inputs_embeds.shape)
+
         assert inputs_embeds is not None, "inputs_embeds is required"
 
-        # If we have cache: let's slice `input_embeds` through `cache_position`, to keep only
-        # the unprocessed tokens.
-        if past_key_values is not None and inputs_embeds is not None:
-            inputs_embeds = inputs_embeds[:, -cache_position.shape[0] :]
+        # If we have cache: let's slice `input_ids` through `cache_position`, to keep only the unprocessed tokens
+        if past_key_values is not None:
+            print(cache_position.shape[0])
+            # When doing custom decoding for object detection, we don't update input_ids.
+            # So we will slice `inputs_embeds`` instead.
+            if input_ids.shape[1] == 0:
+                inputs_embeds = inputs_embeds[:, -cache_position.shape[0] :]
+            else:
+                input_ids = input_ids[:, -cache_position.shape[0] :]
 
         if attention_mask is not None and position_ids is None:
             # create position_ids on the fly for batch generation
             position_ids = attention_mask.long().cumsum(-1) - 1
             position_ids.masked_fill_(attention_mask == 0, 1)
             if past_key_values:
-                position_ids = position_ids[:, -inputs_embeds.shape[1] :]
+                if input_ids.shape[1] == 0:
+                    position_ids = position_ids[:, -inputs_embeds.shape[1] :]
+                else:
+                    position_ids = position_ids[:, -input_ids.shape[1] :]
 
-                # This `clone` call is needed to avoid recapturing cuda graphs with `torch.compile`'s  `mode="reduce-overhead`, as otherwise the input `position_ids` would have various stride during the decoding. Here, simply using `.contiguous()` is not sufficient as in the batch size = 1 case, `position_ids` is already contiguous but with varying stride which retriggers a capture.
+                # This `clone` call is needed to avoid recapturing cuda graphs with `torch.compile`'s
+                # `mode="reduce-overhead`, as otherwise the input `position_ids` would have various
+                # stride during the decoding. Here, simply using `.contiguous()` is not sufficient as
+                # in the batch size = 1 case, `position_ids` is already contiguous but with varying
+                # stride which retriggers a capture.
                 position_ids = position_ids.clone(memory_format=torch.contiguous_format)
 
-        # if `inputs_embeds` are passed, we only want to use them in the 1st generation step
-        model_inputs = {
-            "inputs_embeds": inputs_embeds.clone(memory_format=torch.contiguous_format),
-            "input_ids": None,
-        }
+        if cache_position[0] == 0:
+            model_inputs = {"inputs_embeds": inputs_embeds, "input_ids": None}
+        else:
+            # The clone here is for the same reason as for `position_ids`.
+            if past_key_values is not None and input_ids.shape[1] == 0:
+                model_inputs = {
+                    "input_ids": None,
+                    "inputs_embeds": inputs_embeds.clone(
+                        memory_format=torch.contiguous_format
+                    ),
+                }
+            else:
+                model_inputs = {
+                    "input_ids": input_ids.clone(memory_format=torch.contiguous_format),
+                    "inputs_embeds": None,
+                }
 
         if isinstance(past_key_values, StaticCache) and attention_mask.ndim == 2:
             if model_inputs["inputs_embeds"] is not None:
