@@ -1397,11 +1397,6 @@ class PhiForCausalLM(PhiPreTrainedModel):
         num_logits_to_keep=0,
         **kwargs,
     ):
-        if input_ids is not None:
-            print("input_ids", input_ids.shape)
-        if inputs_embeds is not None:
-            print("inputs_embeds", inputs_embeds.shape)
-
         assert inputs_embeds is not None, "inputs_embeds is required"
 
         # If we have cache: let's slice `input_ids` through `cache_position`, to keep only the unprocessed tokens
