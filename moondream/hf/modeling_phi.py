@@ -1401,7 +1401,6 @@ class PhiForCausalLM(PhiPreTrainedModel):
 
         # If we have cache: let's slice `input_ids` through `cache_position`, to keep only the unprocessed tokens
         if past_key_values is not None:
-            print(cache_position.shape[0])
             # When doing custom decoding for object detection, we don't update input_ids.
             # So we will slice `inputs_embeds`` instead.
             if input_ids.shape[1] == 0:
