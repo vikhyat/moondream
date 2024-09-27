@@ -41,7 +41,7 @@ make
 5. Run executable with data path argument.
 
 ```
-./moondream_ggml ../../../data/
+./bin/moondream_ggml ../../../data/
 ```
 
 ## Static Analysis
