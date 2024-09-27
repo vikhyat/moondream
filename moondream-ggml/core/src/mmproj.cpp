@@ -11,8 +11,7 @@
 #include "mmproj.hpp"
 #include "patch.hpp"
 
-ggml_tensor *tensor_split_3d(ggml_context *ctx, ggml_tensor *input, size_t start_idx, size_t end_idx)
-{
+ggml_tensor * tensor_split_3d(ggml_context * ctx, ggml_tensor * input, size_t start_idx, size_t end_idx) {
     assert(input->type == GGML_TYPE_F32);
 
     size_t D1 = input->ne[0];
@@ -22,16 +21,14 @@ ggml_tensor *tensor_split_3d(ggml_context *ctx, ggml_tensor *input, size_t start
     size_t slice_size = end_idx - start_idx; // Size of the slice along the 3rd dimension
 
     // Create a new tensor for the slice with dimensions [D1, D2, slice_size]
-    ggml_tensor *sliced_tensor = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, D1, D2, slice_size);
+    ggml_tensor * sliced_tensor = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, D1, D2, slice_size);
 
     // Manually copy the slice
-    float *dest = (float *)sliced_tensor->data;
-    float *src = (float *)input->data;
+    float * dest = (float *)sliced_tensor->data;
+    float * src = (float *)input->data;
 
-    for (size_t i = 0; i < D1; ++i)
-    {
-        for (size_t j = 0; j < D2; ++j)
-        {
+    for (size_t i = 0; i < D1; ++i) {
+        for (size_t j = 0; j < D2; ++j) {
             // Can't memcpy here because input and sliced_tensor don't have memory allocated for data.
             // Need to use a ggml copy function to build data movement into the graph.
             std::memcpy(
@@ -46,11 +43,11 @@ ggml_tensor *tensor_split_3d(ggml_context *ctx, ggml_tensor *input, size_t start
 
 // Modification of llama.cpp/examples/llava/clip.pp clip_image_build_graph.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4   c0afd4fab3/examples/llava/clip.cpp
-static ggml_cgraph *mmproj_build_clip(
-    moondream_mmproj &model,
-    moondream_mmproj_context &mctx)
-{
-    moondream_mmproj_hparams &hparams = model.hparams;
+static ggml_cgraph * mmproj_build_clip(
+    moondream_mmproj & model,
+    moondream_mmproj_context & mctx
+) {
+    moondream_mmproj_hparams & hparams = model.hparams;
     const int image_size = hparams.image_size;
     const int patch_size = hparams.patch_size;
     const int num_patches_per_side = mctx.n_patches_per_side;
@@ -68,11 +65,11 @@ static ggml_cgraph *mmproj_build_clip(
         mctx.compute_buffer.size(),
         mctx.compute_buffer.data(),
         true};
-    ggml_context *ctx0 = ggml_init(build_ctx_params);
-    ggml_cgraph *gf = ggml_new_graph(ctx0);
+    ggml_context * ctx0 = ggml_init(build_ctx_params);
+    ggml_cgraph * gf = ggml_new_graph(ctx0);
 
     // Shape should be (378, 378, 3, num_preprocess_patches + 1)
-    ggml_tensor *inp_raw = ggml_new_tensor_4d(
+    ggml_tensor * inp_raw = ggml_new_tensor_4d(
         ctx0, GGML_TYPE_F32, image_size, image_size, MOONDREAM_N_IMAGE_CHANNELS, batch_size);
     ggml_set_name(inp_raw, "inp_raw");
     ggml_set_input(inp_raw);
@@ -91,52 +88,50 @@ static ggml_cgraph *mmproj_build_clip(
     //       x = x.reshape(b, h * w, c * p1 * p2)
     //       return self.linear(x)
 
-    ggml_tensor *inp = ggml_conv_2d(ctx0, model.patch_embd, inp_raw, patch_size, patch_size, 0, 0, 1, 1);
+    ggml_tensor * inp = ggml_conv_2d(ctx0, model.patch_embd, inp_raw, patch_size, patch_size, 0, 0, 1, 1);
     inp = ggml_reshape_3d(ctx0, inp, num_patches, n_embd, batch_size);
     inp = ggml_cont(ctx0, ggml_permute(ctx0, inp, 1, 0, 2, 3));
-    if (model.patch_bias != nullptr)
-    {
+    if (model.patch_bias != nullptr) {
         inp = ggml_add(ctx0, inp, model.patch_bias);
     }
 
-    ggml_tensor *embeddings = inp;
+    ggml_tensor * embeddings = inp;
     // NOTE: skipped class embeddings.
-    ggml_tensor *positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_positions);
+    ggml_tensor * positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_positions);
     ggml_set_name(positions, "positions");
     ggml_set_input(positions);
     mctx.positions = positions;
     embeddings = ggml_add(ctx0, embeddings, ggml_get_rows(ctx0, model.pos_embd, positions));
     // NOTE: skipped pre-layernorm.
 
-    for (int il = 0; il < n_layer - 1; ++il)
-    {
+    for (int il = 0; il < n_layer - 1; ++il) {
         // embeddings = residual, cur = hidden_states
-        ggml_tensor *cur = embeddings;
+        ggml_tensor * cur = embeddings;
 
         // Layernorm 1
         cur = ggml_norm(ctx0, cur, eps);
         cur = ggml_add(ctx0, ggml_mul(ctx0, cur, model.layers[il].ln_1_w), model.layers[il].ln_1_b);
 
         // Self-attention
-        ggml_tensor *q = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].q_w, cur), model.layers[il].q_b);
+        ggml_tensor * q = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].q_w, cur), model.layers[il].q_b);
         q = ggml_scale_inplace(ctx0, q, 1.0f / sqrtf((float)n_head_qkv));
         q = ggml_reshape_4d(ctx0, q, n_head_qkv, n_head, num_positions, batch_size);
         q = ggml_cont(ctx0, ggml_permute(ctx0, q, 0, 2, 1, 3));
         q = ggml_reshape_3d(ctx0, q, n_head_qkv, num_positions, n_head * batch_size);
 
-        ggml_tensor *k = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].k_w, cur), model.layers[il].k_b);
+        ggml_tensor * k = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].k_w, cur), model.layers[il].k_b);
         k = ggml_reshape_4d(ctx0, k, n_head_qkv, n_head, num_positions, batch_size);
         k = ggml_cont(ctx0, ggml_permute(ctx0, k, 0, 2, 1, 3));
         k = ggml_reshape_3d(ctx0, k, n_head_qkv, num_positions, n_head * batch_size);
 
-        ggml_tensor *v = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].v_w, cur), model.layers[il].v_b);
+        ggml_tensor * v = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].v_w, cur), model.layers[il].v_b);
         v = ggml_reshape_4d(ctx0, v, n_head_qkv, n_head, num_positions, batch_size);
         v = ggml_cont(ctx0, ggml_permute(ctx0, v, 1, 2, 0, 3));
         v = ggml_reshape_3d(ctx0, v, num_positions, n_head_qkv, n_head * batch_size);
 
-        ggml_tensor *kq = ggml_mul_mat(ctx0, k, q);
+        ggml_tensor * kq = ggml_mul_mat(ctx0, k, q);
         kq = ggml_soft_max_inplace(ctx0, kq);
-        ggml_tensor *kqv = ggml_mul_mat(ctx0, v, kq);
+        ggml_tensor * kqv = ggml_mul_mat(ctx0, v, kq);
         kqv = ggml_reshape_4d(ctx0, kqv, n_head_qkv, num_positions, n_head, batch_size);
         kqv = ggml_permute(ctx0, kqv, 0, 2, 1, 3);
 
@@ -255,16 +250,13 @@ static ggml_cgraph *mmproj_build_clip(
     mctx.inp_patches = patches;
 
     embeddings = ggml_get_rows(ctx0, embeddings, patches);
-    if (hparams.proj_type == PROJECTOR_TYPE_MLP)
-    {
+    if (hparams.proj_type == PROJECTOR_TYPE_MLP) {
         embeddings = ggml_mul_mat(ctx0, model.mm_0_w, embeddings);
         embeddings = ggml_add(ctx0, embeddings, model.mm_0_b);
         embeddings = ggml_gelu(ctx0, embeddings);
         embeddings = ggml_mul_mat(ctx0, model.mm_2_w, embeddings);
         embeddings = ggml_add(ctx0, embeddings, model.mm_2_b);
-    }
-    else
-    {
+    } else {
         printf("unimplemented projector type, only the MLP projector type is implemented\n");
         ggml_free(ctx0);
         return nullptr;
@@ -276,11 +268,11 @@ static ggml_cgraph *mmproj_build_clip(
 }
 
 bool moondream_mmproj_context_init(
-    moondream_mmproj_context &mctx,
-    moondream_mmproj &model,
+    moondream_mmproj_context & mctx,
+    moondream_mmproj & model,
     int n_threads,
-    bool normal_logs_enabled)
-{
+    bool normal_logs_enabled
+) {
     const moondream_mmproj_hparams &hparams = model.hparams;
     mctx.n_patches_per_side = hparams.image_size / hparams.patch_size;
     mctx.n_patches = mctx.n_patches_per_side * mctx.n_patches_per_side;
@@ -288,15 +280,13 @@ bool moondream_mmproj_context_init(
     mctx.n_positions = mctx.n_patches;
     mctx.n_output_elements = mctx.n_patches * hparams.n_proj;
     mctx.output_buffer = (float *)malloc(sizeof(float) * mctx.n_output_elements);
-    if (!mctx.output_buffer)
-    {
+    if (!mctx.output_buffer) {
         printf("failed to allocate memory for mmproj output buffer\n");
         return false;
     }
 
     mctx.backend_cpu = ggml_backend_cpu_init();
-    if (!mctx.backend_cpu)
-    {
+    if (!mctx.backend_cpu) {
         printf("failed to initialize mmproj cpu backend\n");
         return false;
     }
@@ -306,28 +296,24 @@ bool moondream_mmproj_context_init(
     // is probably overkill for the clip graph.
     const size_t compute_buf_size =
         ggml_tensor_overhead() * LLAMA_MAX_NODES + ggml_graph_overhead_custom(LLAMA_MAX_NODES, false);
-    if (normal_logs_enabled)
-    {
+    if (normal_logs_enabled) {
         const double compute_buf_size_gib = bytes_to_gib(compute_buf_size);
         printf("new mmproj compute_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
     }
     mctx.compute_buffer.resize(compute_buf_size);
 
     // Initialize scheduler.
-    ggml_cgraph *gf = mmproj_build_clip(model, mctx);
-    if (!gf)
-    {
+    ggml_cgraph * gf = mmproj_build_clip(model, mctx);
+    if (!gf) {
         printf("failed to build mmproj compute graph\n");
         return false;
     }
-    if (normal_logs_enabled)
-    {
+    if (normal_logs_enabled) {
         printf("n_nodes: %d\n", gf->n_nodes);
         printf("built mmproj graph\n");
     }
     mctx.sched = ggml_backend_sched_new(&mctx.backend_cpu, &mctx.backend_cpu_buft, 1, gf->n_nodes, false);
-    if (!ggml_backend_sched_reserve(mctx.sched, gf))
-    {
+    if (!ggml_backend_sched_reserve(mctx.sched, gf)) {
         printf("failed to reserve buffers for mmproj compute graph\n");
         return false;
     }
@@ -336,44 +322,39 @@ bool moondream_mmproj_context_init(
 
 void moondream_mmproj_context_free(moondream_mmproj_context &mctx)
 {
-    if (mctx.backend_cpu)
-    {
+    if (mctx.backend_cpu) {
         ggml_backend_free(mctx.backend_cpu);
         mctx.backend_cpu = nullptr;
     }
-    if (mctx.output_buffer)
-    {
+    if (mctx.output_buffer) {
         free(mctx.output_buffer);
         mctx.output_buffer = nullptr;
     }
-    if (mctx.sched)
-    {
+    if (mctx.sched) {
         ggml_backend_sched_free(mctx.sched);
         mctx.sched = nullptr;
     }
-    if (mctx.ctx)
-    {
+    if (mctx.ctx) {
         ggml_free(mctx.ctx);
         mctx.ctx = nullptr;
     }
 }
 
 bool moondream_mmproj_load_from_file(
-    const char *gguf_file_path, moondream_mmproj &model, bool normal_logs_enabled)
-{
-    ggml_context *ctx;
+    const char * gguf_file_path, moondream_mmproj & model, bool normal_logs_enabled
+) {
+    ggml_context * ctx;
     gguf_init_params init_params = {.no_alloc = false, .ctx = &ctx};
-    gguf_context *meta = gguf_init_from_file(gguf_file_path, init_params);
-    if (meta == NULL)
-    {
+    gguf_context * meta = gguf_init_from_file(gguf_file_path, init_params);
+    if (meta == NULL) {
         return false;
     }
 
     int gguf_version = gguf_get_version(meta);
     size_t gguf_alignment = gguf_get_alignment(meta);
     size_t gguf_data_offset = gguf_get_data_offset(meta);
-    const char *model_arch = gguf_get_val_str(meta, gguf_find_key(meta, "general.architecture"));
-    const char *model_name = gguf_get_val_str(meta, gguf_find_key(meta, "general.name"));
+    const char * model_arch = gguf_get_val_str(meta, gguf_find_key(meta, "general.architecture"));
+    const char * model_name = gguf_get_val_str(meta, gguf_find_key(meta, "general.name"));
 
     /* Start of hparams load. */
     moondream_mmproj_hparams hparams;
@@ -387,20 +368,16 @@ bool moondream_mmproj_load_from_file(
     hparams.f_norm_eps = gguf_get_val_f32(meta, gguf_find_key(meta, "clip.vision.attention.layer_norm_epsilon"));
     hparams.use_gelu = gguf_get_val_bool(meta, gguf_find_key(meta, "clip.use_gelu"));
 
-    const char *proj_type_str = gguf_get_val_str(meta, gguf_find_key(meta, "clip.projector_type"));
-    if (strncmp(proj_type_str, "mlp", 3) == 0)
-    {
+    const char * proj_type_str = gguf_get_val_str(meta, gguf_find_key(meta, "clip.projector_type"));
+    if (strncmp(proj_type_str, "mlp", 3) == 0) {
         hparams.proj_type = PROJECTOR_TYPE_MLP;
-    }
-    else
-    {
+    } else {
         hparams.proj_type = PROJECTOR_TYPE_UNKNOWN;
     }
 
     const int image_mean_key_id = gguf_find_key(meta, "clip.vision.image_mean");
     const int n_image_mean = gguf_get_arr_n(meta, image_mean_key_id);
-    if (n_image_mean != 3)
-    {
+    if (n_image_mean != 3) {
         printf("expected n_image_mean = 3 but got n_image_mean = %d\n", n_image_mean);
         return false;
     }
@@ -408,8 +385,7 @@ bool moondream_mmproj_load_from_file(
 
     const int image_std_key_id = gguf_find_key(meta, "clip.vision.image_std");
     const int n_image_std = gguf_get_arr_n(meta, image_std_key_id);
-    if (n_image_std != 3)
-    {
+    if (n_image_std != 3) {
         printf("expected n_image_std = 3 but got n_image_std = %d\n", n_image_std);
         return false;
     }
@@ -419,18 +395,15 @@ bool moondream_mmproj_load_from_file(
 
     /* Start of tensors load. */
     // For some reason the first tensor doesn't have a name, so we skip over it.
-    ggml_tensor *cur = ggml_get_first_tensor(ctx);
-    if (cur == NULL)
-    {
+    ggml_tensor * cur = ggml_get_first_tensor(ctx);
+    if (cur == NULL) {
         return false;
     }
     // Load tensors that don't repeat for each layer.
     const int n_non_repeating_tensors = 9;
-    for (int i = 0; i < n_non_repeating_tensors; ++i)
-    {
+    for (int i = 0; i < n_non_repeating_tensors; ++i) {
         cur = ggml_get_next_tensor(ctx, cur);
-        if (cur == NULL)
-        {
+        if (cur == NULL) {
             return false;
         }
 #ifdef MOONDREAM_EXTRA_LOGS
@@ -438,106 +411,102 @@ bool moondream_mmproj_load_from_file(
 #endif
         switch (i)
         {
-        case 0: // mm.0.weight
-            model.mm_0_w = cur;
-            break;
-        case 1: // mm.0.bias
-            model.mm_0_b = cur;
-            break;
-        case 2: // mm.2.weight
-            model.mm_2_w = cur;
-            break;
-        case 3: // mm.2.bias
-            model.mm_2_b = cur;
-            break;
-        case 4: // v.position_embd.weight
-            model.pos_embd = cur;
-            break;
-        case 5: // v.patch_embd.weight
-            model.patch_embd = cur;
-            break;
-        case 6: // v.patch_embd.bias
-            model.patch_bias = cur;
-            break;
-        case 7: // v.post_ln.weight
-            model.post_ln_w = cur;
-            break;
-        case 8: // v.post_ln.bias
-            model.post_ln_b = cur;
-            break;
-        default:
-            return false;
+            case 0: // mm.0.weight
+                model.mm_0_w = cur;
+                break;
+            case 1: // mm.0.bias
+                model.mm_0_b = cur;
+                break;
+            case 2: // mm.2.weight
+                model.mm_2_w = cur;
+                break;
+            case 3: // mm.2.bias
+                model.mm_2_b = cur;
+                break;
+            case 4: // v.position_embd.weight
+                model.pos_embd = cur;
+                break;
+            case 5: // v.patch_embd.weight
+                model.patch_embd = cur;
+                break;
+            case 6: // v.patch_embd.bias
+                model.patch_bias = cur;
+                break;
+            case 7: // v.post_ln.weight
+                model.post_ln_w = cur;
+                break;
+            case 8: // v.post_ln.bias
+                model.post_ln_b = cur;
+                break;
+            default:
+                return false;
         }
     }
 
     // Load tensors for each layer.
     const int n_tensors_per_layer = 16;
-    for (int i = 0; i < hparams.n_layer; ++i)
-    {
+    for (int i = 0; i < hparams.n_layer; ++i) {
         moondream_mmproj_layer cur_layer;
-        for (int k = 0; k < n_tensors_per_layer; ++k)
-        {
+        for (int k = 0; k < n_tensors_per_layer; ++k) {
             cur = ggml_get_next_tensor(ctx, cur);
-            if (cur == NULL)
-            {
+            if (cur == NULL) {
                 return false;
             }
 #ifdef MOONDREAM_EXTRA_LOGS
             printf("(DEBUG) found %s\n", cur->name);
 #endif
-            switch (k)
-            {
-            case 0: // attn_q.weight
-                cur_layer.q_w = cur;
-                break;
-            case 1: // attn_q.bias
-                cur_layer.q_b = cur;
-                break;
-            case 2: // attn_k.weight
-                cur_layer.k_w = cur;
-                break;
-            case 3: // attn_k.bias
-                cur_layer.k_b = cur;
-                break;
-            case 4: // attn_v.weight
-                cur_layer.v_w = cur;
-                break;
-            case 5: // attn_v.bias
-                cur_layer.v_b = cur;
-                break;
-            case 6: // attn_out.weight
-                cur_layer.o_w = cur;
-                break;
-            case 7: // attn_out.bias
-                cur_layer.o_b = cur;
-                break;
-            case 8: // ln1.weight
-                cur_layer.ln_1_w = cur;
-                break;
-            case 9: // ln1.bias
-                cur_layer.ln_1_b = cur;
-                break;
-            // Are ffn_down and ffn_up reversed? Usually the first ff layer projects to a higher dim.
-            case 10: // ffn_down.weight
-                cur_layer.ff_i_w = cur;
-                break;
-            case 11: // ffn_down.bias
-                cur_layer.ff_i_b = cur;
-                break;
-            case 12: // ffn_up.weight
-                cur_layer.ff_o_w = cur;
-                break;
-            case 13: // ffn_up.bias
-                cur_layer.ff_o_b = cur;
-                break;
-            case 14: // ln2.weight
-                cur_layer.ln_2_w = cur;
-                break;
-            case 15: // ln2.bias
-                cur_layer.ln_2_b = cur;
-                break;
-            default:
-                return false;
+            switch (k) {
+                case 0: // attn_q.weight
+                    cur_layer.q_w = cur;
+                    break;
+                case 1: // attn_q.bias
+                    cur_layer.q_b = cur;
+                    break;
+                case 2: // attn_k.weight
+                    cur_layer.k_w = cur;
+                    break;
+                case 3: // attn_k.bias
+                    cur_layer.k_b = cur;
+                    break;
+                case 4: // attn_v.weight
+                    cur_layer.v_w = cur;
+                    break;
+                case 5: // attn_v.bias
+                    cur_layer.v_b = cur;
+                    break;
+                case 6: // attn_out.weight
+                    cur_layer.o_w = cur;
+                    break;
+                case 7: // attn_out.bias
+                    cur_layer.o_b = cur;
+                    break;
+                case 8: // ln1.weight
+                    cur_layer.ln_1_w = cur;
+                    break;
+                case 9: // ln1.bias
+                    cur_layer.ln_1_b = cur;
+                    break;
+                // Are ffn_down and ffn_up reversed? Usually the first ff layer projects to a higher dim.
+                case 10: // ffn_down.weight
+                    cur_layer.ff_i_w = cur;
+                    break;
+                case 11: // ffn_down.bias
+                    cur_layer.ff_i_b = cur;
+                    break;
+                case 12: // ffn_up.weight
+                    cur_layer.ff_o_w = cur;
+                    break;
+                case 13: // ffn_up.bias
+                    cur_layer.ff_o_b = cur;
+                    break;
+                case 14: // ln2.weight
+                    cur_layer.ln_2_w = cur;
+                    break;
+                case 15: // ln2.bias
+                    cur_layer.ln_2_b = cur;
+                    break;
+                default:
+                    return false;
             }
         }
         model.layers.push_back(cur_layer);
@@ -546,8 +515,7 @@ bool moondream_mmproj_load_from_file(
 
     model.ctx = ctx;
 
-    if (normal_logs_enabled)
-    {
+    if (normal_logs_enabled) {
         printf("------------\nloaded %s from %s\n", model_name, gguf_file_path);
         printf("gguf_version: %d\n", gguf_version);
         printf("gguf_alignment: %zu\n", gguf_alignment);
@@ -574,18 +542,16 @@ bool moondream_mmproj_load_from_file(
 }
 
 bool moondream_mmproj_embed(
-    moondream_mmproj_context &mctx,
-    moondream_mmproj &model,
-    moondream_image &image) // use the batch instead
-{
-    ggml_cgraph *gf = mmproj_build_clip(model, mctx);
-    if (!gf)
-    {
+    moondream_mmproj_context & mctx,
+    moondream_mmproj & model,
+    moondream_image & image // use the batch instead
+)  {
+    ggml_cgraph * gf = mmproj_build_clip(model, mctx);
+    if (!gf) {
         printf("failed to build mmproj compute graph\n");
         return false;
     }
-    if (!ggml_backend_sched_alloc_graph(mctx.sched, gf))
-    {
+    if (!ggml_backend_sched_alloc_graph(mctx.sched, gf)) {
         printf("failed to allocate graph for ggml_backend_sched_t\n");
         return false;
     }
@@ -597,14 +563,13 @@ bool moondream_mmproj_embed(
     printf("WARNING: moondream_mmproj_context.positions values were not initialized!\n");
 
     const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
-    if (compute_status != GGML_STATUS_SUCCESS)
-    {
+    if (compute_status != GGML_STATUS_SUCCESS) {
         printf("graph computation failed (%s)\n", ggml_status_to_string(compute_status));
         return false;
     }
     ggml_backend_sched_synchronize(mctx.sched);
 
-    ggml_tensor *embeddings = gf->nodes[gf->n_nodes - 1];
+    ggml_tensor * embeddings = gf->nodes[gf->n_nodes - 1];
     assert(mctx.n_output_elements == ggml_nelements(embeddings));
     memcpy(mctx.output_buffer, embeddings->data, sizeof(float) * mctx.n_output_elements);
     // NOTE: embeddings may need to be transposed.
@@ -617,8 +582,7 @@ bool moondream_mmproj_embed(
     return true;
 }
 
-bool moondream_image_init(moondream_image &image, int n_xy, int n_positions)
-{
+bool moondream_image_init(moondream_image & image, int n_xy, int n_positions) {
     assert(image.data == nullptr);
     image.n_xy = n_xy;
     image.n_channels = MOONDREAM_N_IMAGE_CHANNELS;
@@ -643,29 +607,24 @@ bool moondream_image_init(moondream_image &image, int n_xy, int n_positions)
     return true;
 }
 
-void moondream_image_free(moondream_image &image)
-{
-    if (image.data)
-    {
+void moondream_image_free(moondream_image & image) {
+    if (image.data) {
         free(image.data);
         image.data = nullptr;
     }
-    if (image.pos)
-    {
+    if (image.pos) {
         free(image.pos);
         image.pos = nullptr;
     }
 }
 
-bool moondream_image_load_and_set(const char *path, moondream_image &image)
-{
+bool moondream_image_load_and_set(const char * path, moondream_image & image) {
     assert(image.data != nullptr);
     assert(image.n_channels = MOONDREAM_N_IMAGE_CHANNELS);
     int base_width = -1, base_height = -1, base_channels = -1;
-    unsigned char *base_stbi_data = stbi_load(
+    unsigned char * base_stbi_data = stbi_load(
         path, &base_width, &base_height, &base_channels, MOONDREAM_N_IMAGE_CHANNELS);
-    if (!base_stbi_data)
-    {
+    if (!base_stbi_data) {
         printf(
             "could not load \"%s\", stbi_failure_reason \"%s\"\n",
             path, stbi_failure_reason());
@@ -675,33 +634,26 @@ bool moondream_image_load_and_set(const char *path, moondream_image &image)
     assert(base_width > 0);
     assert(base_height > 0);
     int n_base_scalars = base_width * base_height * MOONDREAM_N_IMAGE_CHANNELS;
-    float *base_float_data = (float *)malloc(sizeof(float) * n_base_scalars);
-    if (!base_float_data)
-    {
+    float * base_float_data = (float *)malloc(sizeof(float) * n_base_scalars);
+    if (!base_float_data) {
         printf("could not allocate memory for image floating point data\n");
         stbi_image_free(base_stbi_data);
         return false;
     }
-    for (int i = 0; i < n_base_scalars; ++i)
-    {
+    for (int i = 0; i < n_base_scalars; ++i) {
         base_float_data[i] = static_cast<float>(base_stbi_data[i]) / 255.0f;
     }
     stbi_image_free(base_stbi_data);
 
-    if (base_width == image.n_xy && base_height == image.n_xy)
-    {
+    if (base_width == image.n_xy && base_height == image.n_xy) {
         memcpy(image.data, base_float_data, sizeof(float) * n_base_scalars);
-    }
-    else
-    {
+    } else {
         // Resize image from (base_width * base_height) to (n_xy * n_xy).
         float scale_x = static_cast<float>(base_width) / image.n_xy;
         float scale_y = static_cast<float>(base_height) / image.n_xy;
 
-        for (int y = 0; y < image.n_xy; ++y)
-        {
-            for (int x = 0; x < image.n_xy; ++x)
-            {
+        for (int y = 0; y < image.n_xy; ++y) {
+            for (int x = 0; x < image.n_xy; ++x) {
                 int src_x = static_cast<int>(x * scale_x);
                 int src_y = static_cast<int>(y * scale_y);
 
@@ -709,8 +661,7 @@ bool moondream_image_load_and_set(const char *path, moondream_image &image)
                 src_x = std::min(src_x, base_width - 1);
                 src_y = std::min(src_y, base_height - 1);
 
-                for (int c = 0; c < MOONDREAM_N_IMAGE_CHANNELS; ++c)
-                {
+                for (int c = 0; c < MOONDREAM_N_IMAGE_CHANNELS; ++c) {
                     int dst_idx = (y * image.n_xy + x) * MOONDREAM_N_IMAGE_CHANNELS + c;
                     int src_idx = (src_y * base_width + src_x) * MOONDREAM_N_IMAGE_CHANNELS + c;
                     image.data[dst_idx] = base_float_data[src_idx];
@@ -746,8 +697,7 @@ bool moondream_image_load_and_set(const char *path, moondream_image &image)
 //     free(batch.patch_data);
 // }
 
-void find_target_image_size(moondream_image_alt_u8 &image, int &target_width, int &target_height)
-{
+void find_target_image_size(moondream_image_alt_u8 & image, int & target_width, int & target_height) {
 
     // Reference python code:
     //
@@ -768,32 +718,27 @@ void find_target_image_size(moondream_image_alt_u8 &image, int &target_width, in
     static const int n_supported_sizes = 4;
     static const int supported_sizes[][2] = {{378, 378}, {378, 756}, {756, 378}, {756, 756}};
     const int max_dim = image.width > image.height ? image.width : image.height;
-    if (max_dim < 512)
-    {
+    if (max_dim < 512) {
         target_width = 378;
         target_height = 378;
-    }
-    else
-    {
+    } else {
         float min_aspect_ratio_diff = std::numeric_limits<float>::max();
         int min_side_length_diff = std::numeric_limits<int>::max();
         const float aspect_ratio = (float)image.width / (float)image.height;
-        for (int i = 0; i < n_supported_sizes; ++i)
-        {
+        for (int i = 0; i < n_supported_sizes; ++i) {
             const int cur_width = supported_sizes[i][0];
             const int cur_height = supported_sizes[i][1];
             const float cur_inv_aspect_ratio = (float)cur_height / (float)cur_width;
             const float cur_aspect_ratio_diff = fabsf(cur_inv_aspect_ratio - aspect_ratio);
             const int cur_side_length_diff = abs(cur_width - image.width) + abs(cur_height - image.height);
-            if (cur_aspect_ratio_diff < min_aspect_ratio_diff)
-            {
+            if (cur_aspect_ratio_diff < min_aspect_ratio_diff) {
                 min_aspect_ratio_diff = cur_aspect_ratio_diff;
                 target_width = cur_width;
                 target_height = cur_height;
-            }
-            else if (cur_aspect_ratio_diff == min_aspect_ratio_diff
-                    && cur_side_length_diff < min_side_length_diff)
-            {
+            } else if (
+                cur_aspect_ratio_diff == min_aspect_ratio_diff
+                && cur_side_length_diff < min_side_length_diff
+            ) {
                 min_side_length_diff = cur_side_length_diff;
                 target_width = cur_width;
                 target_height = cur_height;
@@ -804,22 +749,20 @@ void find_target_image_size(moondream_image_alt_u8 &image, int &target_width, in
 
 // allocates and initializes the batch.patch_data with an N-sized array of 378x378x3 f32
 bool patches_to_batch(
-    moondream_image_alt_f32 &image, moondream_patch_set patch_set, moondream_mmproj_batch &batch)
-{
+    moondream_image_alt_f32 & image, moondream_patch_set patch_set, moondream_mmproj_batch & batch
+) {
     constexpr size_t n_patch_elements =
         MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS;
     size_t patch_byte_size = n_patch_elements * sizeof(float);
     batch.n_batch = patch_set.count + 1;
     batch.patch_data = (float *)malloc(batch.n_batch * patch_byte_size);
-    if (batch.patch_data == nullptr)
-    {
+    if (batch.patch_data == nullptr) {
         printf("failed to allocate memory for moondream_mmproj_batch patch_data\n");
         return false;
     }
     memcpy(batch.patch_data, image.data, patch_byte_size);
 
-    for (int i = 0; i < patch_set.count; ++i)
-    {
+    for (int i = 0; i < patch_set.count; ++i) {
         // offset should be in number of floats
         size_t offset = (i + 1) * n_patch_elements;
         memcpy((void *)&batch.patch_data[offset], patch_set.patches[i].data, patch_byte_size);
@@ -827,18 +770,15 @@ bool patches_to_batch(
     return true;
 }
 
-bool save_image_batch_to_pngs(moondream_mmproj_batch &batch)
-{
+bool save_image_batch_to_pngs(moondream_mmproj_batch & batch) {
     printf("n_batch %d\n", batch.n_batch);
     constexpr size_t side_length = MOONDREAM_IMAGE_PATCH_SIDE_LENGTH;
     constexpr size_t n_channels = MOONDREAM_N_IMAGE_CHANNELS;
     constexpr size_t n_patch_elements = side_length * side_length * n_channels;
-    uint8_t *temp_image = (uint8_t *)malloc(sizeof(uint8_t) * n_patch_elements);
-    for (int n = 0; n < batch.n_batch; ++n)
-    {
+    uint8_t * temp_image = (uint8_t *)malloc(sizeof(uint8_t) * n_patch_elements);
+    for (int n = 0; n < batch.n_batch; ++n) {
         float* cur_patch = &batch.patch_data[n * n_patch_elements];
-        for (int i = 0; i < n_patch_elements; ++i)
-        {
+        for (int i = 0; i < n_patch_elements; ++i) {
             float de_normalized = (cur_patch[i] * 0.5f) + 0.5f;
             temp_image[i] = static_cast<uint8_t>(de_normalized * 255.0f);
         }
@@ -853,8 +793,7 @@ bool save_image_batch_to_pngs(moondream_mmproj_batch &batch)
             n_channels,
             temp_image,
             side_length * n_channels);
-        if (!write_success)
-        {
+        if (!write_success) {
             printf("failed to write image patch to png\n");
             free(temp_image);
             return false;
@@ -869,8 +808,7 @@ bool save_image_batch_to_pngs(moondream_mmproj_batch &batch)
     TODO: convert to float16 vs GGUF_TYPE_FLOAT32?
 
 */
-bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_batch &batch)
-{
+bool moondream_mmproj_image_preprocess(const char * img_path, moondream_mmproj_batch & batch) {
 
     //
     // Step 0: Load image
@@ -889,7 +827,7 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
     find_target_image_size(image, target_width, target_height);
 
     // Step 2: Resize image to target width and height
-    void *resized_image_data = stbir_resize(
+    void * resized_image_data = stbir_resize(
         image.data,
         image.width,
         image.height,
@@ -902,8 +840,7 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
         STBIR_TYPE_UINT8,
         STBIR_EDGE_CLAMP,
         STBIR_FILTER_TRIANGLE);
-    if (resized_image_data == NULL)
-    {
+    if (resized_image_data == NULL) {
         printf("stbir failed to resize resized_image_data\n");
         return false;
     }
@@ -918,8 +855,7 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
     moondream_image_alt_f32 resized_image_f32;
     const float mean[3] = {0.5f, 0.5f, 0.5f};
     const float std[3] = {0.5f, 0.5f, 0.5f};
-    if (!normalize_image_u8_to_f32(&resized_image_u8, &resized_image_f32, mean, std))
-    {
+    if (!normalize_image_u8_to_f32(&resized_image_u8, &resized_image_f32, mean, std)) {
         printf("failed to normalize resized_image_u8\n");
         return false;
     }
@@ -933,9 +869,9 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
     // Step 6: Resize image to (378, 378) if it isn't already that size
     moondream_image_alt_f32 patch_size_image_f32;
     if (resized_image_f32.width != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH
-        || resized_image_f32.height != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH)
-    {
-        void *patch_size_image_data = stbir_resize(
+        || resized_image_f32.height != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH
+    ) {
+        void * patch_size_image_data = stbir_resize(
             resized_image_data,
             target_width,
             target_height,
@@ -948,8 +884,7 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
             STBIR_TYPE_UINT8,
             STBIR_EDGE_CLAMP,
             STBIR_FILTER_TRIANGLE);
-        if (patch_size_image_data == NULL)
-        {
+        if (patch_size_image_data == NULL) {
             printf("stbir failed to resize patch_size_image_data\n");
             return false;
         }
@@ -959,20 +894,16 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
             MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
             MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
             (unsigned char *)patch_size_image_data);
-        if (!normalize_image_u8_to_f32(&patch_size_image_u8, &patch_size_image_f32, mean, std))
-        {
+        if (!normalize_image_u8_to_f32(&patch_size_image_u8, &patch_size_image_f32, mean, std)) {
             printf("failed to normalize image\n");
             return false;
         }
     }
 
     // Step 7: Combined resized image with patches
-    if (patch_size_image_f32.data == nullptr)
-    {
+    if (patch_size_image_f32.data == nullptr) {
         patches_to_batch(resized_image_f32, patch_set, batch);
-    }
-    else
-    {
+    } else {
         patches_to_batch(patch_size_image_f32, patch_set, batch);
     }
 
@@ -983,55 +914,48 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
     return true;
 }
 
-struct mmproj_image_downsample_buffer
-{
+struct mmproj_image_downsample_buffer {
     int n_channels = 0;
     int n_data_elements = 0;
-    float *inter_image = nullptr;
-    float *final_image = nullptr;
+    float * inter_image = nullptr;
+    float * final_image = nullptr;
 };
 
-bool mmproj_image_downsample_buffer_init(mmproj_image_downsample_buffer &buf, int n_channels)
-{
+bool mmproj_image_downsample_buffer_init(mmproj_image_downsample_buffer & buf, int n_channels) {
     buf.n_channels = n_channels;
     constexpr int n_spatial_elements = MOONDREAM_MAX_IMAGE_SIDE_LENGTH * MOONDREAM_MAX_IMAGE_SIDE_LENGTH;
     buf.n_data_elements = n_spatial_elements * buf.n_channels;
     buf.inter_image = (float *)calloc(buf.n_data_elements, sizeof(float));
-    if (!buf.inter_image)
-    {
+    if (!buf.inter_image) {
         printf("failed to allocate memory for mmproj_image_downsample_buffer.inter_image\n");
         return false;
     }
     buf.final_image = (float *)calloc(buf.n_data_elements, sizeof(float));
-    if (!buf.final_image)
-    {
+    if (!buf.final_image) {
         printf("failed to allocate memory for mmproj_image_downsample_buffer.final_image\n");
         return false;
     }
     return true;
 }
 
-void mmproj_image_downsample_buffer_free(mmproj_image_downsample_buffer &buf)
-{
-    if (buf.inter_image)
-    {
+void mmproj_image_downsample_buffer_free(mmproj_image_downsample_buffer &buf) {
+    if (buf.inter_image) {
         free(buf.inter_image);
         buf.inter_image = nullptr;
     }
-    if (buf.final_image)
-    {
+    if (buf.final_image) {
         free(buf.final_image);
         buf.final_image = nullptr;
     }
 }
 
 void mmproj_bilinear_downsample(
-    const float *base_image,
-    mmproj_image_downsample_buffer &buf,
+    const float * base_image,
+    mmproj_image_downsample_buffer & buf,
     int base_width, int base_height,
     int new_width, int new_height,
-    int channels)
-{
+    int channels
+) {
     printf("start downsample\n");
     printf("channels: %d\n", channels);
     printf("base_width: %d, base_height: %d\n", base_width, base_height);
@@ -1048,16 +972,13 @@ void mmproj_bilinear_downsample(
 
     // TODO: not quite right. Base values need to be weighted based on distance from the sample point.
 
-    for (int x = 0; x < x_gaps; ++x)
-    {
+    for (int x = 0; x < x_gaps; ++x) {
         const int base_left_col_offset = (int)floorf(x * x_gap_size);
-        for (int y = 0; y < base_height; ++y)
-        {
+        for (int y = 0; y < base_height; ++y) {
             const int base_left_offset = (y * base_width + base_left_col_offset) * channels;
             const int base_right_offset = base_left_offset + channels;
             const int inter_offset = (y * new_width + x) * channels;
-            for (int k = 0; k < channels; ++k)
-            {
+            for (int k = 0; k < channels; ++k) {
                 const float base_left_val = base_image[base_left_offset + k];
                 const float base_right_val = base_image[base_right_offset + k];
                 buf.inter_image[inter_offset + k] = (base_left_val + base_right_val) / 2.0f;
@@ -1065,17 +986,14 @@ void mmproj_bilinear_downsample(
         }
     }
 
-    for (int y = 0; y < y_gaps; ++y)
-    {
+    for (int y = 0; y < y_gaps; ++y) {
         const int inter_up_row_offset = (int)floorf(y * y_gap_size) * new_width;
         const int inter_down_row_offset = inter_up_row_offset + new_width;
-        for (int x = 0; x < new_width; ++x)
-        {
+        for (int x = 0; x < new_width; ++x) {
             const int inter_up_offset = (inter_up_row_offset + x) * channels;
             const int inter_down_offset = (inter_up_row_offset + x) * channels;
             const int new_offset = (y * new_width + x) * channels;
-            for (int k = 0; k < channels; ++k)
-            {
+            for (int k = 0; k < channels; ++k) {
                 const float inter_up_val = buf.inter_image[inter_up_offset + k];
                 const float inter_down_val = buf.inter_image[inter_down_offset + k];
                 buf.final_image[new_offset + k] = (inter_up_val + inter_down_val) / 2.0f;
@@ -1084,15 +1002,13 @@ void mmproj_bilinear_downsample(
     }
 }
 
-void test_bilinear_downsample(void)
-{
+void test_bilinear_downsample(void) {
     int base_width = -1, base_height = -1, base_channels = -1;
-    unsigned char *base_stbi_data = stbi_load(
+    unsigned char * base_stbi_data = stbi_load(
         "../../../assets/small_text.jpg",
-        &base_width, &base_height, &base_channels,
-        MOONDREAM_N_IMAGE_CHANNELS);
-    if (!base_stbi_data)
-    {
+        &base_width, &base_height, &base_channels, MOONDREAM_N_IMAGE_CHANNELS);
+
+    if (!base_stbi_data) {
         printf("stb could not load image\n");
         return;
     }
@@ -1104,12 +1020,21 @@ void test_bilinear_downsample(void)
     //                                                        NULL, new_width, new_height, new_width * MOONDREAM_N_IMAGE_CHANNELS,
     //                                                        STBIR_RGB);
 
-    void *resized_image = stbir_resize(base_stbi_data, base_width, base_height, base_width * MOONDREAM_N_IMAGE_CHANNELS,
-                                       NULL, new_width, new_height, new_width * MOONDREAM_N_IMAGE_CHANNELS,
-                                       STBIR_RGB, STBIR_TYPE_UINT8, STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE);
+    void * resized_image = stbir_resize(
+        base_stbi_data,
+        base_width,
+        base_height,
+        base_width * MOONDREAM_N_IMAGE_CHANNELS,
+        NULL,
+        new_width,
+        new_height,
+        new_width * MOONDREAM_N_IMAGE_CHANNELS,
+        STBIR_RGB,
+        STBIR_TYPE_UINT8,
+        STBIR_EDGE_CLAMP,
+        STBIR_FILTER_TRIANGLE);
 
-    if (resized_image == NULL)
-    {
+    if (resized_image == NULL) {
         printf("stbir failed to resize image\n");
         return;
     }
@@ -1122,8 +1047,7 @@ void test_bilinear_downsample(void)
         new_width, new_height, base_channels,
         resized_image,
         new_width * base_channels);
-    if (!write_success)
-    {
+    if (!write_success) {
         printf("stbi failed to write image\n");
         return;
     }
