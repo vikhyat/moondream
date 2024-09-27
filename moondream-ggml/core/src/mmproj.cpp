@@ -791,7 +791,8 @@ void find_target_image_size(moondream_image_alt_u8 &image, int &target_width, in
                 target_width = cur_width;
                 target_height = cur_height;
             }
-            else if (cur_aspect_ratio_diff == min_aspect_ratio_diff && cur_side_length_diff < min_side_length_diff)
+            else if (cur_aspect_ratio_diff == min_aspect_ratio_diff
+                    && cur_side_length_diff < min_side_length_diff)
             {
                 min_side_length_diff = cur_side_length_diff;
                 target_width = cur_width;
@@ -1048,10 +1049,15 @@ void test_bilinear_downsample(void)
     // free original image
     stbi_image_free(base_stbi_data);
 
-    stbi_write_png(
-        "../../data/bilinear_downsample_preview.png",
+    const int write_success = stbi_write_png(
+        "../../../data/bilinear_downsample_preview.png",
         new_width, new_height, base_channels,
         resized_image,
         new_width * base_channels);
+    if (!write_success)
+    {
+        printf("stbi failed to write image\n");
+        return;
+    }
     free(resized_image);
 }
