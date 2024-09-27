@@ -32,6 +32,8 @@ ggml_tensor *tensor_split_3d(ggml_context *ctx, ggml_tensor *input, size_t start
     {
         for (size_t j = 0; j < D2; ++j)
         {
+            // Can't memcpy here because input and sliced_tensor don't have memory allocated for data.
+            // Need to use a ggml copy function to build data movement into the graph.
             std::memcpy(
                 &dest[(i * D2 + j) * slice_size],
                 &src[(i * D2 + j) * D3 + start_idx],
@@ -69,6 +71,7 @@ static ggml_cgraph *mmproj_build_clip(
     ggml_context *ctx0 = ggml_init(build_ctx_params);
     ggml_cgraph *gf = ggml_new_graph(ctx0);
 
+    // Shape should be (378, 378, 3, num_preprocess_patches + 1)
     ggml_tensor *inp_raw = ggml_new_tensor_4d(
         ctx0, GGML_TYPE_F32, image_size, image_size, MOONDREAM_N_IMAGE_CHANNELS, batch_size);
     ggml_set_name(inp_raw, "inp_raw");
@@ -172,12 +175,13 @@ static ggml_cgraph *mmproj_build_clip(
     ggml_set_name(embeddings, "post_ln");
     embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
 
-    ggml_tensor *full_img_features = tensor_split_3d(ctx0, embeddings, 0, 1);
+    // NOTE: commented this out because tensor_split_3d() causes segfault on graph build.
+    /*ggml_tensor *full_img_features = tensor_split_3d(ctx0, embeddings, 0, 1);
     ggml_tensor *patch_features = nullptr;
     if (num_patches > 0)
     {
         patch_features = tensor_split_3d(ctx0, embeddings, 1, num_patches);
-    }
+    }*/
 
     // TODO: merge patch features and concatenate with image features.
     // The concatenated features will then be passed as input to the projector.
