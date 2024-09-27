@@ -97,12 +97,11 @@ bool create_patches(moondream_image_alt_f32 &img_f32, moondream_patch_set &patch
     int patch_index = 0;
     for (int i = 0; i < img_f32.height; i += MOONDREAM_IMAGE_PATCH_SIDE_LENGTH)
     {
-        for (int j = 0; j < img_f32.width; i += MOONDREAM_IMAGE_PATCH_SIDE_LENGTH)
+        for (int j = 0; j < img_f32.width; j += MOONDREAM_IMAGE_PATCH_SIDE_LENGTH)
         {
             // init_patch(patch_set.patches[patch_index]);
             // make_patch(img_f32, i, j, patch_set.patches[patch_index]);
             add_patch(patch_set, img_f32, i, j);
-            patch_set.count++;
         }
     }
     return true;

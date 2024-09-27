@@ -140,6 +140,12 @@ bool moondream_api_prompt(
         printf("failed to initialized moondream_lm_batch\n");
         return false;
     }
+    // Save each patch of the preprocessed batch as a separate PNG to verify that preprocessing is correct.
+    if (!save_image_batch_to_pngs(img_batch))
+    {
+        printf("failed to save image batch to pngs\n");
+        return false;
+    }
 
     moondream_lm_batch batch;
 
@@ -278,7 +284,7 @@ int main(int argc, char *argv[])
     }
 
     // Assuming the binary will be run from ../build/
-    const char *image_path = "../../../assets/demo-1.jpg";
+    const char *image_path = "../../../assets/demo-2.jpg";
     const char *prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
     std::string response = "";
     if (!moondream_api_prompt(image_path, prompt, response, 128, true))

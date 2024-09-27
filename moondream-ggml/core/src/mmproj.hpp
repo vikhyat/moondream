@@ -105,6 +105,7 @@ struct moondream_image
 
 struct moondream_mmproj_batch
 {
+    int n_batch; // 1 (full image) + n (image patches), n is in the range 0 to 4.
     int image_side_length;
     float *patch_data = nullptr;
 };
@@ -126,3 +127,5 @@ void moondream_image_free(moondream_image &image);
 bool moondream_image_load_and_set(const char *path, moondream_image &image);
 
 bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_batch &batch);
+
+bool save_image_batch_to_pngs(moondream_mmproj_batch &batch);

@@ -803,10 +803,14 @@ void find_target_image_size(moondream_image_alt_u8 &image, int &target_width, in
 }
 
 // allocates and initializes the batch.patch_data with an N-sized array of 378x378x3 f32
-bool patches_to_batch(moondream_image_alt_f32 &image, moondream_patch_set patch_set, moondream_mmproj_batch &batch)
+bool patches_to_batch(
+    moondream_image_alt_f32 &image, moondream_patch_set patch_set, moondream_mmproj_batch &batch)
 {
-    int patch_byte_size = MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS * sizeof(float);
-    batch.patch_data = (float *)malloc((patch_set.count + 1) * patch_byte_size);
+    constexpr size_t n_patch_elements =
+        MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS;
+    size_t patch_byte_size = n_patch_elements * sizeof(float);
+    batch.n_batch = patch_set.count + 1;
+    batch.patch_data = (float *)malloc(batch.n_batch * patch_byte_size);
     if (batch.patch_data == nullptr)
     {
         printf("failed to allocate memory for moondream_mmproj_batch patch_data\n");
@@ -817,9 +821,46 @@ bool patches_to_batch(moondream_image_alt_f32 &image, moondream_patch_set patch_
     for (int i = 0; i < patch_set.count; ++i)
     {
         // offset should be in number of floats
-        int offset = i * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS;
+        size_t offset = (i + 1) * n_patch_elements;
         memcpy((void *)&batch.patch_data[offset], patch_set.patches[i].data, patch_byte_size);
     }
+    return true;
+}
+
+bool save_image_batch_to_pngs(moondream_mmproj_batch &batch)
+{
+    printf("n_batch %d\n", batch.n_batch);
+    constexpr size_t side_length = MOONDREAM_IMAGE_PATCH_SIDE_LENGTH;
+    constexpr size_t n_channels = MOONDREAM_N_IMAGE_CHANNELS;
+    constexpr size_t n_patch_elements = side_length * side_length * n_channels;
+    uint8_t *temp_image = (uint8_t *)malloc(sizeof(uint8_t) * n_patch_elements);
+    for (int n = 0; n < batch.n_batch; ++n)
+    {
+        float* cur_patch = &batch.patch_data[n * n_patch_elements];
+        for (int i = 0; i < n_patch_elements; ++i)
+        {
+            float de_normalized = (cur_patch[i] * 0.5f) + 0.5f;
+            temp_image[i] = static_cast<uint8_t>(de_normalized * 255.0f);
+        }
+        const char* base_path = "../../../data/image_patch_%d.png";
+        size_t base_path_length = strlen(base_path);
+        char path_buf[base_path_length];
+        snprintf(path_buf, base_path_length, base_path, n);
+        const int write_success = stbi_write_png(
+            path_buf,
+            side_length,
+            side_length,
+            n_channels,
+            temp_image,
+            side_length * n_channels);
+        if (!write_success)
+        {
+            printf("failed to write image patch to png\n");
+            free(temp_image);
+            return false;
+        }
+    }
+    free(temp_image);
     return true;
 }
 
@@ -848,16 +889,27 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
     find_target_image_size(image, target_width, target_height);
 
     // Step 2: Resize image to target width and height
-    void *resized_image_data = stbir_resize(image.data, image.width, image.height, image.width * MOONDREAM_N_IMAGE_CHANNELS,
-                                            NULL, target_width, target_height, target_width * MOONDREAM_N_IMAGE_CHANNELS,
-                                            STBIR_RGB, STBIR_TYPE_UINT8, STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE);
+    void *resized_image_data = stbir_resize(
+        image.data,
+        image.width,
+        image.height,
+        image.width * MOONDREAM_N_IMAGE_CHANNELS,
+        NULL,
+        target_width,
+        target_height,
+        target_width * MOONDREAM_N_IMAGE_CHANNELS,
+        STBIR_RGB,
+        STBIR_TYPE_UINT8,
+        STBIR_EDGE_CLAMP,
+        STBIR_FILTER_TRIANGLE);
     if (resized_image_data == NULL)
     {
         printf("stbir failed to resize resized_image_data\n");
         return false;
     }
     moondream_image_alt_u8 resized_image_u8;
-    init_moondream_image_alt_u8(resized_image_u8, target_width, target_height, (unsigned char *)resized_image_data);
+    init_moondream_image_alt_u8(
+        resized_image_u8, target_width, target_height, (unsigned char *)resized_image_data);
 
     // Step 3: convert to float32 AND normalize
     // reference python:
@@ -876,21 +928,37 @@ bool moondream_mmproj_image_preprocess(const char *img_path, moondream_mmproj_ba
     moondream_patch_set patch_set;
     init_patch_set(patch_set);
     create_patches(resized_image_f32, patch_set);
+    printf("patch_set.count %d\n", patch_set.count);
 
     // Step 6: Resize image to (378, 378) if it isn't already that size
     moondream_image_alt_f32 patch_size_image_f32;
-    if (resized_image_f32.width != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH || resized_image_f32.height != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH)
+    if (resized_image_f32.width != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH
+        || resized_image_f32.height != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH)
     {
-        void *patch_size_image_data = stbir_resize(image.data, image.width, image.height, image.width * MOONDREAM_N_IMAGE_CHANNELS,
-                                                   NULL, MOONDREAM_IMAGE_PATCH_SIDE_LENGTH, MOONDREAM_IMAGE_PATCH_SIDE_LENGTH, target_width * MOONDREAM_N_IMAGE_CHANNELS,
-                                                   STBIR_RGB, STBIR_TYPE_UINT8, STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE);
+        void *patch_size_image_data = stbir_resize(
+            resized_image_data,
+            target_width,
+            target_height,
+            target_width * MOONDREAM_N_IMAGE_CHANNELS,
+            NULL,
+            MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
+            MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
+            MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS,
+            STBIR_RGB,
+            STBIR_TYPE_UINT8,
+            STBIR_EDGE_CLAMP,
+            STBIR_FILTER_TRIANGLE);
         if (patch_size_image_data == NULL)
         {
             printf("stbir failed to resize patch_size_image_data\n");
             return false;
         }
         moondream_image_alt_u8 patch_size_image_u8;
-        init_moondream_image_alt_u8(patch_size_image_u8, MOONDREAM_IMAGE_PATCH_SIDE_LENGTH, MOONDREAM_IMAGE_PATCH_SIDE_LENGTH, (unsigned char *)patch_size_image_data);
+        init_moondream_image_alt_u8(
+            patch_size_image_u8,
+            MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
+            MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
+            (unsigned char *)patch_size_image_data);
         if (!normalize_image_u8_to_f32(&patch_size_image_u8, &patch_size_image_f32, mean, std))
         {
             printf("failed to normalize image\n");
