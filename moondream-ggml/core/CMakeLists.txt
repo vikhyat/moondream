@@ -29,8 +29,10 @@ set(SOURCES
     src/mmproj.cpp
     src/helpers.cpp
     src/stb_image.cpp
-    src/unicode_data.cpp 
+    src/unicode_data.cpp
     src/unicode.cpp
+    src/patch.cpp
+    src/image.cpp
 )
 
 if(MOONDREAM_EXE)

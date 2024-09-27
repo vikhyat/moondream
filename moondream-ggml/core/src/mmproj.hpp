@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "image.hpp"
 #include "ggml.h"
 #include "ggml-backend.h"
 
@@ -96,34 +97,28 @@ struct moondream_image {
     int32_t * pos = nullptr;
 };
 
-// NOTE: this is a temporary name. It will replace moondream_image and be renamed when it does.
-struct moondream_image_alt {
-    int width = 0;
-    int height = 0;
-    int n_channels = 0;
-    float * data = nullptr;
-};
-
 struct moondream_mmproj_batch {
+    int n_batch; // 1 (full image) + n (image patches), n is in the range 0 to 4.
     int image_side_length;
-    float * patches = nullptr;
+    float * patch_data = nullptr;
 };
 
 bool moondream_mmproj_context_init(
     moondream_mmproj_context & mctx,
     moondream_mmproj & model,
     int n_threads,
-    bool normal_logs_enabled
-);
+    bool normal_logs_enabled);
 void moondream_mmproj_context_free(moondream_mmproj_context & mctx);
 bool moondream_mmproj_load_from_file(
-    const char * gguf_file_path, moondream_mmproj & model, bool normal_logs_enabled
-);
+    const char * gguf_file_path, moondream_mmproj & model, bool normal_logs_enabled);
 bool moondream_mmproj_embed(
     moondream_mmproj_context & mctx,
     moondream_mmproj & model,
-    moondream_image & image
-);
+    moondream_image & image);
 bool moondream_image_init(moondream_image & image, int n_xy, int n_positions);
 void moondream_image_free(moondream_image & image);
-bool moondream_image_load_and_set(const char * path, moondream_image & image);
+bool moondream_image_load_and_set(const char * path, moondream_image &image);
+
+bool moondream_mmproj_image_preprocess(const char * img_path, moondream_mmproj_batch & batch);
+
+bool save_image_batch_to_pngs(moondream_mmproj_batch & batch);
