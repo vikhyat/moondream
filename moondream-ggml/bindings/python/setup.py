@@ -10,14 +10,13 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 
 class CMakeBuildExt(build_ext):
     def build_extensions(self):
-        # First, configure CMake build.
         import platform
         import sys
         import sysconfig
-
         import pybind11
-
+        
         # Work out the relevant Python paths to pass to CMake.
+        ext = self.extensions[0]
         if platform.system() == "Windows":
             cmake_python_library = "{}/libs/python{}.lib".format(
                 sysconfig.get_config_var("prefix"),
@@ -34,21 +33,27 @@ class CMakeBuildExt(build_ext):
                 sysconfig.get_config_var("INSTSONAME"),
             )
         cmake_python_include_dir = sysconfig.get_path("include")
-
-        install_dir = os.path.abspath(
-            os.path.dirname(self.get_ext_fullpath("dummy"))
+        
+        #install_dir = os.path.abspath(
+        #    os.path.dirname(self.get_ext_fullpath("dummy"))
+        #)
+        #os.makedirs(install_dir, exist_ok=True)
+        
+        ext_dir = os.path.abspath(
+            os.path.dirname(self.get_ext_fullpath(ext.name))
         )
-        os.makedirs(install_dir, exist_ok=True)
+        os.makedirs(ext_dir, exist_ok=True)
         cmake_args = [
-            "-DCMAKE_INSTALL_PREFIX={}".format(install_dir),
-            #"-DCMAKE_CUDA_STANDARD=17",
+            "-DCMAKE_INSTALL_PREFIX={}".format(ext_dir),
+            "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE={}".format(ext_dir), 
             "-DPython_EXECUTABLE={}".format(sys.executable),
             "-DPython_LIBRARIES={}".format(cmake_python_library),
             "-DPython_INCLUDE_DIRS={}".format(cmake_python_include_dir),
-            "-DCMAKE_BUILD_TYPE={}".format(
-                "Debug" if self.debug else "Release"
-            ),
+            "-DCMAKE_BUILD_TYPE=Release",
             "-DCMAKE_PREFIX_PATH={}".format(pybind11.get_cmake_dir()),
+            "-DDEBUG_BUILD=OFF",
+            "-DMOONDREAM_SHARED_LIBS=ON",
+            "-DMOONDREAM_EXE=OFF",
             "-G Unix Makefiles",
         ]
         os.makedirs(self.build_temp, exist_ok=True)
@@ -78,7 +83,7 @@ extensions = [
 
 setup(
     name="moondream-ggml",
-    author="managerial accounting",
+    author="M87 Labs",
     package_dir={"": "."},
     packages=find_packages("."),
     include_package_data=True,
