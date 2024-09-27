@@ -4,6 +4,8 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+
         {
             "name": "vik launch",
             "type": "cppdbg",
@@ -17,6 +19,34 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "lldb"
-        }
+        },
+        {
+            "name": "image debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/moondream-ggml/core/build/moondream_ggml_exe",
+            "args": [
+                "${workspaceFolder}/moondream-ggml/data/"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/moondream-ggml/core/build/",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb"
+        },
+        {
+            "name": "Python Debugger: Attach",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/sample.py",
+            "args": [
+                "--image",
+                "${workspaceFolder}/assets/378.jpg",
+                "--prompt",
+                ""
+            ],
+            "cwd": "${workspaceFolder}/moondream/",
+            "console": "integratedTerminal"
+          }
     ]
 }

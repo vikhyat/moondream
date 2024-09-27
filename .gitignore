@@ -3,3 +3,6 @@ __pycache__
 checkpoints
 data
 wandb
+CMakeFiles
+CMakeCache.txt
+*.egg-info

@@ -1,0 +1,25 @@
+{
+  "name": "moondream",
+  "version": "0.0.1",
+  "description": "The Moondream vision-language model client.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "cmake-js compile --debug"
+  },
+  "author": "",
+  "license": "ISC",
+  "binary": {
+    "napi_versions": [
+      7
+    ]
+  },
+  "dependencies": {
+    "bindings": "^1.5.0",
+    "cmake-js": "^7.3.0",
+    "file-type": "^19.4.0",
+    "node-addon-api": "^8.1.0",
+    "node-fetch": "^3.3.2"
+  }
+}
