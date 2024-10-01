@@ -6,15 +6,14 @@
 #include "lm.hpp"
 #include "mmproj.hpp"
 
-struct moondream_api_state
-{
+struct moondream_api_state {
     bool is_init = false;
     bool normal_logs_enabled = false;
     moondream_lm model;
     moondream_mmproj mmproj_model;
     moondream_lm_context mctx;
     moondream_mmproj_context mmproj_ctx;
-    moondream_image image;
+    moondream_mmproj_batch mmproj_batch;
 };
 
 static moondream_api_state api_state;
@@ -49,7 +48,7 @@ bool moondream_api_state_init(
         api_state.mmproj_ctx, api_state.mmproj_model, n_threads, normal_logs_enabled);
     if (!result) {
         printf("failed to initialze moondream_mmproj_context\n");
-        return 1;
+        return false;
     }
     /* End of moondream_mmproj_context init. */
 
@@ -86,22 +85,20 @@ bool moondream_api_state_init(
     api_state.mctx.n_outputs = 1;
     /* End of moondream_lm_context init. */
 
-    /* Start of moondream_image init. */
-    const int image_size = api_state.mmproj_model.hparams.image_size;
-    const int n_positions_mm = api_state.mmproj_ctx.n_positions;
-    if (!moondream_image_init(api_state.image, image_size, n_positions_mm)) {
-        printf("failed to initialize moondream_image\n");
+    /* Start of moondream_mmproj_batch_init. */
+    result = moondream_mmproj_batch_init(api_state.mmproj_batch);
+    if (!result) {
+        printf("failed to initialize moondream_mmproj_batch\n");
         return false;
     }
-    /* End of moondream_image init. */
+    /* End of moondream_mmproj_batch_init. */
 
     api_state.normal_logs_enabled = normal_logs_enabled;
     api_state.is_init = true;
     return true;
 }
 
-void moondream_api_state_cleanup(void)
-{
+void moondream_api_state_cleanup(void) {
     if (!api_state.is_init) {
         return;
     }
@@ -109,37 +106,34 @@ void moondream_api_state_cleanup(void)
     moondream_mmproj_context_free(api_state.mmproj_ctx);
     ggml_free(api_state.mmproj_model.ctx);
     ggml_free(api_state.model.ctx);
-    moondream_image_free(api_state.image);
+    //moondream_mmproj_batch_free(api_state.mmproj_batch);
     api_state.is_init = false;
 }
 
 bool moondream_api_prompt(
-    const char *image_path, const char *prompt, std::string &response,
+    const char * image_path, const char * prompt, std::string & response,
     int n_max_gen, bool log_response_stream
 ) {
-    moondream_lm &model = api_state.model;
-    moondream_lm_hparams &hparams = model.hparams;
-    moondream_lm_context &mctx = api_state.mctx;
-    moondream_lm_cparams &cparams = mctx.cparams;
-    moondream_mmproj_context &mmproj_ctx = api_state.mmproj_ctx;
-    moondream_mmproj &mmproj = api_state.mmproj_model;
-    moondream_image &image = api_state.image;
+    moondream_lm & model = api_state.model;
+    moondream_lm_hparams & hparams = model.hparams;
+    moondream_lm_context & mctx = api_state.mctx;
+    moondream_lm_cparams & cparams = mctx.cparams;
+    moondream_mmproj_context & mmproj_ctx = api_state.mmproj_ctx;
+    moondream_mmproj & mmproj = api_state.mmproj_model;
+    moondream_mmproj_batch & mmproj_batch = api_state.mmproj_batch;
     const bool normal_logs_enabled = api_state.normal_logs_enabled;
 
-    moondream_mmproj_batch img_batch;
-
-    if (!moondream_mmproj_image_preprocess(image_path, img_batch)) {
+    if (!moondream_mmproj_load_image_to_batch(image_path, mmproj_batch)) {
         printf("failed to initialized moondream_lm_batch\n");
         return false;
     }
     // Save each patch of the preprocessed batch as a separate PNG to verify that preprocessing is correct.
-    if (!save_image_batch_to_pngs(img_batch)) {
+    if (!moondream_mmproj_batch_save_to_pngs(mmproj_batch)) {
         printf("failed to save image batch to pngs\n");
         return false;
     }
 
     moondream_lm_batch batch;
-
     if (!moondream_lm_batch_init(batch, cparams.n_ctx, model.hparams.n_embd, false)) {
         printf("failed to initialized moondream_lm_batch\n");
         return false;
@@ -171,14 +165,7 @@ bool moondream_api_prompt(
     }
 
 #ifdef MOONDREAM_MULTI_MODAL
-    // call image_preprocess
-    // tghen pass it into moondream_mmproj_embed
-
-    if (!moondream_image_load_and_set(image_path, image)) {
-        printf("failed to load and set moondream_image\n");
-        return false;
-    }
-    if (!moondream_mmproj_embed(api_state.mmproj_ctx, api_state.mmproj_model, image)) {
+    if (!moondream_mmproj_embed(mmproj_ctx, mmproj, mmproj_batch)) {
         printf("failed to create image embeddings\n");
         return false;
     }
@@ -210,7 +197,7 @@ bool moondream_api_prompt(
 
 #ifndef MOONDREAM_LIBRARY_BUILD
 int main(int argc, char *argv[]) {
-    test_bilinear_downsample();
+    //test_bilinear_downsample();
 
     const char *lm_fname = "moondream2-text-model-f16.gguf";
     const char *mmproj_fname = "moondream2-mmproj-f16.gguf";

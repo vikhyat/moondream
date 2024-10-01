@@ -18,7 +18,7 @@
 
 // Define MOONDREAM_MULTI_MODAL if you want image embeddings to be generated
 // and used for text model.
-#define MOONDREAM_MULTI_MODAL
+//#define MOONDREAM_MULTI_MODAL
 
 #define ARCH_PREFIX(t) ("phi2." t)
 #define TOK_PREFIX(t) ("tokenizer.ggml." t)

@@ -606,10 +606,11 @@ void moondream_lm_context_free(moondream_lm_context & mctx) {
         ggml_backend_free(mctx.backend_cpu);
         mctx.backend_cpu = nullptr;
     }
-    if (mctx.sched) {
+    // TODO: figure out why this causes a segfault
+    /*if (mctx.sched) {
         ggml_backend_sched_free(mctx.sched);
         mctx.sched = nullptr;
-    }
+    }*/
     if (mctx.kv_cache.buf) {
         ggml_backend_buffer_free(mctx.kv_cache.buf);
         mctx.kv_cache.buf = nullptr;

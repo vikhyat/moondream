@@ -85,22 +85,13 @@ struct moondream_mmproj_context {
     float * output_buffer = nullptr;
 };
 
-// NOTE: this is currently used as input for moondream_mmproj_embed but it will be replaced by
-// moondream_image_alt and moondream_mmproj_batch.
-struct moondream_image {
-    int n_xy = 0;
-    int n_channels = 0;
-    int n_scalars = 0;
-    int n_positions = 0;
-    float * data = nullptr;
-    float * patch_view = nullptr;
-    int32_t * pos = nullptr;
-};
-
 struct moondream_mmproj_batch {
     int n_batch; // 1 (full image) + n (image patches), n is in the range 0 to 4.
+    int n_scalars; // height * width * channels * batch
     int image_side_length;
-    float * patch_data = nullptr;
+    float * patch_data = nullptr; // Images of the form HWCN.
+    void * pos; // TODO: not implemented
+    int n_positions; // TODO: not implemented
 };
 
 bool moondream_mmproj_context_init(
@@ -114,11 +105,9 @@ bool moondream_mmproj_load_from_file(
 bool moondream_mmproj_embed(
     moondream_mmproj_context & mctx,
     moondream_mmproj & model,
-    moondream_image & image);
-bool moondream_image_init(moondream_image & image, int n_xy, int n_positions);
-void moondream_image_free(moondream_image & image);
-bool moondream_image_load_and_set(const char * path, moondream_image &image);
+    moondream_mmproj_batch & batch);
 
-bool moondream_mmproj_image_preprocess(const char * img_path, moondream_mmproj_batch & batch);
-
-bool save_image_batch_to_pngs(moondream_mmproj_batch & batch);
+bool moondream_mmproj_load_image_to_batch(const char * img_path, moondream_mmproj_batch & batch);
+bool moondream_mmproj_batch_save_to_pngs(moondream_mmproj_batch & batch);
+bool moondream_mmproj_batch_init(moondream_mmproj_batch & batch);
+void moondream_mmproj_batch_free(moondream_mmproj_batch & batch);
