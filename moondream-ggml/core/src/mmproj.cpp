@@ -53,16 +53,14 @@ static ggml_cgraph * mmproj_build_clip(
     //const int n_batch = 1; // temporarily set to 1 until reshapes support greater than 1
     const int image_size = hparams.image_size;
     const int patch_size = hparams.patch_size;
-    const int num_patches_per_side = mctx.n_patches_per_side;
-    const int num_patches = mctx.n_patches;
+    const int n_patches_per_side = mctx.n_patches_per_side;
+    const int n_patches = mctx.n_patches;
     const int n_positions = mctx.n_positions;
     const int n_embd = hparams.n_embd;
     const int n_head = hparams.n_head;
     const int n_head_qkv = n_embd / n_head;
     const int n_layer = hparams.n_layer;
     const float eps = hparams.f_norm_eps;
-    //printf("num_patches_per_side %d\n", num_patches_per_side); printf("num_patches %d\n", num_patches);
-    //printf("patch_size %d\n", patch_size);
 
     ggml_init_params build_ctx_params = {
         mctx.compute_buffer.size(),
@@ -76,6 +74,10 @@ static ggml_cgraph * mmproj_build_clip(
     ggml_set_name(inp_raw, "inp_raw");
     ggml_set_input(inp_raw);
     mctx.inp_raw = inp_raw;
+    printf(
+        "inp_raw shape: (%d, %d, %d, %d)\n",
+        inp_raw->ne[0], inp_raw->ne[1], inp_raw->ne[2], inp_raw->ne[3]
+    );
 
     // Reference python code
     //   def __init__(self):
@@ -90,8 +92,11 @@ static ggml_cgraph * mmproj_build_clip(
     //       x = x.reshape(b, h * w, c * p1 * p2)
     //       return self.linear(x)
 
+    // Shape: (n_patches_per_side, n_patches_per_side, n_patch_elements, n_batch)
     ggml_tensor * inp = ggml_conv_2d(ctx0, model.patch_embd, inp_raw, patch_size, patch_size, 0, 0, 1, 1);
-    inp = ggml_reshape_3d(ctx0, inp, num_patches, n_embd, n_batch);
+    // Shape: (n_patches, n_patch_elements, n_batch, 1)
+    inp = ggml_reshape_3d(ctx0, inp, n_patches, n_embd, n_batch);
+    // Shape: (n_patch_elements, n_patches, n_batch, 1)
     inp = ggml_cont(ctx0, ggml_permute(ctx0, inp, 1, 0, 2, 3));
     if (model.patch_bias != nullptr) {
         inp = ggml_add(ctx0, inp, model.patch_bias);
@@ -167,6 +172,7 @@ static ggml_cgraph * mmproj_build_clip(
     // Post-layernorm
     embeddings = ggml_norm(ctx0, embeddings, eps);
     ggml_set_name(embeddings, "post_ln");
+    // Shape: (n_patch_elements, n_patches, n_batch, 1)
     embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
 
     // NOTE: commented this out because tensor_split_3d() causes segfault on graph build.
@@ -242,7 +248,7 @@ static ggml_cgraph * mmproj_build_clip(
     // NOTE: the `patches` tensor can be used to select the patch features corresponding
     // to an image feature, but this requires the input to be batched with the image and patches
     // concatenated along the batch dimension.
-    ggml_tensor * patches = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_patches);
+    ggml_tensor * patches = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_patches);
     ggml_set_name(patches, "patches");
     ggml_set_input(patches);
     // TODO: this is an input tensor so its values have to be set after sched alloc,
