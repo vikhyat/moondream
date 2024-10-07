@@ -175,6 +175,35 @@ static ggml_cgraph * mmproj_build_clip(
     // Shape: (n_patch_elements, n_patches, n_batch, 1)
     embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
 
+    embeddings = ggml_permute(ctx0, embeddings, 2, 1, 0, 3);
+    printf(
+        "embeddings permuted shape: (%d, %d, %d, %d)\n",
+        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);
+
+    // Merge patch and full image features.
+    // TODO: verify that byte strides are correct
+    ggml_tensor * full_img_features = ggml_view_3d(
+        ctx0, embeddings,
+        embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
+        ggml_row_size(embeddings->type, embeddings->ne[2]),
+        ggml_row_size(embeddings->type, embeddings->ne[3]), 0);
+    printf(
+        "full_img_features shape: (%d, %d, %d, %d)\n",
+        full_img_features->ne[0], full_img_features->ne[1], full_img_features->ne[2], full_img_features->ne[3]);
+    if (embeddings->ne[0] > 1) {
+        ggml_tensor * patch_features = ggml_view_4d(
+            ctx0, embeddings,
+            embeddings->ne[0] - 1, embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
+            ggml_row_size(embeddings->type, embeddings->ne[1]),
+            ggml_row_size(embeddings->type, embeddings->ne[2]),
+            ggml_row_size(embeddings->type, embeddings->ne[3]),
+            ggml_row_size(embeddings->type, full_img_features->ne[0] * full_img_features->ne[1]) /* offset */);
+        printf(
+            "patch_features shape: (%d, %d, %d, %d)\n",
+            patch_features->ne[0], patch_features->ne[1],
+            patch_features->ne[2], patch_features->ne[3]);
+    }
+
     // NOTE: commented this out because tensor_split_3d() causes segfault on graph build.
     /*ggml_tensor *full_img_features = tensor_split_3d(ctx0, embeddings, 0, 1);
     ggml_tensor *patch_features = nullptr;
