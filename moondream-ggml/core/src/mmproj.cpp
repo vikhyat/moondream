@@ -49,18 +49,20 @@ static ggml_cgraph * mmproj_build_clip(
     moondream_mmproj_context & mctx
 ) {
     moondream_mmproj_hparams & hparams = model.hparams;
-    //const int n_batch = batch.n_batch;
-    const int n_batch = 1; // temporarily set to 1 until reshapes support greater than 1
+    const int n_batch = batch.n_batch;
+    //const int n_batch = 1; // temporarily set to 1 until reshapes support greater than 1
     const int image_size = hparams.image_size;
     const int patch_size = hparams.patch_size;
     const int num_patches_per_side = mctx.n_patches_per_side;
     const int num_patches = mctx.n_patches;
-    const int num_positions = mctx.n_positions;
+    const int n_positions = mctx.n_positions;
     const int n_embd = hparams.n_embd;
     const int n_head = hparams.n_head;
     const int n_head_qkv = n_embd / n_head;
     const int n_layer = hparams.n_layer;
     const float eps = hparams.f_norm_eps;
+    //printf("num_patches_per_side %d\n", num_patches_per_side); printf("num_patches %d\n", num_patches);
+    //printf("patch_size %d\n", patch_size);
 
     ggml_init_params build_ctx_params = {
         mctx.compute_buffer.size(),
@@ -97,7 +99,7 @@ static ggml_cgraph * mmproj_build_clip(
 
     ggml_tensor * embeddings = inp;
     // NOTE: skipped class embeddings.
-    ggml_tensor * positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_positions);
+    ggml_tensor * positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_positions);
     ggml_set_name(positions, "positions");
     ggml_set_input(positions);
     mctx.positions = positions;
@@ -115,27 +117,27 @@ static ggml_cgraph * mmproj_build_clip(
         // Self-attention
         ggml_tensor * q = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].q_w, cur), model.layers[il].q_b);
         q = ggml_scale_inplace(ctx0, q, 1.0f / sqrtf((float)n_head_qkv));
-        q = ggml_reshape_4d(ctx0, q, n_head_qkv, n_head, num_positions, n_batch);
+        q = ggml_reshape_4d(ctx0, q, n_head_qkv, n_head, n_positions, n_batch);
         q = ggml_cont(ctx0, ggml_permute(ctx0, q, 0, 2, 1, 3));
-        q = ggml_reshape_3d(ctx0, q, n_head_qkv, num_positions, n_head * n_batch);
+        q = ggml_reshape_3d(ctx0, q, n_head_qkv, n_positions, n_head * n_batch);
 
         ggml_tensor * k = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].k_w, cur), model.layers[il].k_b);
-        k = ggml_reshape_4d(ctx0, k, n_head_qkv, n_head, num_positions, n_batch);
+        k = ggml_reshape_4d(ctx0, k, n_head_qkv, n_head, n_positions, n_batch);
         k = ggml_cont(ctx0, ggml_permute(ctx0, k, 0, 2, 1, 3));
-        k = ggml_reshape_3d(ctx0, k, n_head_qkv, num_positions, n_head * n_batch);
+        k = ggml_reshape_3d(ctx0, k, n_head_qkv, n_positions, n_head * n_batch);
 
         ggml_tensor * v = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].v_w, cur), model.layers[il].v_b);
-        v = ggml_reshape_4d(ctx0, v, n_head_qkv, n_head, num_positions, n_batch);
+        v = ggml_reshape_4d(ctx0, v, n_head_qkv, n_head, n_positions, n_batch);
         v = ggml_cont(ctx0, ggml_permute(ctx0, v, 1, 2, 0, 3));
-        v = ggml_reshape_3d(ctx0, v, num_positions, n_head_qkv, n_head * n_batch);
+        v = ggml_reshape_3d(ctx0, v, n_positions, n_head_qkv, n_head * n_batch);
 
         ggml_tensor * kq = ggml_mul_mat(ctx0, k, q);
         kq = ggml_soft_max_inplace(ctx0, kq);
         ggml_tensor * kqv = ggml_mul_mat(ctx0, v, kq);
-        kqv = ggml_reshape_4d(ctx0, kqv, n_head_qkv, num_positions, n_head, n_batch);
+        kqv = ggml_reshape_4d(ctx0, kqv, n_head_qkv, n_positions, n_head, n_batch);
         kqv = ggml_permute(ctx0, kqv, 0, 2, 1, 3);
 
-        cur = ggml_cont_3d(ctx0, kqv, n_embd, num_positions, n_batch);
+        cur = ggml_cont_3d(ctx0, kqv, n_embd, n_positions, n_batch);
         cur = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].o_w, cur), model.layers[il].o_b);
         // Add the residual.
         cur = ggml_add(ctx0, cur, embeddings);
@@ -240,7 +242,7 @@ static ggml_cgraph * mmproj_build_clip(
     // NOTE: the `patches` tensor can be used to select the patch features corresponding
     // to an image feature, but this requires the input to be batched with the image and patches
     // concatenated along the batch dimension.
-    ggml_tensor *patches = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_patches);
+    ggml_tensor * patches = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, num_patches);
     ggml_set_name(patches, "patches");
     ggml_set_input(patches);
     // TODO: this is an input tensor so its values have to be set after sched alloc,
@@ -277,6 +279,15 @@ bool moondream_mmproj_context_init(
     mctx.n_patches = mctx.n_patches_per_side * mctx.n_patches_per_side;
     // NOTE: n_positions should be (mctx.n_patches + 1) if there is a class embedding.
     mctx.n_positions = mctx.n_patches;
+    mctx.positions_storage = (int32_t *)malloc(sizeof(int32_t) * mctx.n_positions);
+    if (!mctx.positions_storage) {
+        printf("Failed to allocate memory for moondream_mmproj_batch postions buffer\n");
+        return false;
+    }
+    for (int i = 0; i < mctx.n_positions; ++i) {
+        mctx.positions_storage[i] = (int32_t)i;
+    }
+
     mctx.n_output_elements = mctx.n_patches * hparams.n_proj;
     mctx.output_buffer = (float *)malloc(sizeof(float) * mctx.n_output_elements);
     if (!mctx.output_buffer) {
@@ -560,8 +571,7 @@ bool moondream_mmproj_embed(
     ggml_backend_tensor_set(
         mctx.inp_raw, batch.patch_data, 0, batch.n_scalars * ggml_element_size(mctx.inp_raw));
     ggml_backend_tensor_set(
-        mctx.positions, batch.pos, 0, batch.n_positions * ggml_element_size(mctx.positions));
-    printf("WARNING: moondream_mmproj_context.positions values were not initialized!\n");
+        mctx.positions, mctx.positions_storage, 0, mctx.n_positions * ggml_element_size(mctx.positions));
 
     const enum ggml_status compute_status = ggml_backend_sched_graph_compute(mctx.sched, gf);
     if (compute_status != GGML_STATUS_SUCCESS) {

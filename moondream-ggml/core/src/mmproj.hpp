@@ -83,6 +83,11 @@ struct moondream_mmproj_context {
     std::vector<uint8_t> compute_buffer;
     ggml_backend_sched_t sched = nullptr;
     float * output_buffer = nullptr;
+    // Positions are stored here and copied to the positions tensor each time
+    // moondream_mmproj_embed() is called.
+    // TODO: maybe they can just be stored in the positions tensor if the backend
+    // isn't destroyed between calls.
+    int32_t * positions_storage = nullptr;
 };
 
 struct moondream_mmproj_batch {
@@ -90,8 +95,6 @@ struct moondream_mmproj_batch {
     int n_scalars; // height * width * channels * batch
     int image_side_length;
     float * patch_data = nullptr; // Images of the form HWCN.
-    void * pos; // TODO: not implemented
-    int n_positions; // TODO: not implemented
 };
 
 bool moondream_mmproj_context_init(
