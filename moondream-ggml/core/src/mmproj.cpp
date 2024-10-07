@@ -818,38 +818,3 @@ bool moondream_mmproj_load_image_to_batch(const char * img_path, moondream_mmpro
     free_patch_set(patch_set);
     return true;
 }
-
-struct mmproj_image_downsample_buffer {
-    int n_channels = 0;
-    int n_data_elements = 0;
-    float * inter_image = nullptr;
-    float * final_image = nullptr;
-};
-
-bool mmproj_image_downsample_buffer_init(mmproj_image_downsample_buffer & buf, int n_channels) {
-    buf.n_channels = n_channels;
-    constexpr int n_spatial_elements = MOONDREAM_MAX_IMAGE_SIDE_LENGTH * MOONDREAM_MAX_IMAGE_SIDE_LENGTH;
-    buf.n_data_elements = n_spatial_elements * buf.n_channels;
-    buf.inter_image = (float *)calloc(buf.n_data_elements, sizeof(float));
-    if (!buf.inter_image) {
-        printf("failed to allocate memory for mmproj_image_downsample_buffer.inter_image\n");
-        return false;
-    }
-    buf.final_image = (float *)calloc(buf.n_data_elements, sizeof(float));
-    if (!buf.final_image) {
-        printf("failed to allocate memory for mmproj_image_downsample_buffer.final_image\n");
-        return false;
-    }
-    return true;
-}
-
-void mmproj_image_downsample_buffer_free(mmproj_image_downsample_buffer &buf) {
-    if (buf.inter_image) {
-        free(buf.inter_image);
-        buf.inter_image = nullptr;
-    }
-    if (buf.final_image) {
-        free(buf.final_image);
-        buf.final_image = nullptr;
-    }
-}
