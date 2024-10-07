@@ -198,6 +198,14 @@ static ggml_cgraph * mmproj_build_clip(
             ggml_row_size(embeddings->type, embeddings->ne[2]),
             ggml_row_size(embeddings->type, embeddings->ne[3]),
             ggml_row_size(embeddings->type, full_img_features->ne[0] * full_img_features->ne[1]) /* offset */);
+        patch_features = ggml_cont(ctx0, ggml_permute(ctx0, patch_features, 0, 2, 1, 3));
+        printf(
+            "patch_features shape: (%d, %d, %d, %d)\n",
+            patch_features->ne[0], patch_features->ne[1],
+            patch_features->ne[2], patch_features->ne[3]);
+        patch_features = ggml_reshape_4d(
+            ctx0, patch_features,
+            patch_features->ne[0], patch_features->ne[1], n_patches_per_side, n_patches_per_side);
         printf(
             "patch_features shape: (%d, %d, %d, %d)\n",
             patch_features->ne[0], patch_features->ne[1],
