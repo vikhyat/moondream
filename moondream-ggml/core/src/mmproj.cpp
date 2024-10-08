@@ -190,26 +190,30 @@ static ggml_cgraph * mmproj_build_clip(
     printf(
         "full_img_features shape: (%d, %d, %d, %d)\n",
         full_img_features->ne[0], full_img_features->ne[1], full_img_features->ne[2], full_img_features->ne[3]);
-    if (embeddings->ne[0] > 1) {
-        ggml_tensor * patch_features = ggml_view_4d(
-            ctx0, embeddings,
-            embeddings->ne[0] - 1, embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
-            ggml_row_size(embeddings->type, embeddings->ne[1]),
-            ggml_row_size(embeddings->type, embeddings->ne[2]),
-            ggml_row_size(embeddings->type, embeddings->ne[3]),
-            ggml_row_size(embeddings->type, full_img_features->ne[0] * full_img_features->ne[1]) /* offset */);
-        patch_features = ggml_cont(ctx0, ggml_permute(ctx0, patch_features, 0, 2, 1, 3));
-        printf(
-            "patch_features shape: (%d, %d, %d, %d)\n",
-            patch_features->ne[0], patch_features->ne[1],
-            patch_features->ne[2], patch_features->ne[3]);
-        patch_features = ggml_reshape_4d(
-            ctx0, patch_features,
-            patch_features->ne[0], patch_features->ne[1], n_patches_per_side, n_patches_per_side);
-        printf(
-            "patch_features shape: (%d, %d, %d, %d)\n",
-            patch_features->ne[0], patch_features->ne[1],
-            patch_features->ne[2], patch_features->ne[3]);
+
+    const int n_outer_patches = embeddings->ne[0] - 1;
+    if (n_outer_patches) {
+        ggml_tensor * patch_features[n_outer_patches];
+        const size_t outer_patch_stride = ggml_row_size(
+            embeddings->type, full_img_features->ne[0] * full_img_features->ne[1]);
+        for (int i = 0; i < n_outer_patches; ++i) {
+            patch_features[i] = ggml_view_3d(
+                ctx0, embeddings,
+                embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
+                ggml_row_size(embeddings->type, embeddings->ne[2]),
+                ggml_row_size(embeddings->type, embeddings->ne[3]),
+                outer_patch_stride * i);
+            patch_features[i] = ggml_cont(ctx0, ggml_permute(ctx0, patch_features[i], 1, 0, 2, 3));
+            printf(
+                "patch_features %d shape: (%d, %d, %d, %d)\n", i,
+                patch_features[i]->ne[0], patch_features[i]->ne[1], patch_features[i]->ne[2], patch_features[i]->ne[3]);
+            patch_features[i] = ggml_reshape_3d(
+                ctx0, patch_features[i],
+                patch_features[i]->ne[0], n_patches_per_side, n_patches_per_side);
+            printf(
+                "patch_features %d shape: (%d, %d, %d, %d)\n", i,
+                patch_features[i]->ne[0], patch_features[i]->ne[1], patch_features[i]->ne[2], patch_features[i]->ne[3]);
+        }
     }
 
     // NOTE: commented this out because tensor_split_3d() causes segfault on graph build.
