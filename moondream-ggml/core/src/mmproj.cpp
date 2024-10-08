@@ -11,36 +11,6 @@
 #include "mmproj.hpp"
 #include "patch.hpp"
 
-ggml_tensor * tensor_split_3d(ggml_context * ctx, ggml_tensor * input, size_t start_idx, size_t end_idx) {
-    assert(input->type == GGML_TYPE_F32);
-
-    size_t D1 = input->ne[0];
-    size_t D2 = input->ne[1];
-    size_t D3 = input->ne[2];
-
-    size_t slice_size = end_idx - start_idx; // Size of the slice along the 3rd dimension
-
-    // Create a new tensor for the slice with dimensions [D1, D2, slice_size]
-    ggml_tensor * sliced_tensor = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, D1, D2, slice_size);
-
-    // Manually copy the slice
-    float * dest = (float *)sliced_tensor->data;
-    float * src = (float *)input->data;
-
-    for (size_t i = 0; i < D1; ++i) {
-        for (size_t j = 0; j < D2; ++j) {
-            // Can't memcpy here because input and sliced_tensor don't have memory allocated for data.
-            // Need to use a ggml copy function to build data movement into the graph.
-            std::memcpy(
-                &dest[(i * D2 + j) * slice_size],
-                &src[(i * D2 + j) * D3 + start_idx],
-                slice_size * sizeof(float) // Assuming float32 type
-            );
-        }
-    }
-    return sliced_tensor;
-}
-
 // Modification of llama.cpp/examples/llava/clip.pp clip_image_build_graph.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4   c0afd4fab3/examples/llava/clip.cpp
 static ggml_cgraph * mmproj_build_clip(
@@ -227,7 +197,6 @@ static ggml_cgraph * mmproj_build_clip(
                 "row_features %d shape: (%d, %d, %d, %d)\n", row,
                 row_features[row]->ne[0], row_features[row]->ne[1], row_features[row]->ne[2], row_features[row]->ne[3]);
         }
-
         ggml_tensor * merged_patch_features = row_features[0];
         for (int row = 1; row < n_outer_patch_rows; ++row) {
             merged_patch_features = ggml_concat(ctx0, merged_patch_features, row_features[row], 1);
@@ -237,14 +206,6 @@ static ggml_cgraph * mmproj_build_clip(
             merged_patch_features->ne[0], merged_patch_features->ne[1],
             merged_patch_features->ne[2], merged_patch_features->ne[3]);
     }
-
-    // NOTE: commented this out because tensor_split_3d() causes segfault on graph build.
-    /*ggml_tensor *full_img_features = tensor_split_3d(ctx0, embeddings, 0, 1);
-    ggml_tensor *patch_features = nullptr;
-    if (num_patches > 0)
-    {
-        patch_features = tensor_split_3d(ctx0, embeddings, 1, num_patches);
-    }*/
 
     // TODO: merge patch features and concatenate with image features.
     // The concatenated features will then be passed as input to the projector.
