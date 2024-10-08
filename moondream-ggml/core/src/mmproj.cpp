@@ -192,7 +192,7 @@ static ggml_cgraph * mmproj_build_clip(
         full_img_features->ne[0], full_img_features->ne[1], full_img_features->ne[2], full_img_features->ne[3]);
 
     const int n_outer_patches = embeddings->ne[0] - 1;
-    if (n_outer_patches) {
+    if (n_outer_patches > 0) {
         ggml_tensor * patch_features[n_outer_patches];
         const size_t outer_patch_stride = ggml_row_size(
             embeddings->type, full_img_features->ne[0] * full_img_features->ne[1]);
@@ -214,6 +214,28 @@ static ggml_cgraph * mmproj_build_clip(
                 "patch_features %d shape: (%d, %d, %d, %d)\n", i,
                 patch_features[i]->ne[0], patch_features[i]->ne[1], patch_features[i]->ne[2], patch_features[i]->ne[3]);
         }
+
+        const int n_outer_patch_rows = 2;
+        const int n_outer_patch_cols = 2;
+        ggml_tensor * row_features[n_outer_patch_rows];
+        for (int row = 0; row < n_outer_patch_rows; ++row) {
+            row_features[row] = patch_features[row * n_outer_patch_cols];
+            for (int col = 1; col < n_outer_patch_cols; ++col) {
+                row_features[row] = ggml_concat(ctx0, row_features[row], patch_features[row * n_outer_patch_cols + col], 2);
+            }
+            printf(
+                "row_features %d shape: (%d, %d, %d, %d)\n", row,
+                row_features[row]->ne[0], row_features[row]->ne[1], row_features[row]->ne[2], row_features[row]->ne[3]);
+        }
+
+        ggml_tensor * merged_patch_features = row_features[0];
+        for (int row = 1; row < n_outer_patch_rows; ++row) {
+            merged_patch_features = ggml_concat(ctx0, merged_patch_features, row_features[row], 1);
+        }
+        printf(
+            "merged_patch_features shape: (%d, %d, %d, %d)\n",
+            merged_patch_features->ne[0], merged_patch_features->ne[1],
+            merged_patch_features->ne[2], merged_patch_features->ne[3]);
     }
 
     // NOTE: commented this out because tensor_split_3d() causes segfault on graph build.
