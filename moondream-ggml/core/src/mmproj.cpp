@@ -176,13 +176,15 @@ static ggml_cgraph * mmproj_build_clip(
             patch_features[i] = ggml_cont(ctx0, ggml_permute(ctx0, patch_features[i], 1, 0, 2, 3));
             printf(
                 "patch_features %d shape: (%d, %d, %d, %d)\n", i,
-                patch_features[i]->ne[0], patch_features[i]->ne[1], patch_features[i]->ne[2], patch_features[i]->ne[3]);
+                patch_features[i]->ne[0], patch_features[i]->ne[1],
+                patch_features[i]->ne[2], patch_features[i]->ne[3]);
             patch_features[i] = ggml_reshape_3d(
                 ctx0, patch_features[i],
                 patch_features[i]->ne[0], n_patches_per_side, n_patches_per_side);
             printf(
                 "patch_features %d shape: (%d, %d, %d, %d)\n", i,
-                patch_features[i]->ne[0], patch_features[i]->ne[1], patch_features[i]->ne[2], patch_features[i]->ne[3]);
+                patch_features[i]->ne[0], patch_features[i]->ne[1],
+                patch_features[i]->ne[2], patch_features[i]->ne[3]);
         }
 
         const int n_outer_patch_rows = 2;
@@ -191,96 +193,55 @@ static ggml_cgraph * mmproj_build_clip(
         for (int row = 0; row < n_outer_patch_rows; ++row) {
             row_features[row] = patch_features[row * n_outer_patch_cols];
             for (int col = 1; col < n_outer_patch_cols; ++col) {
-                row_features[row] = ggml_concat(ctx0, row_features[row], patch_features[row * n_outer_patch_cols + col], 2);
+                row_features[row] = ggml_concat(
+                    ctx0, row_features[row], patch_features[row * n_outer_patch_cols + col], 2);
             }
             printf(
                 "row_features %d shape: (%d, %d, %d, %d)\n", row,
-                row_features[row]->ne[0], row_features[row]->ne[1], row_features[row]->ne[2], row_features[row]->ne[3]);
+                row_features[row]->ne[0], row_features[row]->ne[1],
+                row_features[row]->ne[2], row_features[row]->ne[3]);
         }
         ggml_tensor * merged_patch_features = row_features[0];
         for (int row = 1; row < n_outer_patch_rows; ++row) {
             merged_patch_features = ggml_concat(ctx0, merged_patch_features, row_features[row], 1);
         }
+
         printf(
-            "merged_patch_features shape: (%d, %d, %d, %d)\n",
+            "merged_patch_features 1 shape: (%d, %d, %d, %d)\n",
             merged_patch_features->ne[0], merged_patch_features->ne[1],
             merged_patch_features->ne[2], merged_patch_features->ne[3]);
+        merged_patch_features = ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3);
+        // TODO: replace with bilinear downsample.
+        merged_patch_features = ggml_pool_2d(
+            ctx0, merged_patch_features,
+            GGML_OP_POOL_AVG,
+            2, 2, /* kernel height & width */
+            2, 2, /* stride height & width */
+            0, 0  /* padding height & width */
+        );
+        merged_patch_features = ggml_cont(ctx0, ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3));
+        printf(
+            "merged_patch_features 2 shape: (%d, %d, %d, %d)\n",
+            merged_patch_features->ne[0], merged_patch_features->ne[1],
+            merged_patch_features->ne[2], merged_patch_features->ne[3]);
+        merged_patch_features = ggml_reshape_3d(
+            ctx0, merged_patch_features, n_patches, merged_patch_features->ne[0], 1);
+        printf(
+            "merged_patch_features 3 shape: (%d, %d, %d, %d)\n",
+            merged_patch_features->ne[0], merged_patch_features->ne[1],
+            merged_patch_features->ne[2], merged_patch_features->ne[3]);
+        embeddings = ggml_concat(ctx0, full_img_features, merged_patch_features, 1);
+    } else {
+        // TODO: figure out if full_img_features is supposed to be concatenated with itself
+        // so that both branches produce the same shape.
+        embeddings = full_img_features;
     }
+    embeddings = ggml_cont(ctx0, embeddings);
+    printf(
+        "final embeddings shape: (%d, %d, %d, %d)\n",
+        embeddings->ne[0], embeddings->ne[1],
+        embeddings->ne[2], embeddings->ne[3]);
 
-    // TODO: merge patch features and concatenate with image features.
-    // The concatenated features will then be passed as input to the projector.
-    // REF:
-    /*
-
-        combined_features = self.encoder(combined_images)
-
-        full_img_features = combined_features[: len(im_list)]
-        patch_features = (
-            combined_features[len(im_list) :].transpose(1, 2).view(-1, 1152, 27, 27)
-        )
-
-        reshaped_patch_features = []
-        patch_idx = 0
-        for i, patch_set in enumerate(patches): ### THIS IS FOR BATCHES - IGNORE FOR HERE
-            if len(patch_set) == 0:
-                reshaped_patch_features.append(
-                    full_img_features[i].transpose(0, 1).view(1152, 27, 27)
-                )
-            else:
-                sample_features = []
-                for row_patches in patch_set:
-                    row_len = len(row_patches)
-                    row_features = patch_features[
-                        patch_idx : patch_idx + row_len
-                    ]  # row_len, T, C
-                    row_features = torch.cat(
-                        list(row_features), dim=2
-                    )  # T, C * row_len
-                    patch_idx += row_len
-                    sample_features.append(row_features)
-                sample_features = torch.cat(sample_features, dim=1)
-                sample_features = F.interpolate( ### CHANGED TO ADAPTIVE AVG POOL
-                    sample_features.unsqueeze(0), size=(27, 27), mode="bilinear"
-                ).squeeze(0)
-                reshaped_patch_features.append(sample_features)
-        reshaped_patch_features = (
-            torch.stack(reshaped_patch_features).view(-1, 1152, 729).transpose(1, 2)
-        )
-
-        final_features = torch.cat([full_img_features, reshaped_patch_features], dim=2)
-    */
-    //
-    // JPA TODO: implement custom GGML function to merge/reassemble patch embeddings from original image
-    //
-    // 3x729x1152 tensor (729 => 27x27). 27 = sqrt(729)
-    //
-    // tensor is either 1 dim, 3 dim or 5 dim.
-    // 1 dim tensor => just use that
-    // 3 dim tensor => 1st is image, next two are either a row or a col
-    // 5 dim tensor => 1st is image, the next 4 are topLeft, topRight, botLeft, BotRight patches
-    //
-    // create new tensor made up of:
-    // 1. The first patch (which is the of the entire image)
-    // 2. The adaptive average pool of the rest of the patches
-    //
-    // shape will be (27x27)x(1152+2), or 729x2304
-
-    // DEBUGGING: SIGABRT here
-    // Probably because the reshape doesn't account for the batch dimension
-    embeddings = ggml_reshape_2d(ctx0, embeddings, embeddings->ne[0], embeddings->ne[1]);
-
-    // NOTE: the `patches` tensor can be used to select the patch features corresponding
-    // to an image feature, but this requires the input to be batched with the image and patches
-    // concatenated along the batch dimension.
-    ggml_tensor * patches = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_patches);
-    ggml_set_name(patches, "patches");
-    ggml_set_input(patches);
-    // TODO: this is an input tensor so its values have to be set after sched alloc,
-    // but there's no point in doing that until batching and image/patch feature
-    // merging is implemented because the output will still likely be nonsense to the LM.
-    mctx.inp_patches = patches;
-
-    embeddings = ggml_get_rows(ctx0, embeddings, patches);
     if (hparams.proj_type == PROJECTOR_TYPE_MLP) {
         embeddings = ggml_mul_mat(ctx0, model.mm_0_w, embeddings);
         embeddings = ggml_add(ctx0, embeddings, model.mm_0_b);
