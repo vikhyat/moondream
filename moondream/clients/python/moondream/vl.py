@@ -1,5 +1,9 @@
+import os
+
+from typing import List, Union
 from PIL import Image
-from typing import Union, List
+
+from .ggml.load import load_weights
 
 
 class EncodedImage:
@@ -21,7 +25,12 @@ class VL:
         Returns:
             None
         """
-        pass
+        if not os.path.isfile(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+
+        # Load the model weights
+        self.model = load_weights(model_path)
+        print(list(self.model.keys()))
 
     def encode_image(self, image: Image.Image) -> EncodedImage:
         """

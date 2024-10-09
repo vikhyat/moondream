@@ -2,6 +2,7 @@ import struct
 import ggml
 import ctypes
 
+from typing import Dict
 from enum import IntEnum
 from functools import reduce
 from collections import OrderedDict
@@ -99,7 +100,7 @@ def read_value(fin, v_type):
         return value
 
 
-def load_weights(gguf_file):
+def load_weights(gguf_file: str) -> Dict[str, ggml.ggml_tensor_p]:
     with open(gguf_file, "rb") as fin:
         (magic,) = struct.unpack("i", (fin.read(struct.calcsize("i"))))
         assert magic == GGUF_MAGIC
