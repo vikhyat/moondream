@@ -1,4 +1,4 @@
-from moondream import Moondream, detect_device, LATEST_REVISION
+from moondream.hf import Moondream, detect_device, LATEST_REVISION
 from transformers import AutoTokenizer
 from PIL import Image
 

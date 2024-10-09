@@ -1,7 +1,7 @@
 import torch
 import argparse
 from PIL import Image
-from moondream import Moondream, detect_device, LATEST_REVISION
+from moondream.hf import Moondream, detect_device, LATEST_REVISION
 from queue import Queue
 from threading import Thread
 from transformers import TextIteratorStreamer, AutoTokenizer

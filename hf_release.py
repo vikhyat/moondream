@@ -1,6 +1,6 @@
 import torch
-from moondream import Moondream
-from moondream.configuration_moondream import MoondreamConfig
+from moondream.hf import Moondream
+from moondream.hf.configuration_moondream import MoondreamConfig
 
 MoondreamConfig.register_for_auto_class()
 Moondream.register_for_auto_class("AutoModelForCausalLM")

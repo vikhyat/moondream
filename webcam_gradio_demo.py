@@ -2,7 +2,7 @@ import argparse
 import torch
 import time
 import gradio as gr
-from moondream import detect_device, LATEST_REVISION
+from moondream.hf import detect_device, LATEST_REVISION
 from threading import Thread
 from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
 
@@ -46,6 +46,7 @@ def answer_question(img, prompt):
     for new_text in streamer:
         buffer += new_text
         yield buffer
+
 
 with gr.Blocks() as demo:
     gr.Markdown("# 🌔 moondream")

@@ -20,15 +20,13 @@ from tqdm import tqdm
 import json
 from PIL import Image
 from transformers import AutoTokenizer
-from .. import Moondream, detect_device
+from ..hf import Moondream, detect_device
 
 BATCH_SIZE = 16
 DEVICE, DTYPE = detect_device()
 
 model_id = "vikhyatk/moondream2"
-tokenizer = AutoTokenizer.from_pretrained(
-    model_id, trust_remote_code=True
-)
+tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
 model = Moondream.from_pretrained(
     model_id,
     attn_implementation="flash_attention_2",

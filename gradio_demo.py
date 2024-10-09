@@ -1,7 +1,7 @@
 import argparse
 import torch
 import gradio as gr
-from moondream import detect_device, LATEST_REVISION, Moondream
+from moondream.hf import detect_device, LATEST_REVISION, Moondream
 from threading import Thread
 from transformers import TextIteratorStreamer, AutoTokenizer
 from PIL import ImageDraw

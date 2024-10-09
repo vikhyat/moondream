@@ -1,14 +1,12 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
 from tqdm import tqdm
-from .. import detect_device
+from ..hf import detect_device
 
 MODEL_ID = "vikhyatk/moondream2"
 DEVICE, DTYPE = detect_device()
 
-tokenizer = AutoTokenizer.from_pretrained(
-    MODEL_ID, trust_remote_code=True
-)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
 moondream = AutoModelForCausalLM.from_pretrained(
     MODEL_ID,
     trust_remote_code=True,
