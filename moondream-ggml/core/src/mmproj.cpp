@@ -211,6 +211,7 @@ static ggml_cgraph * mmproj_build_clip(
             merged_patch_features->ne[0], merged_patch_features->ne[1],
             merged_patch_features->ne[2], merged_patch_features->ne[3]);
         merged_patch_features = ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3);
+        merged_patch_features = ggml_map_custom1(ctx0, merged_patch_features, log_tensor, 1, NULL);
         // TODO: replace with bilinear downsample.
         merged_patch_features = ggml_pool_2d(
             ctx0, merged_patch_features,
