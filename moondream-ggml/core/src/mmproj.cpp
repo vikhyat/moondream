@@ -157,7 +157,7 @@ static ggml_cgraph * mmproj_build_clip(
     ggml_tensor * full_img_features = ggml_view_3d(
         ctx0, embeddings,
         embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
-        ggml_row_size(embeddings->type, embeddings->ne[2]),
+        ggml_row_size(embeddings->type, embeddings->ne[2] * embeddings->ne[3]),
         ggml_row_size(embeddings->type, embeddings->ne[3]), 0);
     printf(
         "full_img_features shape: (%d, %d, %d, %d)\n",
@@ -172,7 +172,7 @@ static ggml_cgraph * mmproj_build_clip(
             patch_features[i] = ggml_view_3d(
                 ctx0, embeddings,
                 embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
-                ggml_row_size(embeddings->type, embeddings->ne[2]),
+                ggml_row_size(embeddings->type, embeddings->ne[2] * embeddings->ne[3]),
                 ggml_row_size(embeddings->type, embeddings->ne[3]),
                 outer_patch_stride * i);
             patch_features[i] = ggml_cont(ctx0, ggml_permute(ctx0, patch_features[i], 1, 0, 2, 3));
