@@ -91,10 +91,13 @@ struct moondream_mmproj_context {
 };
 
 struct moondream_mmproj_batch {
+    int n_outer_patches;
+    int n_outer_patch_rows;
+    int n_outer_patch_cols;
     int n_batch; // 1 (full image) + n (image patches), n is in the range 0 to 4.
     int n_scalars; // height * width * channels * batch
     int image_side_length;
-    float * patch_data = nullptr; // Images of the form HWCN.
+    float * data = nullptr; // Images of the form HWCN.
 };
 
 bool moondream_mmproj_context_init(

@@ -4,14 +4,14 @@
 
 #define MAX_PATCHES 5
 
-struct moondream_patch
-{
+struct moondream_patch {
     float * data;
 };
 
-struct moondream_patch_set
-{
+struct moondream_patch_set {
     int count;
+    int n_rows;
+    int n_cols;
     moondream_patch patches[MAX_PATCHES];
 };
 

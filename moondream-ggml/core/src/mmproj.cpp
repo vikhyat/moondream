@@ -20,6 +20,9 @@ static ggml_cgraph * mmproj_build_clip(
 ) {
     moondream_mmproj_hparams & hparams = model.hparams;
     const int n_batch = batch.n_batch;
+    const int n_outer_patches = batch.n_outer_patches;
+    const int n_outer_patch_rows = batch.n_outer_patch_rows;
+    const int n_outer_patch_cols = batch.n_outer_patch_cols;
     //const int n_batch = 1; // temporarily set to 1 until reshapes support greater than 1
     const int image_size = hparams.image_size;
     const int patch_size = hparams.patch_size;
@@ -46,8 +49,7 @@ static ggml_cgraph * mmproj_build_clip(
     mctx.inp_raw = inp_raw;
     printf(
         "inp_raw shape: (%d, %d, %d, %d)\n",
-        inp_raw->ne[0], inp_raw->ne[1], inp_raw->ne[2], inp_raw->ne[3]
-    );
+        inp_raw->ne[0], inp_raw->ne[1], inp_raw->ne[2], inp_raw->ne[3]);
 
     // Reference python code
     //   def __init__(self):
@@ -161,7 +163,7 @@ static ggml_cgraph * mmproj_build_clip(
         "full_img_features shape: (%d, %d, %d, %d)\n",
         full_img_features->ne[0], full_img_features->ne[1], full_img_features->ne[2], full_img_features->ne[3]);
 
-    const int n_outer_patches = embeddings->ne[0] - 1;
+    assert(embeddings->ne[0] - 1 == n_outer_patches);
     if (n_outer_patches > 0) {
         ggml_tensor * patch_features[n_outer_patches];
         const size_t outer_patch_stride = ggml_row_size(
@@ -187,8 +189,6 @@ static ggml_cgraph * mmproj_build_clip(
                 patch_features[i]->ne[2], patch_features[i]->ne[3]);
         }
 
-        const int n_outer_patch_rows = 2;
-        const int n_outer_patch_cols = 2;
         ggml_tensor * row_features[n_outer_patch_rows];
         for (int row = 0; row < n_outer_patch_rows; ++row) {
             row_features[row] = patch_features[row * n_outer_patch_cols];
@@ -319,7 +319,10 @@ bool moondream_mmproj_context_init(
 
     // Initialize scheduler with worst case graph.
     moondream_mmproj_batch batch;
-    batch.n_batch = 1 + MOONDREAM_MAX_IMAGE_PATCHES;
+    batch.n_outer_patches = MOONDREAM_MAX_IMAGE_PATCHES;
+    batch.n_outer_patch_rows = MOONDREAM_MAX_OUTER_PATCH_ROWS;
+    batch.n_outer_patch_cols = MOONDREAM_MAX_OUTER_PATCH_COLS;
+    batch.n_batch = 1 + batch.n_outer_patches;
     ggml_cgraph * gf = mmproj_build_clip(model, batch, mctx);
     if (!gf) {
         printf("failed to build mmproj compute graph\n");
@@ -574,7 +577,7 @@ bool moondream_mmproj_embed(
     }
 
     ggml_backend_tensor_set(
-        mctx.inp_raw, batch.patch_data, 0, batch.n_scalars * ggml_element_size(mctx.inp_raw));
+        mctx.inp_raw, batch.data, 0, batch.n_scalars * ggml_element_size(mctx.inp_raw));
     ggml_backend_tensor_set(
         mctx.positions, mctx.positions_storage, 0, mctx.n_positions * ggml_element_size(mctx.positions));
 
@@ -603,8 +606,8 @@ bool moondream_mmproj_batch_init(moondream_mmproj_batch & batch) {
         MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS;
     constexpr int n_batch_max = 1 + MOONDREAM_N_IMAGE_CHANNELS;
     constexpr int n_elements_max = n_batch_max * n_elements_per_image;
-    batch.patch_data = (float *)malloc(sizeof(float) * n_elements_max);
-    if (!batch.patch_data) {
+    batch.data = (float *)malloc(sizeof(float) * n_elements_max);
+    if (!batch.data) {
         printf("Failed to allocate memory for moondream_mmproj_batch data buffer\n");
         return false;
     }
@@ -614,13 +617,13 @@ bool moondream_mmproj_batch_init(moondream_mmproj_batch & batch) {
 }
 
 void moondream_mmproj_batch_free(moondream_mmproj_batch & batch) {
-    if (batch.patch_data) {
-        free(batch.patch_data);
-        batch.patch_data = nullptr;
+    if (batch.data) {
+        free(batch.data);
+        batch.data = nullptr;
     }
 }
 
-void find_target_image_size(moondream_image_alt_u8 & image, int & target_width, int & target_height) {
+static void find_target_image_size(moondream_image_alt_u8 & image, int & target_width, int & target_height) {
 
     // Reference python code:
     //
@@ -676,29 +679,32 @@ bool patches_to_batch(
     constexpr size_t n_patch_elements =
         MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS;
     size_t patch_byte_size = n_patch_elements * sizeof(float);
-    batch.n_batch = patch_set.count + 1;
-    if (batch.patch_data == nullptr) {
-        printf("failed to allocate memory for moondream_mmproj_batch patch_data\n");
+    batch.n_outer_patch_rows = patch_set.n_rows;
+    batch.n_outer_patch_cols = patch_set.n_cols;
+    batch.n_outer_patches = patch_set.count;
+    batch.n_batch = batch.n_outer_patches + 1;
+    assert(batch.n_outer_patch_rows * batch.n_outer_patch_cols == batch.n_outer_patches);
+    if (batch.data == nullptr) {
+        printf("failed to allocate memory for moondream_mmproj_batch data\n");
         return false;
     }
-    memcpy(batch.patch_data, image.data, patch_byte_size);
+    memcpy(batch.data, image.data, patch_byte_size);
 
     for (int i = 0; i < patch_set.count; ++i) {
         // offset should be in number of floats
         size_t offset = (i + 1) * n_patch_elements;
-        memcpy((void *)&batch.patch_data[offset], patch_set.patches[i].data, patch_byte_size);
+        memcpy((void *)&batch.data[offset], patch_set.patches[i].data, patch_byte_size);
     }
     return true;
 }
 
 bool moondream_mmproj_batch_save_to_pngs(moondream_mmproj_batch & batch) {
-    printf("n_batch %d\n", batch.n_batch);
     constexpr size_t side_length = MOONDREAM_IMAGE_PATCH_SIDE_LENGTH;
     constexpr size_t n_channels = MOONDREAM_N_IMAGE_CHANNELS;
     constexpr size_t n_patch_elements = side_length * side_length * n_channels;
     uint8_t * temp_image = (uint8_t *)malloc(sizeof(uint8_t) * n_patch_elements);
     for (int n = 0; n < batch.n_batch; ++n) {
-        float* cur_patch = &batch.patch_data[n * n_patch_elements];
+        float* cur_patch = &batch.data[n * n_patch_elements];
         for (int i = 0; i < n_patch_elements; ++i) {
             float de_normalized = (cur_patch[i] * 0.5f) + 0.5f;
             temp_image[i] = static_cast<uint8_t>(de_normalized * 255.0f);

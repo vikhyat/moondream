@@ -26,6 +26,8 @@ bool free_patch(moondream_patch & patch) {
 
 void init_patch_set(moondream_patch_set & patch_set) {
     patch_set.count = 0;
+    patch_set.n_rows = 0;
+    patch_set.n_cols = 0;
     for (int i = 0; i < MAX_PATCHES; ++i) {
         init_patch(patch_set.patches[i]);
     }
@@ -74,11 +76,15 @@ bool create_patches(moondream_image_alt_f32 & img_f32, moondream_patch_set & pat
     //     return patches
     //
 
+
+    patch_set.count = 0;
+    patch_set.n_rows = 0;
+    patch_set.n_cols = 0;
+
     if (
         MOONDREAM_IMAGE_PATCH_SIDE_LENGTH == img_f32.width
         && MOONDREAM_IMAGE_PATCH_SIDE_LENGTH == img_f32.height
     ) {
-        patch_set.count = 0;
         return true;
     }
 
@@ -92,6 +98,8 @@ bool create_patches(moondream_image_alt_f32 & img_f32, moondream_patch_set & pat
             // make_patch(img_f32, i, j, patch_set.patches[patch_index]);
             add_patch(patch_set, img_f32, i, j);
         }
+        ++patch_set.n_rows;
     }
+    patch_set.n_cols = patch_set.count / patch_set.n_rows;
     return true;
 }
