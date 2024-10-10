@@ -232,9 +232,7 @@ static ggml_cgraph * mmproj_build_clip(
             merged_patch_features->ne[2], merged_patch_features->ne[3]);
         embeddings = ggml_concat(ctx0, full_img_features, merged_patch_features, 1);
     } else {
-        // TODO: figure out if full_img_features is supposed to be concatenated with itself
-        // so that both branches produce the same shape.
-        embeddings = full_img_features;
+        embeddings = ggml_concat(ctx0, full_img_features, full_img_features, 1);
     }
     embeddings = ggml_cont(ctx0, embeddings);
     printf(
