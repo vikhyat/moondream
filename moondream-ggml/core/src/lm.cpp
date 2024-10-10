@@ -1251,6 +1251,12 @@ bool moondream_lm_decode(
         for (int i = 0; i < batch.n_tokens; ++i) {
             batch.pos[i] = mctx.n_ctx_active;
             ++mctx.n_ctx_active;
+            /*
+            for (int k = 0; k < batch.n_tokens; ++k) {
+                printf("%f ", batch.embd[i * 2048 + k]);
+            }
+            printf("\n");
+            */
         }
         lm_prefill_embeddings(mctx, model, batch, embd_dim);
         batch.token = temp_token;
@@ -1312,6 +1318,7 @@ bool moondream_lm_decode(
         }
     }
     printf("\n");
+    printf("final mctx.n_ctx_active %d\n", mctx.n_ctx_active);
     response = local_response;
     return true;
 }

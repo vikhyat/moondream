@@ -241,17 +241,9 @@ static ggml_cgraph * mmproj_build_clip(
         embeddings->ne[0], embeddings->ne[1],
         embeddings->ne[2], embeddings->ne[3]);
 
-    embeddings = ggml_view_2d(
-        ctx0, embeddings, embeddings->ne[0], embeddings->ne[1]/2,
-        ggml_row_size(embeddings->type, embeddings->ne[1]/2), 0);
+    // Permute embeddings so that the first axis matches that of the first MLP weight matrix.
+    // Shape: (2*n_patch_elements, n_patches)
     embeddings = ggml_cont(ctx0, ggml_permute(ctx0, embeddings, 1, 0, 2, 3));
-    printf(
-        "NOTE: This is a temporary view of the embeddings for compatibility with the projection MLP shape.\n");
-    printf(
-        "embeddings temp compat view shape: (%d, %d, %d, %d)\n",
-        embeddings->ne[0], embeddings->ne[1],
-        embeddings->ne[2], embeddings->ne[3]);
-
     if (hparams.proj_type == PROJECTOR_TYPE_MLP) {
         printf(
             "mm_0_w shape: (%d, %d, %d, %d)\n",
