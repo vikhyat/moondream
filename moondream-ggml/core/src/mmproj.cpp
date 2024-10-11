@@ -4,12 +4,49 @@
 #include <cmath>
 #include <limits>
 
+#include "ggml.h"
 #include "stb_image.h"
 #include "stb_image_write.h"
 #include "stb_image_resize2.h"
 #include "helpers.hpp"
 #include "mmproj.hpp"
 #include "patch.hpp"
+
+static void patch_bilinear_downsample_custom_op(
+    ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata
+) {
+    // Only run on the first thread for prototyping
+    if (ith != 0) {
+        int patch_in_height = src->ne[0];
+        int patch_in_width = src->ne[1];
+        int patch_out_height = src->ne[0] / 2;
+        int patch_out_width = src->ne[1] / 2;
+        ggml_context * ctx = (ggml_context *)userdata;
+        for (int row = 0; row < patch_out_height; ++row) {
+            for (int col = 0; col < patch_out_width; ++col) {
+                // TODO: replace with bilinear downsampling
+                ((float *)dst->data)[row * patch_out_width + col] =
+                    ((float *)src->data)[row * patch_out_width + col];
+            }
+        }
+    }
+}
+
+static ggml_tensor * patch_bilinear_downsample(ggml_context * ctx, ggml_tensor * src) {
+    ggml_tensor * dst = ggml_map_custom1(ctx, src, patch_bilinear_downsample_custom_op, 1, ctx);
+    int patch_out_height = src->ne[0] / 2;
+    int patch_out_width = src->ne[1] / 2;
+    printf("patch_out_height %d\n", patch_out_height);
+    printf("patch_out_width %d\n", patch_out_width);
+    printf(
+        "dst shape: (%d, %d, %d, %d)\n",
+        dst->ne[0], dst->ne[1], dst->ne[2], dst->ne[3]);
+    dst = ggml_view_3d(
+        ctx, dst, patch_out_height, patch_out_width, dst->ne[2],
+        ggml_row_size(dst->type, patch_out_height * patch_out_width),
+        ggml_row_size(dst->type, patch_out_width), 0);
+    return dst;
+}
 
 // Modification of llama.cpp/examples/llava/clip.pp clip_image_build_graph.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4   c0afd4fab3/examples/llava/clip.cpp
@@ -213,13 +250,14 @@ static ggml_cgraph * mmproj_build_clip(
         merged_patch_features = ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3);
         merged_patch_features = ggml_map_custom1(ctx0, merged_patch_features, log_tensor, 1, NULL);
         // TODO: replace with bilinear downsample.
-        merged_patch_features = ggml_pool_2d(
-            ctx0, merged_patch_features,
-            GGML_OP_POOL_AVG,
-            2, 2, /* kernel height & width */
-            2, 2, /* stride height & width */
-            0, 0  /* padding height & width */
-        );
+        //merged_patch_features = ggml_pool_2d(
+        //    ctx0, merged_patch_features,
+        //    GGML_OP_POOL_AVG,
+        //    2, 2, /* kernel height & width */
+        //    2, 2, /* stride height & width */
+        //    0, 0  /* padding height & width */
+        //);
+        merged_patch_features = patch_bilinear_downsample(ctx0, merged_patch_features);
         merged_patch_features = ggml_cont(ctx0, ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3));
         printf(
             "merged_patch_features 2 shape: (%d, %d, %d, %d)\n",
@@ -249,7 +287,6 @@ static ggml_cgraph * mmproj_build_clip(
             "mm_0_w shape: (%d, %d, %d, %d)\n",
             model.mm_0_w->ne[0], model.mm_0_w->ne[1],
             model.mm_0_w->ne[2], model.mm_0_w->ne[3]);
-        printf("%s\n", model.mm_0_w->name);
         embeddings = ggml_mul_mat(ctx0, model.mm_0_w, embeddings);
         embeddings = ggml_add(ctx0, embeddings, model.mm_0_b);
         embeddings = ggml_gelu(ctx0, embeddings);
