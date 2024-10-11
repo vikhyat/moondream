@@ -175,7 +175,7 @@ def load_from_safetensors(
                             weight=get_tensor(f"{prefix}.mlp.fc2.weight"),
                             bias=get_tensor(f"{prefix}.mlp.fc2.bias"),
                         ),
-                        act="gelu_new",
+                        act="gelu_approx",
                     ),
                 )
             )
