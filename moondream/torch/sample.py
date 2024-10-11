@@ -54,7 +54,7 @@ if __name__ == "__main__":
         dim=1,
     )
 
-    kv_cache = {}
+    kv_cache = torch.empty(24, 2, 1, 32, 0, 64, dtype=torch.float16)
     freqs_cis = precompute_freqs_cis(32, 2048)
 
     for _ in range(args.max_tokens):
@@ -78,7 +78,6 @@ if __name__ == "__main__":
 
             input_ids = next_token.unsqueeze(0)
             inputs_embeds = text_encoder(input_ids, model.text)
-            # print(inputs_embeds.shape)
 
             output_text = tokenizer.batch_decode(input_ids)[0]
             print(output_text, end="", flush=True)

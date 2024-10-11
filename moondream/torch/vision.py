@@ -122,11 +122,3 @@ def vision_encoder(input_BCHW: torch.Tensor, w: VisionModel):
     x = layer_norm(x, w.post_ln)
 
     return x
-
-
-if __name__ == "__main__":
-    torch.set_default_device("mps")
-    image = Image.open("assets/demo-1.jpg")
-    model_weights = load_from_safetensors("model.safetensors")
-    encoded_img = encode_image(image, model_weights.vision)
-    print(encoded_img.shape)

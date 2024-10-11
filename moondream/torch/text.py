@@ -35,8 +35,7 @@ def attn(
     x: torch.Tensor,
     w: AttentionWeights,
     freqs_cis: torch.Tensor,
-    layer_kv_cache: Optional[torch.Tensor],
-    i: int,
+    layer_kv_cache: torch.Tensor,
 ):
     bsz, q_len, d_model = x.shape
     pos = 0 if layer_kv_cache is None else layer_kv_cache.shape[3]
@@ -66,16 +65,15 @@ def attn(
 def text_decoder(
     inputs_embeds: torch.Tensor,
     w: TextModel,
-    kv_cache: Dict[int, torch.Tensor],
+    kv_cache: torch.Tensor,
     freqs_cis: torch.Tensor,
 ):
     hidden_BTC = inputs_embeds
+    new_kv_cache = [torch.empty(0)] * len(w.blocks)
 
     for i, block in enumerate(w.blocks):
         l_in = layer_norm(hidden_BTC, block.ln)
-        l_attn, kv_cache[i] = attn(
-            l_in, block.attn, freqs_cis, kv_cache.get(i, None), i
-        )
+        l_attn, new_kv_cache[i] = attn(l_in, block.attn, freqs_cis, kv_cache[i])
         l_mlp = mlp(l_in, block.mlp)
         hidden_BTC = hidden_BTC + l_attn + l_mlp
 
@@ -84,4 +82,4 @@ def text_decoder(
     hidden_BC = layer_norm(hidden_BC, w.post_ln)
     logits = linear(hidden_BC, w.lm_head)
 
-    return logits, kv_cache
+    return logits, torch.stack(new_kv_cache)
