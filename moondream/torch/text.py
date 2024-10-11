@@ -40,21 +40,18 @@ def attn(
 ):
     bsz, q_len, d_model = x.shape
     pos = 0 if layer_kv_cache is None else layer_kv_cache.shape[3]
-
     n_heads, head_dim = w.n_heads, d_model // w.n_heads
-    q, k, v = linear(x, w.qkv).chunk(3, dim=-1)
 
-    q = q.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-    k = k.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-    v = v.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
+    q, k, v = [
+        t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
+        for t in linear(x, w.qkv).chunk(3, dim=-1)
+    ]
 
     q_rot, q_pass = q.chunk(2, dim=-1)
     k_rot, k_pass = k.chunk(2, dim=-1)
-    q_rot, k_rot = apply_rotary_emb(
-        q_rot, k_rot, freqs_cis[pos : pos + q_len], torch.float32
-    )
-    q = torch.cat([q_rot, q_pass], dim=-1).to(torch.float16)
-    k = torch.cat([k_rot, k_pass], dim=-1).to(torch.float16)
+    q_rot, k_rot = apply_rotary_emb(q_rot, k_rot, freqs_cis[pos : pos + q_len])
+    q = torch.cat([q_rot, q_pass], dim=-1)
+    k = torch.cat([k_rot, k_pass], dim=-1)
 
     if layer_kv_cache is not None:
         k = torch.cat([layer_kv_cache[0], k], dim=2)
@@ -74,10 +71,6 @@ def text_decoder(
 ):
     hidden_BTC = inputs_embeds
 
-    if 0 in kv_cache:  # i.e., not empty
-        cached_len = kv_cache[0].size(3)
-        hidden_BTC = hidden_BTC[:, cached_len:, :]
-
     for i, block in enumerate(w.blocks):
         l_in = layer_norm(hidden_BTC, block.ln)
         l_attn, kv_cache[i] = attn(
@@ -92,40 +85,3 @@ def text_decoder(
     logits = linear(hidden_BC, w.lm_head)
 
     return logits, kv_cache
-
-
-if __name__ == "__main__":
-    from transformers import AutoTokenizer
-    from huggingface_hub import snapshot_download
-
-    torch.set_default_device("mps")
-
-    weights = load_from_safetensors(
-        "/Users/vikhyat/.cache/huggingface/hub/models--vikhyatk--moondream-next/snapshots/db475d4ba0bdaee23bc230ab6f11f1ad211395de/model.safetensors"
-    )
-    tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2")
-    freqs_cis = precompute_freqs_cis(32, 2048)
-
-    input_ids = tokenizer(
-        "<|endoftext|>One must imagine Sisyphus",
-        return_tensors="pt",
-    )["input_ids"]
-    last_str = ""
-    kv_cache = {}
-    for _ in range(200):
-        with torch.no_grad():
-            inputs_embeds = text_encoder(input_ids, weights.text)
-            logits, kv_cache = text_decoder(
-                inputs_embeds, weights.text, kv_cache, freqs_cis
-            )
-            if args.sampler == "greedy":
-                next_token = torch.argmax(logits, dim=-1)
-            else:
-                next_token = torch.multinomial(
-                    F.softmax(logits, dim=-1), num_samples=1
-                ).squeeze(0)
-            input_ids = torch.cat([input_ids, next_token.unsqueeze(0)], dim=-1)
-            output_text = tokenizer.batch_decode(input_ids)[0]
-            print(output_text[len(last_str) :], end="", flush=True)
-            last_str = output_text
-    print()

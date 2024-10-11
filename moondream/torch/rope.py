@@ -23,12 +23,17 @@ def apply_rotary_emb(
     xq: torch.Tensor,
     xk: torch.Tensor,
     freqs_cis: torch.Tensor,
-    dtype: torch.dtype = torch.float32,
+    interleave: bool = False,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    reshape_xq = xq.float().reshape(*xq.shape[:-1], -1, 2)
-    reshape_xk = xk.float().reshape(*xk.shape[:-1], -1, 2)
-    xq_ = torch.complex(reshape_xq[..., 0], reshape_xq[..., 1])
-    xk_ = torch.complex(reshape_xk[..., 0], reshape_xk[..., 1])
+    if interleave:
+        reshape_xq = xq.float().reshape(*xq.shape[:-1], -1, 2)
+        reshape_xk = xk.float().reshape(*xk.shape[:-1], -1, 2)
+        xq_ = torch.complex(reshape_xq[..., 0], reshape_xq[..., 1])
+        xk_ = torch.complex(reshape_xk[..., 0], reshape_xk[..., 1])
+    else:
+        d_q, d_k = xq.shape[-1] // 2, xk.shape[-1] // 2
+        xq_ = torch.complex(xq[..., :d_q], xq[..., d_q:])
+        xk_ = torch.complex(xk[..., :d_k], xk[..., d_k:])
     xq_out = xq_ * freqs_cis.unsqueeze(0).unsqueeze(0)
     xk_out = xk_ * freqs_cis.unsqueeze(0).unsqueeze(0)
     xq_out = torch.stack((xq_out.real, xq_out.imag), dim=-1).reshape(
@@ -37,4 +42,4 @@ def apply_rotary_emb(
     xk_out = torch.stack((xk_out.real, xk_out.imag), dim=-1).reshape(
         *xk_out.shape[:-1], -1
     )
-    return xq_out.to(dtype), xk_out.to(dtype)
+    return xq_out.to(xq.dtype), xk_out.to(xk.dtype)

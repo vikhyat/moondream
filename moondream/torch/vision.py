@@ -93,11 +93,10 @@ def attn(x: torch.Tensor, w: AttentionWeights) -> torch.Tensor:
     bsz, q_len, d_model = x.shape
     n_heads, head_dim = w.n_heads, d_model // w.n_heads
 
-    q, k, v = linear(x, w.qkv).chunk(3, dim=-1)
-    q = q.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-    k = k.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-    v = v.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-
+    q, k, v = [
+        t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
+        for t in linear(x, w.qkv).chunk(3, dim=-1)
+    ]
     out = F.scaled_dot_product_attention(q, k, v)
     out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
     out = linear(out, w.proj)
