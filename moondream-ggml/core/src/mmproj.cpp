@@ -70,10 +70,10 @@ void mmproj_bilinear_downsample(
 static void patch_bilinear_downsample_custom_op(
     ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata
 ) {
+    // Only run on the first thread for prototyping
     if (ith != 0) {
         return;
     }
-    // Only run on the first thread for prototyping
     const int patch_height = src->ne[0];
     const int patch_width = src->ne[1];
     const int n_channels = src->ne[2];
@@ -797,6 +797,7 @@ bool patches_to_batch(
     batch.n_outer_patch_cols = patch_set.n_cols;
     batch.n_outer_patches = patch_set.count;
     batch.n_batch = batch.n_outer_patches + 1;
+    batch.n_scalars = n_patch_elements * batch.n_batch;
     assert(batch.n_outer_patch_rows * batch.n_outer_patch_cols == batch.n_outer_patches);
     if (batch.data == nullptr) {
         printf("failed to allocate memory for moondream_mmproj_batch data\n");
