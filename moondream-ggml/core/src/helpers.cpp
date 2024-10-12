@@ -44,9 +44,6 @@ void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, vo
         case GGML_TYPE_F32:
             printf("Type: f32\n");
             break;
-        case GGML_TYPE_I32:
-            printf("Type: i32\n");
-            break;
         default:
             printf("Type: unknown/not setup for logging\n");
             break;
