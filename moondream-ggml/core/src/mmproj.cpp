@@ -12,28 +12,110 @@
 #include "mmproj.hpp"
 #include "patch.hpp"
 
+/*
+void mmproj_bilinear_downsample(
+    const float * base_image,
+    mmproj_image_downsample_buffer & buf,
+    int base_width, int base_height,
+    int new_width, int new_height,
+    int channels
+) {
+    printf("start downsample\n");
+    printf("channels: %d\n", channels);
+    printf("base_width: %d, base_height: %d\n", base_width, base_height);
+    printf("new_width: %d, new_height: %d\n", new_width, new_height);
+
+    const int x_gaps = new_width - 1;
+    const float x_gap_size = (float)base_width / (float)(x_gaps);
+
+    const int y_gaps = new_height - 1;
+    const float y_gap_size = (float)base_height / (float)(y_gaps);
+
+    printf("x_gaps: %d, x_gap_size: %f\n", x_gaps, x_gap_size);
+    printf("y_gaps: %d, y_gap_size: %f\n", y_gaps, y_gap_size);
+
+    // TODO: not quite right. Base values need to be weighted based on distance from the sample point.
+
+    for (int x = 0; x < x_gaps; ++x) {
+        const int base_left_col_offset = (int)floorf(x * x_gap_size);
+        for (int y = 0; y < base_height; ++y) {
+            const int base_left_offset = (y * base_width + base_left_col_offset) * channels;
+            const int base_right_offset = base_left_offset + channels;
+            const int inter_offset = (y * new_width + x) * channels;
+            for (int k = 0; k < channels; ++k) {
+                const float base_left_val = base_image[base_left_offset + k];
+                const float base_right_val = base_image[base_right_offset + k];
+                buf.inter_image[inter_offset + k] = (base_left_val + base_right_val) / 2.0f;
+            }
+        }
+    }
+
+    for (int y = 0; y < y_gaps; ++y) {
+        const int inter_up_row_offset = (int)floorf(y * y_gap_size) * new_width;
+        const int inter_down_row_offset = inter_up_row_offset + new_width;
+        for (int x = 0; x < new_width; ++x) {
+            const int inter_up_offset = (inter_up_row_offset + x) * channels;
+            const int inter_down_offset = (inter_up_row_offset + x) * channels;
+            const int new_offset = (y * new_width + x) * channels;
+            for (int k = 0; k < channels; ++k) {
+                const float inter_up_val = buf.inter_image[inter_up_offset + k];
+                const float inter_down_val = buf.inter_image[inter_down_offset + k];
+                buf.final_image[new_offset + k] = (inter_up_val + inter_down_val) / 2.0f;
+            }
+        }
+    }
+}
+*/
+
 static void patch_bilinear_downsample_custom_op(
     ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata
 ) {
-    // Only run on the first thread for prototyping
     if (ith != 0) {
-        int patch_in_height = src->ne[0];
-        int patch_in_width = src->ne[1];
-        int patch_out_height = src->ne[0] / 2;
-        int patch_out_width = src->ne[1] / 2;
-        ggml_context * ctx = (ggml_context *)userdata;
-        for (int row = 0; row < patch_out_height; ++row) {
-            for (int col = 0; col < patch_out_width; ++col) {
-                // TODO: replace with bilinear downsampling
-                ((float *)dst->data)[row * patch_out_width + col] =
-                    ((float *)src->data)[row * patch_out_width + col];
+        return;
+    }
+    // Only run on the first thread for prototyping
+    const int patch_height = src->ne[0];
+    const int patch_width = src->ne[1];
+    const int n_channels = src->ne[2];
+    const int y_gaps = (patch_height / 2) - 1;
+    const int x_gaps = (patch_width / 2) - 1;
+    const float y_gap_size = (float)patch_height / (float)(y_gaps);
+    const float x_gap_size = (float)patch_width / (float)(x_gaps);
+
+    for (int x = 0; x < x_gaps; ++x) {
+        const int in_left_col_offset = (int)floorf(x * x_gap_size);
+        for (int y = 0; y < y_gaps; ++y) {
+            const int in_left_offset = (y * patch_width + in_left_col_offset) * n_channels;
+            const int in_right_offset = in_left_offset + n_channels;
+            for (int channel = 0; channel < n_channels; ++channel) {
+                const float in_left_val = ((float *)src->data)[in_left_offset + channel];
+                const float in_right_val = ((float *)src->data)[in_right_offset + channel];
+                ((float *)dst->data)[(y * patch_width + x) * n_channels + channel] =
+                    (in_left_val + in_right_val) * 0.5f;
+            }
+        }
+    }
+
+    for (int y = 0; y < y_gaps; ++y) {
+        const int in_up_row_offset = (int)floorf(y * y_gap_size);
+        const int in_down_row_offset = in_up_row_offset + patch_width;
+        for (int x = 0; x < x_gaps; ++x) {
+            const int in_up_offset = (in_up_row_offset + x) * n_channels;
+            const int in_down_offset = (in_down_row_offset + x) * n_channels;
+            for (int channel = 0; channel < n_channels; ++channel) {
+                const float in_up_val = ((float *)dst->data)[in_up_offset + channel];
+                const float in_down_val = ((float *)dst->data)[in_down_offset + channel];
+                ((float *)dst->data)[(y * patch_width + x) * n_channels + channel] =
+                    (in_up_val + in_down_val) * 0.5f;
             }
         }
     }
 }
 
 static ggml_tensor * patch_bilinear_downsample(ggml_context * ctx, ggml_tensor * src) {
-    ggml_tensor * dst = ggml_map_custom1(ctx, src, patch_bilinear_downsample_custom_op, 1, ctx);
+    src = ggml_cont(ctx, src);
+    //src = ggml_map_custom1(ctx, src, log_tensor, 1, NULL);
+    ggml_tensor * dst = ggml_map_custom1(ctx, src, patch_bilinear_downsample_custom_op, 1, NULL);
     int patch_out_height = src->ne[0] / 2;
     int patch_out_width = src->ne[1] / 2;
     printf("patch_out_height %d\n", patch_out_height);
@@ -41,6 +123,7 @@ static ggml_tensor * patch_bilinear_downsample(ggml_context * ctx, ggml_tensor *
     printf(
         "dst shape: (%d, %d, %d, %d)\n",
         dst->ne[0], dst->ne[1], dst->ne[2], dst->ne[3]);
+    //dst = ggml_map_custom1(ctx, dst, log_tensor, 1, NULL);
     dst = ggml_view_3d(
         ctx, dst, patch_out_height, patch_out_width, dst->ne[2],
         ggml_row_size(dst->type, patch_out_height * patch_out_width),
@@ -177,6 +260,7 @@ static ggml_cgraph * mmproj_build_clip(
         cur = ggml_add(ctx0, embeddings, cur);
         embeddings = cur;
     }
+    embeddings = ggml_map_custom1(ctx0, embeddings, log_tensor, 1, NULL);
 
     // Post-layernorm
     embeddings = ggml_norm(ctx0, embeddings, eps);
@@ -184,7 +268,7 @@ static ggml_cgraph * mmproj_build_clip(
     // Shape: (n_patch_elements, n_patches, n_batch, 1)
     embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
 
-    embeddings = ggml_permute(ctx0, embeddings, 2, 1, 0, 3);
+    embeddings = ggml_cont(ctx0, ggml_permute(ctx0, embeddings, 2, 1, 0, 3));
     printf(
         "embeddings permuted shape: (%d, %d, %d, %d)\n",
         embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);
@@ -247,8 +331,8 @@ static ggml_cgraph * mmproj_build_clip(
             "merged_patch_features 1 shape: (%d, %d, %d, %d)\n",
             merged_patch_features->ne[0], merged_patch_features->ne[1],
             merged_patch_features->ne[2], merged_patch_features->ne[3]);
-        merged_patch_features = ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3);
-        merged_patch_features = ggml_map_custom1(ctx0, merged_patch_features, log_tensor, 1, NULL);
+        merged_patch_features = ggml_cont(ctx0, ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3));
+        //merged_patch_features = ggml_map_custom1(ctx0, merged_patch_features, log_tensor, 1, NULL);
         // TODO: replace with bilinear downsample.
         //merged_patch_features = ggml_pool_2d(
         //    ctx0, merged_patch_features,

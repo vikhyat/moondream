@@ -48,13 +48,16 @@ void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, vo
             break;
     }
 
+    //printf("logged tensor first value: %f\n", ((float *)src->data)[128]);
     // Emit last 2 dimension values.
-    for (int j = 0; j < dst->ne[1]; j++) {
-        for (int i = 0; i < dst->ne[0]; i++) {
+    int n_channels = src->ne[2];
+    for (int j = 0; j < 1/*src->ne[0]*/; j++) {
+        for (int i = 0; i < src->ne[1]; i++) {
             if (i > 0) {
                 printf("\t");
             }
-            float f = ggml_get_f32_nd(dst, i, j, 0, 0);
+            float f = ((float *)src->data)[(j * src->ne[1] + i) * n_channels];
+            //float f = ggml_get_f32_nd(src, i, j, 0, 0);
             printf("%.7f", (double)f);
         }
         printf("\n");
