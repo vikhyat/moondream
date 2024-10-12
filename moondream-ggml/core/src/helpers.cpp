@@ -35,7 +35,8 @@ void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, vo
         return;
     }
 
-    printf("Shape: %lld %lld %lld %lld\n", dst->ne[3], dst->ne[2], dst->ne[1], dst->ne[0]);
+    printf("Shape: %lld %lld %lld %lld\n", dst->ne[0], dst->ne[1], dst->ne[2], dst->ne[3]);
+    printf("Strides: %zu %zu %zu %zu\n",dst->nb[0], dst->nb[1], dst->nb[2], dst->nb[3]);
     switch (dst->type) {
         case GGML_TYPE_F16:
             printf("Type: f16\n");
@@ -48,18 +49,20 @@ void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, vo
             break;
     }
 
-    //printf("logged tensor first value: %f\n", ((float *)src->data)[128]);
     // Emit last 2 dimension values.
-    int n_channels = src->ne[2];
-    for (int j = 0; j < 1/*src->ne[0]*/; j++) {
-        for (int i = 0; i < src->ne[1]; i++) {
-            if (i > 0) {
+    for (int i = 0; i < src->ne[2]; i++) {
+        printf("[");
+        for (int j = 0; j < 2/*src->ne[1]*/; j++) {
+            printf("[");
+            /*if (i > 0) {
                 printf("\t");
+            }*/
+            for (int k = 0; k < src->ne[0]; ++k) {
+                float f = *(float *)(((char *)src->data) + i*src->nb[2] + j*src->nb[1] + k*src->nb[0]);
+                printf("%.7f ", (double)f);
             }
-            float f = ((float *)src->data)[(j * src->ne[1] + i) * n_channels];
-            //float f = ggml_get_f32_nd(src, i, j, 0, 0);
-            printf("%.7f", (double)f);
+            printf("]\n");
         }
-        printf("\n");
+        printf("]\n");
     }
 }
