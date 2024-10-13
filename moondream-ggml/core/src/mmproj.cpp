@@ -163,10 +163,13 @@ static ggml_cgraph * mmproj_build_clip(
     ggml_cgraph * gf = ggml_new_graph(ctx0);
 
     ggml_tensor * inp_raw = ggml_new_tensor_4d(
-        ctx0, GGML_TYPE_F32, image_size, image_size, MOONDREAM_N_IMAGE_CHANNELS, n_batch);
+        ctx0, GGML_TYPE_F32, MOONDREAM_N_IMAGE_CHANNELS, image_size, image_size, n_batch);
     ggml_set_name(inp_raw, "inp_raw");
     ggml_set_input(inp_raw);
     mctx.inp_raw = inp_raw;
+    inp_raw = ggml_permute(ctx0, inp_raw, 2, 1, 0, 3);
+    inp_raw = ggml_cont(ctx0, ggml_permute(ctx0, inp_raw, 1, 0, 2, 3));
+    //inp_raw = ggml_map_custom1(ctx0, inp_raw, log_tensor, 1, NULL);
     printf(
         "inp_raw shape: (%d, %d, %d, %d)\n",
         inp_raw->ne[0], inp_raw->ne[1], inp_raw->ne[2], inp_raw->ne[3]);
@@ -819,12 +822,12 @@ bool moondream_mmproj_batch_save_to_pngs(moondream_mmproj_batch & batch) {
     constexpr size_t n_patch_elements = side_length * side_length * n_channels;
     uint8_t * temp_image = (uint8_t *)malloc(sizeof(uint8_t) * n_patch_elements);
     for (int n = 0; n < batch.n_batch; ++n) {
-        float* cur_patch = &batch.data[n * n_patch_elements];
+        float * cur_patch = &batch.data[n * n_patch_elements];
         for (int i = 0; i < n_patch_elements; ++i) {
             float de_normalized = (cur_patch[i] * 0.5f) + 0.5f;
             temp_image[i] = static_cast<uint8_t>(de_normalized * 255.0f);
         }
-        const char* base_path = "../../../data/image_patch_%d.png";
+        const char * base_path = "../../../data/image_patch_%d.png";
         size_t base_path_length = strlen(base_path);
         char path_buf[base_path_length];
         snprintf(path_buf, base_path_length, base_path, n);

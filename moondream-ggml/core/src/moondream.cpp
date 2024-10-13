@@ -247,7 +247,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Assuming the binary will be run from ../build/
-    const char * image_path = "../../../assets/demo-2.jpg";
+    const char * image_path = "../../../assets/378.jpg";
     const char * prompt = "<image>\n\nQuestion: Describe the image.\n\nAnswer:";
     std::string response = "";
     if (!moondream_api_prompt(image_path, prompt, response, 128, true)) {

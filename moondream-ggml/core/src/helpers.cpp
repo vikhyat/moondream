@@ -49,7 +49,6 @@ void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, vo
             break;
     }
 
-    // Emit last 2 dimension values.
     for (int i = 0; i < src->ne[2]; i++) {
         printf("[");
         for (int j = 0; j < 2/*src->ne[1]*/; j++) {
