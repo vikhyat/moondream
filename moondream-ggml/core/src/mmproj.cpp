@@ -154,6 +154,7 @@ static ggml_cgraph * mmproj_build_clip(
     const int n_head_qkv = n_embd / n_head;
     const int n_layer = hparams.n_layer;
     const float eps = hparams.f_norm_eps;
+    printf("n_batch: %d\n", n_batch);
 
     ggml_init_params build_ctx_params = {
         mctx.compute_buffer.size(),
@@ -169,7 +170,6 @@ static ggml_cgraph * mmproj_build_clip(
     mctx.inp_raw = inp_raw;
     inp_raw = ggml_permute(ctx0, inp_raw, 2, 1, 0, 3);
     inp_raw = ggml_cont(ctx0, ggml_permute(ctx0, inp_raw, 1, 0, 2, 3));
-    //inp_raw = ggml_map_custom1(ctx0, inp_raw, log_tensor, 1, NULL);
     printf(
         "inp_raw shape: (%d, %d, %d, %d)\n",
         inp_raw->ne[0], inp_raw->ne[1], inp_raw->ne[2], inp_raw->ne[3]);
@@ -187,6 +187,10 @@ static ggml_cgraph * mmproj_build_clip(
     //       x = x.reshape(b, h * w, c * p1 * p2)
     //       return self.linear(x)
 
+    printf(
+        "patch_embd shape: (%d, %d, %d, %d)\n",
+        model.patch_embd->ne[0], model.patch_embd->ne[1],
+        model.patch_embd->ne[2], model.patch_embd->ne[3]);
     // Shape: (n_patches_per_side, n_patches_per_side, n_patch_elements, n_batch)
     ggml_tensor * inp = ggml_conv_2d(ctx0, model.patch_embd, inp_raw, patch_size, patch_size, 0, 0, 1, 1);
     // Shape: (n_patches, n_patch_elements, n_batch, 1)
@@ -205,6 +209,9 @@ static ggml_cgraph * mmproj_build_clip(
     mctx.positions = positions;
     embeddings = ggml_add(ctx0, embeddings, ggml_get_rows(ctx0, model.pos_embd, positions));
     // NOTE: skipped pre-layernorm.
+    printf(
+        "embeddinggs pre-block shape: (%d, %d, %d, %d)\n",
+        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);
 
     for (int il = 0; il < n_layer - 1; ++il) {
         // embeddings = residual, cur = hidden_states
@@ -243,6 +250,9 @@ static ggml_cgraph * mmproj_build_clip(
         cur = ggml_add(ctx0, cur, embeddings);
         // embeddings = residual, cur = hidden_states
         embeddings = cur;
+        /*if (il == 0) {
+            cur = ggml_map_custom1(ctx0, embeddings, log_tensor, 1, NULL);
+        }*/
 
         // Layernorm 2
         cur = ggml_norm(ctx0, cur, eps);
@@ -261,9 +271,11 @@ static ggml_cgraph * mmproj_build_clip(
 
         // Add the resiudal.
         cur = ggml_add(ctx0, embeddings, cur);
+        /*if (il == n_layer-2) {
+            cur = ggml_map_custom1(ctx0, cur, log_tensor, 1, NULL);
+        }*/
         embeddings = cur;
     }
-    embeddings = ggml_map_custom1(ctx0, embeddings, log_tensor, 1, NULL);
 
     // Post-layernorm
     embeddings = ggml_norm(ctx0, embeddings, eps);
@@ -271,14 +283,22 @@ static ggml_cgraph * mmproj_build_clip(
     // Shape: (n_patch_elements, n_patches, n_batch, 1)
     embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
 
-    embeddings = ggml_cont(ctx0, ggml_permute(ctx0, embeddings, 2, 1, 0, 3));
+    /*embeddings = ggml_cont(ctx0, ggml_permute(ctx0, embeddings, 2, 1, 0, 3));
     printf(
         "embeddings permuted shape: (%d, %d, %d, %d)\n",
-        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);
+        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);*/
 
     // Merge patch and full image features.
-    // TODO: verify that byte strides are correct
-    ggml_tensor * full_img_features = ggml_view_3d(
+    // Shape: (n_patch_elements, n_patches, n_batch, 1)
+    printf(
+        "embeddings post-block shape: (%d, %d, %d, %d)\n",
+        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);
+    embeddings = ggml_concat(ctx0, embeddings, embeddings, 0);
+    printf(
+        "embeddings post-concat shape: (%d, %d, %d, %d)\n",
+        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);
+
+    /*ggml_tensor * full_img_features = ggml_view_3d(
         ctx0, embeddings,
         embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
         ggml_row_size(embeddings->type, embeddings->ne[2] * embeddings->ne[3]),
@@ -340,9 +360,9 @@ static ggml_cgraph * mmproj_build_clip(
         //merged_patch_features = ggml_pool_2d(
         //    ctx0, merged_patch_features,
         //    GGML_OP_POOL_AVG,
-        //    2, 2, /* kernel height & width */
-        //    2, 2, /* stride height & width */
-        //    0, 0  /* padding height & width */
+        //    2, 2, // kernel height & width
+        //    2, 2, // stride height & width
+        //    0, 0  // padding height & width
         //);
         merged_patch_features = patch_bilinear_downsample(ctx0, merged_patch_features);
         merged_patch_features = ggml_cont(ctx0, ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3));
@@ -368,7 +388,7 @@ static ggml_cgraph * mmproj_build_clip(
 
     // Permute embeddings so that the first axis matches that of the first MLP weight matrix.
     // Shape: (2*n_patch_elements, n_patches)
-    embeddings = ggml_cont(ctx0, ggml_permute(ctx0, embeddings, 1, 0, 2, 3));
+    embeddings = ggml_cont(ctx0, ggml_permute(ctx0, embeddings, 1, 0, 2, 3));*/
     if (hparams.proj_type == PROJECTOR_TYPE_MLP) {
         printf(
             "mm_0_w shape: (%d, %d, %d, %d)\n",
@@ -427,7 +447,7 @@ bool moondream_mmproj_context_init(
     // TODO: figure out a way to dynamically determine the number of required nodes because LLAMA_MAX_NODES
     // is probably overkill for the clip graph.
     const size_t compute_buf_size =
-        ggml_tensor_overhead() * LLAMA_MAX_NODES + ggml_graph_overhead_custom(LLAMA_MAX_NODES, false);
+        ggml_tensor_overhead() * MMPROJ_MAX_NODES + ggml_graph_overhead_custom(MMPROJ_MAX_NODES, false);
     if (normal_logs_enabled) {
         const double compute_buf_size_gib = bytes_to_gib(compute_buf_size);
         printf("new mmproj compute_buf_size is %zu B, %lf GiB\n", compute_buf_size, compute_buf_size_gib);
@@ -692,6 +712,9 @@ bool moondream_mmproj_embed(
         printf("failed to allocate graph for ggml_backend_sched_t\n");
         return false;
     }
+
+    printf("mmproj batch n_scalars: %d\n", batch.n_scalars);
+    printf("mmproj batch data[0]: %f\n", batch.data[0]);
 
     ggml_backend_tensor_set(
         mctx.inp_raw, batch.data, 0, batch.n_scalars * ggml_element_size(mctx.inp_raw));

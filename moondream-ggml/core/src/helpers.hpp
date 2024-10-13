@@ -14,6 +14,7 @@
 #define MOONDREAM_ROPE_TYPE 2
 #define DATA_PATH_MAX_LEN 512
 #define LLAMA_MAX_NODES 8192
+#define MMPROJ_MAX_NODES 16384 // TODO: maybe unnecessary
 
 // Define MOONDREAM_EXTRA_LOGS if you want additional logs for debugging.
 // #define MOONDREAM_EXTRA_LOGS
