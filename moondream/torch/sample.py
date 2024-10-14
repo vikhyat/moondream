@@ -8,7 +8,7 @@ from moondream.hf import Moondream
 
 from .weights import load_from_safetensors
 from .vision import encode_image
-from .text import text_encoder, text_decoder
+from .text import text_encoder, text_decoder, lm_head
 from .rope import precompute_freqs_cis
 
 if __name__ == "__main__":
@@ -59,9 +59,10 @@ if __name__ == "__main__":
 
     for _ in range(args.max_tokens):
         with torch.no_grad():
-            logits, kv_cache = text_decoder(
+            hidden, kv_cache = text_decoder(
                 inputs_embeds, model.text, kv_cache, freqs_cis
             )
+            logits = lm_head(hidden, model.text)
 
             if args.sampler == "multinomial":
                 next_token = torch.multinomial(

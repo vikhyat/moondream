@@ -77,9 +77,11 @@ def text_decoder(
         l_mlp = mlp(l_in, block.mlp)
         hidden_BTC = hidden_BTC + l_attn + l_mlp
 
-    # We only need to compute logits for the last token position.
+    return hidden_BTC, torch.stack(new_kv_cache)
+
+
+def lm_head(hidden_BTC: torch.Tensor, w: TextModel):
     hidden_BC = hidden_BTC[:, -1, :]
     hidden_BC = layer_norm(hidden_BC, w.post_ln)
     logits = linear(hidden_BC, w.lm_head)
-
-    return logits, torch.stack(new_kv_cache)
+    return logits
