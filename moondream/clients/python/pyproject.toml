@@ -6,7 +6,7 @@ authors = ["vik <vik@moondream.ai>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
 pillow = "^10.4.0"
 onnxruntime = "^1.19.2"
 numpy = "^2.1.2"
