@@ -19,15 +19,11 @@ class EncodedImage:
 
 SamplingSettings = TypedDict(
     "SamplingSettings",
-    {
-        "max_tokens": int,
-        "streaming": bool,
-    },
+    {"max_tokens": int},
     total=False,
 )
 
 DEFAULT_MAX_TOKENS = 1024
-DEFAULT_STREAMING = False
 
 
 class Region:
@@ -133,6 +129,8 @@ class VL:
 
         Args:
             image (Union[Image.Image, EncodedImage]): The input image to be captioned.
+            settings (Optional[SamplingSettings]): Optional settings for the caption generation.
+                If not provided, default settings will be used.
 
         Returns:
             str: The caption for the input image.
@@ -145,15 +143,14 @@ class VL:
         if settings is None:
             settings = {}
         max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
-        streaming = settings.get("streaming", DEFAULT_STREAMING)
 
         if type(image) != EncodedImage:
             image = self.encode_image(image)  # type: ignore
 
         hidden = self.caption_prefix
         kv_caches = {i: image.kv_caches[i] for i in range(len(self.text_decoders))}
-        generated_tokens = []
-        while len(generated_tokens) < max_tokens:
+        generated_tokens = 0
+        while generated_tokens < max_tokens:
             for i, decoder in enumerate(self.text_decoders):
                 hidden, kv_caches[i] = decoder.run(
                     None, {"inputs_embeds": hidden, "kv_cache": kv_caches[i]}
@@ -163,13 +160,9 @@ class VL:
             if next_token == self.eos_token_id:
                 break
 
-            if streaming:
-                yield self.tokenizer.decode([next_token])
-
-            generated_tokens.append(next_token)
+            yield self.tokenizer.decode([next_token])
+            generated_tokens += 1
             (hidden,) = self.text_encoder.run(None, {"input_ids": [[next_token]]})
-
-        return self.tokenizer.decode(generated_tokens)
 
     def query(self, image: Union[Image.Image, EncodedImage], question: str) -> str:
         """
