@@ -82,45 +82,31 @@ static void patch_bilinear_downsample_custom_op(
     const float y_gap_size = (float)patch_height / (float)(y_gaps);
     const float x_gap_size = (float)patch_width / (float)(x_gaps);
 
-    // TODO: Fix strides for bilinear downsample and remove no-interpolation downsample.
-    /*
     for (int x = 0; x < x_gaps; ++x) {
-        const int in_left_col_offset = (int)floorf(x * x_gap_size);
-        for (int y = 0; y < y_gaps; ++y) {
-            const int in_left_offset = (y * patch_width + in_left_col_offset) * n_channels;
-            const int in_right_offset = in_left_offset + n_channels;
+        for (int y = 0; y < patch_height; ++y) {
+            const int src_x_left = (int)floorf(x * x_gap_size);
+            const int src_x_right = (int)floorf((x + 1) * x_gap_size);
             for (int channel = 0; channel < n_channels; ++channel) {
-                const float in_left_val = ((float *)src->data)[in_left_offset + channel];
-                const float in_right_val = ((float *)src->data)[in_right_offset + channel];
-                ((float *)dst->data)[(y * patch_width + x) * n_channels + channel] =
-                    (in_left_val + in_right_val) * 0.5f;
+                const size_t src_offset_left = channel*src->nb[0] + y*src->nb[1] + src_x_right*src->nb[2];
+                const size_t src_offset_right = channel*src->nb[0] + y*src->nb[1] + src_x_right*src->nb[2];
+                const float src_left_val = *(float *)(((char *)src->data) + src_offset_left);
+                const float src_right_val = *(float *)(((char *)src->data) + src_offset_right);
+                const size_t dst_offset = channel*dst->nb[0] + y*dst->nb[1] + x*dst->nb[2];
+                *(float *)(((char *)dst->data) + dst_offset) = 0.5f * (src_left_val + src_right_val);
             }
         }
     }
 
-    for (int y = 0; y < y_gaps; ++y) {
-        const int in_up_row_offset = (int)floorf(y * y_gap_size);
-        const int in_down_row_offset = in_up_row_offset + patch_width;
-        for (int x = 0; x < x_gaps; ++x) {
-            const int in_up_offset = (in_up_row_offset + x) * n_channels;
-            const int in_down_offset = (in_down_row_offset + x) * n_channels;
-            for (int channel = 0; channel < n_channels; ++channel) {
-                const float in_up_val = ((float *)dst->data)[in_up_offset + channel];
-                const float in_down_val = ((float *)dst->data)[in_down_offset + channel];
-                ((float *)dst->data)[(y * patch_width + x) * n_channels + channel] =
-                    (in_up_val + in_down_val) * 0.5f;
-            }
-        }
-    }
-    */
     for (int x = 0; x < x_gaps; ++x) {
         for (int y = 0; y < y_gaps; ++y) {
-            const int src_x = (int)floorf(x * x_gap_size);
-            const int src_y = (int)floorf(y * y_gap_size);
-            for (int channels = 0; channels < n_channels; ++channels) {
-                const size_t dst_offset = channels*dst->nb[0] + y*dst->nb[1] + x*dst->nb[2];
-                const size_t src_offset = channels*src->nb[0] + src_y*src->nb[1] + src_x*src->nb[2];
-                *(float *)(((char *)dst->data) + dst_offset) = *(float *)(((char *)src->data) + src_offset);
+            const int dst_y_up = (int)floorf(y * y_gap_size);
+            const int dst_y_down = (int)floorf((y + 1) * y_gap_size);
+            for (int channel = 0; channel < n_channels; ++channel) {
+                const size_t dst_offset_up = channel*dst->nb[0] + dst_y_up*src->nb[1] + x*dst->nb[2];
+                const size_t dst_offset_down = channel*dst->nb[0] + dst_y_down*dst->nb[1] + x*dst->nb[2];
+                const float dst_up_val = *(float *)(((char *)dst->data) + dst_offset_up);
+                const float dst_down_val = *(float *)(((char *)dst->data) + dst_offset_down);
+                *(float *)(((char *)dst->data) + dst_offset_up) = 0.5f * (dst_up_val + dst_down_val);
             }
         }
     }
