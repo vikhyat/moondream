@@ -74,14 +74,16 @@ static void patch_bilinear_downsample_custom_op(
     if (ith != 0) {
         return;
     }
-    const int patch_height = src->ne[0];
-    const int patch_width = src->ne[1];
-    const int n_channels = src->ne[2];
+    const int n_channels = src->ne[0];
+    const int patch_height = src->ne[1];
+    const int patch_width = src->ne[2];
     const int y_gaps = (patch_height / 2) - 1;
     const int x_gaps = (patch_width / 2) - 1;
     const float y_gap_size = (float)patch_height / (float)(y_gaps);
     const float x_gap_size = (float)patch_width / (float)(x_gaps);
 
+    // TODO: Fix strides for bilinear downsample and remove no-interpolation downsample.
+    /*
     for (int x = 0; x < x_gaps; ++x) {
         const int in_left_col_offset = (int)floorf(x * x_gap_size);
         for (int y = 0; y < y_gaps; ++y) {
@@ -110,24 +112,33 @@ static void patch_bilinear_downsample_custom_op(
             }
         }
     }
+    */
+    for (int x = 0; x < x_gaps; ++x) {
+        for (int y = 0; y < y_gaps; ++y) {
+            const int src_x = (int)floorf(x * x_gap_size);
+            const int src_y = (int)floorf(y * y_gap_size);
+            for (int channels = 0; channels < n_channels; ++channels) {
+                const size_t dst_offset = channels*dst->nb[0] + y*dst->nb[1] + x*dst->nb[2];
+                const size_t src_offset = channels*src->nb[0] + src_y*src->nb[1] + src_x*src->nb[2];
+                *(float *)(((char *)dst->data) + dst_offset) = *(float *)(((char *)src->data) + src_offset);
+            }
+        }
+    }
 }
 
 static ggml_tensor * patch_bilinear_downsample(ggml_context * ctx, ggml_tensor * src) {
     src = ggml_cont(ctx, src);
-    //src = ggml_map_custom1(ctx, src, log_tensor, 1, NULL);
     ggml_tensor * dst = ggml_map_custom1(ctx, src, patch_bilinear_downsample_custom_op, 1, NULL);
-    int patch_out_height = src->ne[0] / 2;
-    int patch_out_width = src->ne[1] / 2;
+    int patch_out_height = src->ne[1] / 2;
+    int patch_out_width = src->ne[2] / 2;
     printf("patch_out_height %d\n", patch_out_height);
     printf("patch_out_width %d\n", patch_out_width);
     printf(
         "dst shape: (%d, %d, %d, %d)\n",
         dst->ne[0], dst->ne[1], dst->ne[2], dst->ne[3]);
-    //dst = ggml_map_custom1(ctx, dst, log_tensor, 1, NULL);
     dst = ggml_view_3d(
-        ctx, dst, patch_out_height, patch_out_width, dst->ne[2],
-        ggml_row_size(dst->type, patch_out_height * patch_out_width),
-        ggml_row_size(dst->type, patch_out_width), 0);
+        ctx, dst, dst->ne[0], patch_out_height, patch_out_width, dst->nb[1], dst->nb[2], 0);
+    dst = ggml_cont(ctx, dst);
     return dst;
 }
 
@@ -282,44 +293,26 @@ static ggml_cgraph * mmproj_build_clip(
     ggml_set_name(embeddings, "post_ln");
     // Shape: (n_patch_elements, n_patches, n_batch, 1)
     embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
-
-    /*embeddings = ggml_cont(ctx0, ggml_permute(ctx0, embeddings, 2, 1, 0, 3));
-    printf(
-        "embeddings permuted shape: (%d, %d, %d, %d)\n",
-        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);*/
-
-    // Merge patch and full image features.
-    // Shape: (n_patch_elements, n_patches, n_batch, 1)
     printf(
         "embeddings post-block shape: (%d, %d, %d, %d)\n",
         embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);
-    embeddings = ggml_concat(ctx0, embeddings, embeddings, 0);
-    printf(
-        "embeddings post-concat shape: (%d, %d, %d, %d)\n",
-        embeddings->ne[0], embeddings->ne[1], embeddings->ne[2], embeddings->ne[3]);
 
-    /*ggml_tensor * full_img_features = ggml_view_3d(
-        ctx0, embeddings,
-        embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
-        ggml_row_size(embeddings->type, embeddings->ne[2] * embeddings->ne[3]),
-        ggml_row_size(embeddings->type, embeddings->ne[3]), 0);
+    // Merge patch and full image features.
+    ggml_tensor * full_img_features = ggml_view_2d(
+        ctx0, embeddings, embeddings->ne[0], embeddings->ne[1], embeddings->nb[1], 0);
     printf(
         "full_img_features shape: (%d, %d, %d, %d)\n",
         full_img_features->ne[0], full_img_features->ne[1], full_img_features->ne[2], full_img_features->ne[3]);
+    printf("n_outer_patches: %d\n", n_outer_patches);
 
-    assert(embeddings->ne[0] - 1 == n_outer_patches);
+    assert(embeddings->ne[2] - 1 == n_outer_patches);
     if (n_outer_patches > 0) {
         ggml_tensor * patch_features[n_outer_patches];
-        const size_t outer_patch_stride = ggml_row_size(
-            embeddings->type, full_img_features->ne[0] * full_img_features->ne[1]);
         for (int i = 0; i < n_outer_patches; ++i) {
-            patch_features[i] = ggml_view_3d(
-                ctx0, embeddings,
-                embeddings->ne[1], embeddings->ne[2], embeddings->ne[3],
-                ggml_row_size(embeddings->type, embeddings->ne[2] * embeddings->ne[3]),
-                ggml_row_size(embeddings->type, embeddings->ne[3]),
-                outer_patch_stride * i);
-            patch_features[i] = ggml_cont(ctx0, ggml_permute(ctx0, patch_features[i], 1, 0, 2, 3));
+            printf("row size %zu %zu %zu\n",embeddings->nb[0], embeddings->nb[1], embeddings->nb[2]);
+            patch_features[i] = ggml_view_2d(
+                ctx0, embeddings, embeddings->ne[0], embeddings->ne[1],
+                ggml_row_size(embeddings->type, embeddings->ne[0]), embeddings->nb[2]);
             printf(
                 "patch_features %d shape: (%d, %d, %d, %d)\n", i,
                 patch_features[i]->ne[0], patch_features[i]->ne[1],
@@ -345,50 +338,30 @@ static ggml_cgraph * mmproj_build_clip(
                 row_features[row]->ne[0], row_features[row]->ne[1],
                 row_features[row]->ne[2], row_features[row]->ne[3]);
         }
+
         ggml_tensor * merged_patch_features = row_features[0];
         for (int row = 1; row < n_outer_patch_rows; ++row) {
             merged_patch_features = ggml_concat(ctx0, merged_patch_features, row_features[row], 1);
         }
-
         printf(
             "merged_patch_features 1 shape: (%d, %d, %d, %d)\n",
             merged_patch_features->ne[0], merged_patch_features->ne[1],
             merged_patch_features->ne[2], merged_patch_features->ne[3]);
-        merged_patch_features = ggml_cont(ctx0, ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3));
-        //merged_patch_features = ggml_map_custom1(ctx0, merged_patch_features, log_tensor, 1, NULL);
-        // TODO: replace with bilinear downsample.
-        //merged_patch_features = ggml_pool_2d(
-        //    ctx0, merged_patch_features,
-        //    GGML_OP_POOL_AVG,
-        //    2, 2, // kernel height & width
-        //    2, 2, // stride height & width
-        //    0, 0  // padding height & width
-        //);
         merged_patch_features = patch_bilinear_downsample(ctx0, merged_patch_features);
-        merged_patch_features = ggml_cont(ctx0, ggml_permute(ctx0, merged_patch_features, 2, 1, 0, 3));
-        printf(
-            "merged_patch_features 2 shape: (%d, %d, %d, %d)\n",
-            merged_patch_features->ne[0], merged_patch_features->ne[1],
-            merged_patch_features->ne[2], merged_patch_features->ne[3]);
-        merged_patch_features = ggml_reshape_3d(
-            ctx0, merged_patch_features, n_patches, merged_patch_features->ne[0], 1);
-        printf(
-            "merged_patch_features 3 shape: (%d, %d, %d, %d)\n",
-            merged_patch_features->ne[0], merged_patch_features->ne[1],
-            merged_patch_features->ne[2], merged_patch_features->ne[3]);
-        embeddings = ggml_concat(ctx0, full_img_features, merged_patch_features, 1);
+        merged_patch_features = ggml_reshape_2d(
+            ctx0, merged_patch_features, merged_patch_features->ne[0], n_patches);
+        embeddings = ggml_concat(ctx0, full_img_features, merged_patch_features, 0);
     } else {
-        embeddings = ggml_concat(ctx0, full_img_features, full_img_features, 1);
+        embeddings = ggml_concat(ctx0, full_img_features, full_img_features, 0);
     }
+
+    // Shape: (2*n_patch_elements, n_patches)
     embeddings = ggml_cont(ctx0, embeddings);
     printf(
         "final embeddings shape: (%d, %d, %d, %d)\n",
         embeddings->ne[0], embeddings->ne[1],
         embeddings->ne[2], embeddings->ne[3]);
 
-    // Permute embeddings so that the first axis matches that of the first MLP weight matrix.
-    // Shape: (2*n_patch_elements, n_patches)
-    embeddings = ggml_cont(ctx0, ggml_permute(ctx0, embeddings, 1, 0, 2, 3));*/
     if (hparams.proj_type == PROJECTOR_TYPE_MLP) {
         printf(
             "mm_0_w shape: (%d, %d, %d, %d)\n",
