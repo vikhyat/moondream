@@ -7,16 +7,12 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-ggml-python = "0.0.37"
 pillow = "^10.4.0"
+onnxruntime = "^1.19.2"
+numpy = "^2.1.2"
+onnx = "^1.17.0"
+tokenizers = "^0.20.1"
 
-
-[tool.poetry.group.dev.dependencies]
-gguf = "^0.10.0"
-sentencepiece = "^0.2.0"
-safetensors = "^0.4.5"
-numpy = "^1.17.0"        # gguf doesn't work with numpy 2.0+
-transformers = "^4.45.1"
 
 [tool.pyright]
 venvPath = "."
