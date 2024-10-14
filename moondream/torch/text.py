@@ -56,7 +56,12 @@ def attn(
         k = torch.cat([layer_kv_cache[0], k], dim=2)
         v = torch.cat([layer_kv_cache[1], v], dim=2)
 
-    out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask(pos, q_len))
+    out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask(pos, q_len)).to(
+        # This type conversion isn't needed when running in PyTorch directly, but the
+        # ONNX export runs attention in float32 because the attention mask is cast to
+        # float32.
+        x.dtype
+    )
     out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
     out = linear(out, w.proj)
     return out, torch.stack([k, v])
