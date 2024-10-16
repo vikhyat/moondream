@@ -40,7 +40,7 @@ gunzip moondream-latest-*.bin.gz
 import moondream as md
 from PIL import Image
 
-model = md.VL("moondream-latest-f16.bin")
+model = md.VL("moondream-latest-int8.bin")
 image = Image.open("path/to/image.jpg")
 
 # Optional -- encode the image to efficiently run multiple queries on the same

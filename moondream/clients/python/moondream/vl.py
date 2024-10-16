@@ -82,9 +82,10 @@ class VL:
 
         assert self.vision_encoder is not None
         assert self.vision_projection is not None
-        assert self.tokenizer is not None
         assert self.text_encoder is not None
         assert len(self.text_decoders) > 0
+        assert self.tokenizer is not None
+        assert self.initial_kv_caches is not None
 
         self.eos_token_id = self.tokenizer.encode("<|endoftext|>").ids[0]
         self.caption_prefix = self.tokenizer.encode("\n\nCaption:").ids
