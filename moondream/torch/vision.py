@@ -13,7 +13,7 @@ from torchvision.transforms.v2.functional import (
 )
 
 from .weights import VisionModel, load_from_safetensors
-from .layers import AttentionWeights, linear, layer_norm, mlp
+from .layers import attn, linear, layer_norm, mlp
 
 
 def im_resize(
@@ -89,24 +89,7 @@ def encode_image(image: Image.Image, weights: VisionModel) -> torch.Tensor:
     return mlp(outputs, weights.proj_mlp)
 
 
-def attn(x: torch.Tensor, w: AttentionWeights) -> torch.Tensor:
-    bsz, q_len, d_model = x.shape
-    n_heads, head_dim = w.n_heads, d_model // w.n_heads
-
-    q, k, v = [
-        t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-        for t in linear(x, w.qkv).chunk(3, dim=-1)
-    ]
-    out = F.scaled_dot_product_attention(q, k, v)
-    out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
-    out = linear(out, w.proj)
-    return out
-
-
 def vision_encoder(input_BCHW: torch.Tensor, w: VisionModel):
-    assert input_BCHW.shape[1] == 3, "Input must have 3 channels."
-    assert len(input_BCHW.shape) == 4, "Input must have 4 dimensions."
-
     x = rearrange(
         input_BCHW,
         "b c (h p1) (w p2) -> b (h w) (c p1 p2)",

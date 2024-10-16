@@ -1,8 +1,13 @@
 import torch
 import math
 from typing import Literal
+from torch import nn
 from torch.nn import functional as F
 from dataclasses import dataclass
+
+
+def gelu_approx(x):
+    return F.gelu(x, approximate="tanh")
 
 
 @dataclass
@@ -35,7 +40,7 @@ class MLPWeights:
 def mlp(x: torch.Tensor, w: MLPWeights) -> torch.Tensor:
     x = linear(x, w.fc1)
     if w.act == "gelu_approx":
-        x = F.gelu(x, approximate="tanh")
+        x = gelu_approx(x)
     else:
         raise NotImplementedError(f"Activation function {w.act} not implemented.")
     x = linear(x, w.fc2)
@@ -47,3 +52,17 @@ class AttentionWeights:
     qkv: LinearWeights
     proj: LinearWeights
     n_heads: int
+
+
+def attn(x: torch.Tensor, w: AttentionWeights) -> torch.Tensor:
+    bsz, q_len, d_model = x.shape
+    n_heads, head_dim = w.n_heads, d_model // w.n_heads
+
+    q, k, v = [
+        t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
+        for t in linear(x, w.qkv).chunk(3, dim=-1)
+    ]
+    out = F.scaled_dot_product_attention(q, k, v)
+    out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
+    out = linear(out, w.proj)
+    return out

@@ -4,9 +4,10 @@ import numpy as np
 import os
 import tarfile
 
-from typing import Generator, List, Union, Optional, Dict, TypedDict
+from typing import Generator, List, Union, Optional, Dict, TypedDict, Any
 from PIL import Image
 from dataclasses import dataclass
+from io import BytesIO
 from tokenizers import Tokenizer
 
 from .preprocess import create_patches
@@ -31,7 +32,7 @@ class Region:
 
 
 class VL:
-    def __init__(self, model_path: Optional[str]):
+    def __init__(self, model_path: Optional[str], ort_settings: Dict[str, Any] = {}):
         """
         Initialize the Moondream VL (Vision Language) model.
 
@@ -54,7 +55,7 @@ class VL:
 
         with tarfile.open(model_path, "r:*") as tar:
             for member in tar.getmembers():
-                name = member.name
+                name = member.name.split("/")[-1]
 
                 f = tar.extractfile(member)
                 if f is not None:
@@ -63,15 +64,21 @@ class VL:
                     continue
 
                 if name == "vision_encoder.onnx":
-                    self.vision_encoder = ort.InferenceSession(contents)
+                    self.vision_encoder = ort.InferenceSession(contents, **ort_settings)
                 elif name == "vision_projection.onnx":
-                    self.vision_projection = ort.InferenceSession(contents)
+                    self.vision_projection = ort.InferenceSession(
+                        contents, **ort_settings
+                    )
                 elif name == "text_encoder.onnx":
-                    self.text_encoder = ort.InferenceSession(contents)
+                    self.text_encoder = ort.InferenceSession(contents, **ort_settings)
+                elif "text_decoder" in name and name.endswith(".onnx"):
+                    self.text_decoders.append(
+                        ort.InferenceSession(contents, **ort_settings)
+                    )
                 elif name == "tokenizer.json":
                     self.tokenizer = Tokenizer.from_buffer(contents)
-                elif "text_decoder" in name and name.endswith(".onnx"):
-                    self.text_decoders.append(ort.InferenceSession(contents))
+                elif name == "initial_kv_caches.npy":
+                    self.initial_kv_caches = [x for x in np.load(BytesIO(contents))]
 
         assert self.vision_encoder is not None
         assert self.vision_projection is not None
@@ -96,22 +103,13 @@ class VL:
         Returns:
             The encoded representation of the image.
         """
-        (inputs_embeds_0,) = self.text_encoder.run(
-            None, {"input_ids": np.array([[self.eos_token_id]])}
-        )
         image_patches = create_patches(image)
         patch_emb = self.vision_encoder.run(None, {"input": image_patches})[0]
         patch_emb = np.concatenate([patch_emb[0], patch_emb[1]], axis=-1)
         patch_emb = np.expand_dims(patch_emb, axis=0)
-        (inputs_embeds_1,) = self.vision_projection.run(None, {"input": patch_emb})
-        inputs_embeds = np.concatenate([inputs_embeds_0, inputs_embeds_1], axis=1)
+        (inputs_embeds,) = self.vision_projection.run(None, {"input": patch_emb})
 
-        kv_caches = [
-            np.ndarray(
-                [24 // len(self.text_decoders), 2, 1, 32, 0, 64], dtype=np.float16
-            )
-            for _ in self.text_decoders
-        ]
+        kv_caches = self.initial_kv_caches
         for i, decoder in enumerate(self.text_decoders):
             inputs_embeds, kv_caches[i] = decoder.run(
                 None, {"inputs_embeds": inputs_embeds, "kv_cache": kv_caches[i]}

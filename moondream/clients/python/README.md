@@ -21,6 +21,8 @@ pip install git+https://github.com/vikhyat/moondream.git#subdirectory=moondream/
 Then download the model weights:
 
 ```
+wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int8.bin.gz?download=true" -O moondream-latest-int8.bin.gz
+# ...or, for FP16 weights:
 wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-f16.bin.gz?download=true" -O moondream-latest-f16.bin.gz
 ```
 
@@ -29,7 +31,7 @@ You can load gzipped weights directly in the library, but to avoid runtime
 decompression (which takes time), we recommend unzipping the weights:
 
 ```
-gunzip moondream-latest-f16.bin.gz
+gunzip moondream-latest-*.bin.gz
 ```
 
 ## Usage
@@ -47,6 +49,10 @@ image = Image.open("path/to/image.jpg")
 encoded_image = model.encode_image(image)
 
 # Caption the image.
-for t in model.caption(encoded_image, {"streaming": True}):
+for t in model.caption(encoded_image):
     print(t, end="", flush=True)
 ```
+
+### Accelerators
+
+(TK -- document how ONNX execution providers work.)
