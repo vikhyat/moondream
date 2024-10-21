@@ -128,7 +128,7 @@ static ggml_tensor * patch_bilinear_downsample(ggml_context * ctx, ggml_tensor *
     return dst;
 }
 
-// Modification of llama.cpp/examples/llava/clip.pp clip_image_build_graph.
+// Modification of llama.cpp/examples/llava/clip.cpp clip_image_build_graph.
 // Ref: https://github.com/ggerganov/llama.cpp/blob/da799b41891e34aac86ce4e173f9c4   c0afd4fab3/examples/llava/clip.cpp
 static ggml_cgraph * mmproj_build_clip(
     moondream_mmproj & model,
@@ -247,9 +247,6 @@ static ggml_cgraph * mmproj_build_clip(
         cur = ggml_add(ctx0, cur, embeddings);
         // embeddings = residual, cur = hidden_states
         embeddings = cur;
-        /*if (il == 0) {
-            cur = ggml_map_custom1(ctx0, embeddings, log_tensor, 1, NULL);
-        }*/
 
         // Layernorm 2
         cur = ggml_norm(ctx0, cur, eps);
@@ -268,11 +265,9 @@ static ggml_cgraph * mmproj_build_clip(
 
         // Add the resiudal.
         cur = ggml_add(ctx0, embeddings, cur);
-        /*if (il == n_layer-2) {
-            cur = ggml_map_custom1(ctx0, cur, log_tensor, 1, NULL);
-        }*/
         embeddings = cur;
     }
+    embeddings = log_tensor(ctx0, embeddings);
 
     // Post-layernorm
     embeddings = ggml_norm(ctx0, embeddings, eps);

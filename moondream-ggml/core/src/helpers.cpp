@@ -29,7 +29,7 @@ void set_tensor_name(ggml_tensor * cur, const char * name, int il) {
     }
 }
 
-void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata) {
+static void log_tensor_custom_op(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata) {
     if (ith != 0) {
         // Only log from the first thread.
         return;
@@ -51,17 +51,20 @@ void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, vo
 
     for (int i = 0; i < src->ne[2]; i++) {
         printf("[");
-        for (int j = 0; j < 2/*src->ne[1]*/; j++) {
+        for (int j = 0; j < src->ne[1]; j++) {
             printf("[");
-            /*if (i > 0) {
-                printf("\t");
-            }*/
             for (int k = 0; k < src->ne[0]; ++k) {
-                float f = *(float *)(((char *)src->data) + i*src->nb[2] + j*src->nb[1] + k*src->nb[0]);
-                printf("%.7f ", (double)f);
+                size_t offset = i*src->nb[2] + j*src->nb[1] + k*src->nb[0];
+                float f = *(float *)(((char *)src->data) + offset);
+                *(float *)(((char *)dst->data) + offset) = f;
+                printf("%.7f ", f);
             }
             printf("]\n");
         }
         printf("]\n");
     }
+}
+
+ggml_tensor * log_tensor(ggml_context * ctx, ggml_tensor * src) {
+    return ggml_map_custom1(ctx, src, log_tensor_custom_op, 1, NULL);
 }

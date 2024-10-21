@@ -30,4 +30,4 @@ size_t utf8_len(char src);
 double bytes_to_gib(size_t n_bytes);
 bool size_to_int32(size_t s, int32_t * i);
 void set_tensor_name(ggml_tensor * cur, const char * name, int il);
-void log_tensor(ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata);
+ggml_tensor * log_tensor(ggml_context * ctx, ggml_tensor * src);
