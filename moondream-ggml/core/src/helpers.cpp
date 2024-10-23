@@ -49,20 +49,34 @@ static void log_tensor_custom_op(ggml_tensor * dst, const ggml_tensor * src, int
             break;
     }
 
-    for (int i = 0; i < src->ne[2]; i++) {
+    int i_max = src->ne[2];
+    int j_max = 1;//src->ne[1];
+    int k_max = src->ne[0];
+
+    for (int i = 0; i < i_max; i++) {
         printf("[");
-        for (int j = 0; j < src->ne[1]; j++) {
+        for (int j = 0; j < j_max; j++) {
             printf("[");
-            for (int k = 0; k < src->ne[0]; ++k) {
+            for (int k = 0; k < k_max; ++k) {
                 size_t offset = i*src->nb[2] + j*src->nb[1] + k*src->nb[0];
                 float f = *(float *)(((char *)src->data) + offset);
-                *(float *)(((char *)dst->data) + offset) = f;
                 printf("%.7f ", f);
             }
             printf("]\n");
         }
         printf("]\n");
     }
+
+    for (int i = 0; i < src->ne[2]; i++) {
+        for (int j = 0; j < src->ne[1]; j++) {
+            for (int k = 0; k < src->ne[0]; ++k) {
+                size_t offset = i*src->nb[2] + j*src->nb[1] + k*src->nb[0];
+                float f = *(float *)(((char *)src->data) + offset);
+                *(float *)(((char *)dst->data) + offset) = f;
+            }
+        }
+    }
+
 }
 
 ggml_tensor * log_tensor(ggml_context * ctx, ggml_tensor * src) {
