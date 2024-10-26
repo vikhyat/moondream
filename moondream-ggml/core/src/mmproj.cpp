@@ -85,7 +85,6 @@ static ggml_cgraph * mmproj_build_clip(
     const int n_outer_patches = batch.n_outer_patches;
     const int n_outer_patch_rows = batch.n_outer_patch_rows;
     const int n_outer_patch_cols = batch.n_outer_patch_cols;
-    //const int n_batch = 1; // temporarily set to 1 until reshapes support greater than 1
     const int image_size = hparams.image_size;
     const int patch_size = hparams.patch_size;
     const int n_patches_per_side = mctx.n_patches_per_side;
@@ -97,6 +96,8 @@ static ggml_cgraph * mmproj_build_clip(
     const int n_layer = hparams.n_layer;
     const float eps = hparams.f_norm_eps;
     printf("n_batch: %d\n", n_batch);
+    printf("n_head_qkv: %d\n", n_head_qkv);
+    printf("n_head: %d\n", n_head);
 
     ggml_init_params build_ctx_params = {
         mctx.compute_buffer.size(),
@@ -840,7 +841,7 @@ bool moondream_mmproj_load_image_to_batch(const char * img_path, moondream_mmpro
         STBIR_RGB,
         STBIR_TYPE_UINT8,
         STBIR_EDGE_CLAMP,
-        STBIR_FILTER_TRIANGLE);
+        STBIR_FILTER_CATMULLROM /* bicubic */);
     if (resized_image_data == NULL) {
         printf("stbir failed to resize resized_image_data\n");
         return false;
@@ -872,31 +873,22 @@ bool moondream_mmproj_load_image_to_batch(const char * img_path, moondream_mmpro
     if (resized_image_f32.width != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH
         || resized_image_f32.height != MOONDREAM_IMAGE_PATCH_SIDE_LENGTH
     ) {
-        void * patch_size_image_data = stbir_resize(
-            resized_image_data,
+        patch_size_image_f32.data = (float *)stbir_resize(
+            resized_image_f32.data,
             target_width,
             target_height,
-            target_width * MOONDREAM_N_IMAGE_CHANNELS,
+            4 * target_width * MOONDREAM_N_IMAGE_CHANNELS,
             NULL,
             MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
             MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
-            MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS,
+            4 * MOONDREAM_IMAGE_PATCH_SIDE_LENGTH * MOONDREAM_N_IMAGE_CHANNELS,
             STBIR_RGB,
-            STBIR_TYPE_UINT8,
+            STBIR_TYPE_FLOAT,
             STBIR_EDGE_CLAMP,
-            STBIR_FILTER_TRIANGLE);
-        if (patch_size_image_data == NULL) {
+            STBIR_FILTER_TRIANGLE /* bilinear */);
+
+        if (patch_size_image_f32.data == NULL) {
             printf("stbir failed to resize patch_size_image_data\n");
-            return false;
-        }
-        moondream_image_alt_u8 patch_size_image_u8;
-        init_moondream_image_alt_u8(
-            patch_size_image_u8,
-            MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
-            MOONDREAM_IMAGE_PATCH_SIDE_LENGTH,
-            (unsigned char *)patch_size_image_data);
-        if (!normalize_image_u8_to_f32(&patch_size_image_u8, &patch_size_image_f32, mean, std)) {
-            printf("failed to normalize image\n");
             return false;
         }
     }
