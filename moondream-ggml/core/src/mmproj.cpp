@@ -12,61 +12,6 @@
 #include "mmproj.hpp"
 #include "patch.hpp"
 
-/*
-void mmproj_bilinear_downsample(
-    const float * base_image,
-    mmproj_image_downsample_buffer & buf,
-    int base_width, int base_height,
-    int new_width, int new_height,
-    int channels
-) {
-    printf("start downsample\n");
-    printf("channels: %d\n", channels);
-    printf("base_width: %d, base_height: %d\n", base_width, base_height);
-    printf("new_width: %d, new_height: %d\n", new_width, new_height);
-
-    const int x_gaps = new_width - 1;
-    const float x_gap_size = (float)base_width / (float)(x_gaps);
-
-    const int y_gaps = new_height - 1;
-    const float y_gap_size = (float)base_height / (float)(y_gaps);
-
-    printf("x_gaps: %d, x_gap_size: %f\n", x_gaps, x_gap_size);
-    printf("y_gaps: %d, y_gap_size: %f\n", y_gaps, y_gap_size);
-
-    // TODO: not quite right. Base values need to be weighted based on distance from the sample point.
-
-    for (int x = 0; x < x_gaps; ++x) {
-        const int base_left_col_offset = (int)floorf(x * x_gap_size);
-        for (int y = 0; y < base_height; ++y) {
-            const int base_left_offset = (y * base_width + base_left_col_offset) * channels;
-            const int base_right_offset = base_left_offset + channels;
-            const int inter_offset = (y * new_width + x) * channels;
-            for (int k = 0; k < channels; ++k) {
-                const float base_left_val = base_image[base_left_offset + k];
-                const float base_right_val = base_image[base_right_offset + k];
-                buf.inter_image[inter_offset + k] = (base_left_val + base_right_val) / 2.0f;
-            }
-        }
-    }
-
-    for (int y = 0; y < y_gaps; ++y) {
-        const int inter_up_row_offset = (int)floorf(y * y_gap_size) * new_width;
-        const int inter_down_row_offset = inter_up_row_offset + new_width;
-        for (int x = 0; x < new_width; ++x) {
-            const int inter_up_offset = (inter_up_row_offset + x) * channels;
-            const int inter_down_offset = (inter_up_row_offset + x) * channels;
-            const int new_offset = (y * new_width + x) * channels;
-            for (int k = 0; k < channels; ++k) {
-                const float inter_up_val = buf.inter_image[inter_up_offset + k];
-                const float inter_down_val = buf.inter_image[inter_down_offset + k];
-                buf.final_image[new_offset + k] = (inter_up_val + inter_down_val) / 2.0f;
-            }
-        }
-    }
-}
-*/
-
 static void patch_bilinear_downsample_custom_op(
     ggml_tensor * dst, const ggml_tensor * src, int ith, int nth, void * userdata
 ) {
@@ -188,11 +133,11 @@ static ggml_cgraph * mmproj_build_clip(
         "patch_embd shape: (%d, %d, %d, %d)\n",
         model.patch_embd->ne[0], model.patch_embd->ne[1],
         model.patch_embd->ne[2], model.patch_embd->ne[3]);
-    // Shape: (n_patches_per_side, n_patches_per_side, n_patch_elements, n_batch)
+    // Shape: (n_patches_per_side, n_patches_per_side, n_embd, n_batch)
     ggml_tensor * inp = ggml_conv_2d(ctx0, model.patch_embd, inp_raw, patch_size, patch_size, 0, 0, 1, 1);
-    // Shape: (n_patches, n_patch_elements, n_batch, 1)
+    // Shape: (n_patches, n_embd, n_batch, 1)
     inp = ggml_reshape_3d(ctx0, inp, n_patches, n_embd, n_batch);
-    // Shape: (n_patch_elements, n_patches, n_batch, 1)
+    // Shape: (n_embd, n_patches, n_batch, 1)
     inp = ggml_cont(ctx0, ggml_permute(ctx0, inp, 1, 0, 2, 3));
     if (model.patch_bias != nullptr) {
         inp = ggml_add(ctx0, inp, model.patch_bias);
@@ -220,7 +165,7 @@ static ggml_cgraph * mmproj_build_clip(
 
         // Self-attention
         ggml_tensor * q = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].q_w, cur), model.layers[il].q_b);
-        q = ggml_scale_inplace(ctx0, q, 1.0f / sqrtf((float)n_head_qkv));
+        //q = ggml_scale_inplace(ctx0, q, 1.0f / sqrtf((float)n_head_qkv));
         q = ggml_reshape_4d(ctx0, q, n_head_qkv, n_head, n_positions, n_batch);
         q = ggml_cont(ctx0, ggml_permute(ctx0, q, 0, 2, 1, 3));
         q = ggml_reshape_3d(ctx0, q, n_head_qkv, n_positions, n_head * n_batch);
@@ -235,13 +180,47 @@ static ggml_cgraph * mmproj_build_clip(
         v = ggml_cont(ctx0, ggml_permute(ctx0, v, 1, 2, 0, 3));
         v = ggml_reshape_3d(ctx0, v, n_positions, n_head_qkv, n_head * n_batch);
 
+        if (il == 0) {
+            printf(
+                "v il: (%d, %d, %d, %d)\n",
+                v->ne[0], v->ne[1], v->ne[2], v->ne[3]);
+            printf(
+                "k il: (%d, %d, %d, %d)\n",
+                k->ne[0], k->ne[1], k->ne[2], k->ne[3]);
+            printf(
+                "q il: (%d, %d, %d, %d)\n",
+                q->ne[0], q->ne[1], q->ne[2], q->ne[3]);
+            q = log_tensor(ctx0, q);
+        }
+
         ggml_tensor * kq = ggml_mul_mat(ctx0, k, q);
+        kq = ggml_scale_inplace(ctx0, kq, 1.0f / sqrtf((float)n_head_qkv));
         kq = ggml_soft_max_inplace(ctx0, kq);
+
+        if (il == 0) {
+            printf(
+                "kq il: (%d, %d, %d, %d)\n",
+                kq->ne[0], kq->ne[1], kq->ne[2], kq->ne[3]);
+        }
+
         ggml_tensor * kqv = ggml_mul_mat(ctx0, v, kq);
+
+        if (il == 0) {
+            printf(
+                "kqv il: (%d, %d, %d, %d)\n",
+                kqv->ne[0], kqv->ne[1], kqv->ne[2], kqv->ne[3]);
+        }
+
         kqv = ggml_reshape_4d(ctx0, kqv, n_head_qkv, n_positions, n_head, n_batch);
         kqv = ggml_permute(ctx0, kqv, 0, 2, 1, 3);
-
         cur = ggml_cont_3d(ctx0, kqv, n_embd, n_positions, n_batch);
+
+        if (il == 0) {
+            printf(
+                "cur il: (%d, %d, %d, %d)\n",
+                cur->ne[0], cur->ne[1], cur->ne[2], cur->ne[3]);
+        }
+
         cur = ggml_add(ctx0, ggml_mul_mat(ctx0, model.layers[il].o_w, cur), model.layers[il].o_b);
         // Add the residual.
         cur = ggml_add(ctx0, cur, embeddings);
@@ -267,12 +246,13 @@ static ggml_cgraph * mmproj_build_clip(
         cur = ggml_add(ctx0, embeddings, cur);
         embeddings = cur;
     }
-    embeddings = log_tensor(ctx0, embeddings);
+    embeddings = ggml_cont(ctx0, embeddings);
+    //embeddings = log_tensor(ctx0, embeddings);
 
     // Post-layernorm
     embeddings = ggml_norm(ctx0, embeddings, eps);
     ggml_set_name(embeddings, "post_ln");
-    // Shape: (n_patch_elements, n_patches, n_batch, 1)
+    // Shape: (n_embd, n_patches, n_batch, 1)
     embeddings = ggml_add(ctx0, ggml_mul(ctx0, embeddings, model.post_ln_w), model.post_ln_b);
     printf(
         "embeddings post-block shape: (%d, %d, %d, %d)\n",
@@ -336,7 +316,7 @@ static ggml_cgraph * mmproj_build_clip(
         embeddings = ggml_concat(ctx0, full_img_features, full_img_features, 0);
     }
 
-    // Shape: (2*n_patch_elements, n_patches)
+    // Shape: (2*n_embd, n_patches)
     embeddings = ggml_cont(ctx0, embeddings);
     printf(
         "final embeddings shape: (%d, %d, %d, %d)\n",

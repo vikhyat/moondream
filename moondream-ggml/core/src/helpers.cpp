@@ -49,7 +49,7 @@ static void log_tensor_custom_op(ggml_tensor * dst, const ggml_tensor * src, int
             break;
     }
 
-    int i_max = src->ne[2];
+    int i_max = 1;//src->ne[2];
     int j_max = 1;//src->ne[1];
     int k_max = src->ne[0];
 
