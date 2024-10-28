@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "image.hpp"
 #include "ggml.h"
 #include "ggml-backend.h"
 
