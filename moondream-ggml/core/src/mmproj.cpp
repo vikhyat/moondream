@@ -81,8 +81,9 @@ static void outer_patches_to_batch(
 
     for (int i = 0; i < n_outer_patches; ++i) {
         // offset should be in number of floats
-        size_t offset = (i + 1) * n_patch_elements;
-        memcpy((void *)&batch.data[offset], &outer_patches[offset], patch_byte_size);
+        size_t src_offset = i * n_patch_elements;
+        size_t dst_offset = src_offset + n_patch_elements;
+        memcpy((void *)&batch.data[dst_offset], &outer_patches[src_offset], patch_byte_size);
     }
 }
 
