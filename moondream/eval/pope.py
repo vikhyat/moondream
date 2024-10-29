@@ -37,7 +37,6 @@ for row in tqdm(pope_dataset):
             else:
                 stats[split] = (stats[split][0], stats[split][1] + 1)
 
-print(MODEL_ID, REVISION)
 print(
     "Random:",
     stats["random"][0],
