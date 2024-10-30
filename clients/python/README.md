@@ -49,8 +49,13 @@ image = Image.open("path/to/image.jpg")
 encoded_image = model.encode_image(image)
 
 # Caption the image.
+response = ""
 for t in model.caption(encoded_image):
     print(t, end="", flush=True)
+    response += t
+
+# For full response
+print(response)
 ```
 
 ### Accelerators
