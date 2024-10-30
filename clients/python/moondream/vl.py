@@ -90,7 +90,7 @@ class VL:
         self.eos_token_id = self.tokenizer.encode("<|endoftext|>").ids[0]
         self.caption_prefix = self.tokenizer.encode("\n\nCaption:").ids
 
-    def encode_image(self, image: Image.Image, reduction_size: int = 1) -> EncodedImage:
+    def encode_image(self, image: Image.Image) -> EncodedImage:
         """
         Preprocess the image by running it through the model.
 
@@ -110,9 +110,6 @@ class VL:
         patch_emb = np.concatenate([patch_emb[0], patch_emb[1]], axis=-1)
         patch_emb = np.expand_dims(patch_emb, axis=0)
         (inputs_embeds,) = self.vision_projection.run(None, {"input": patch_emb})
-        inputs_embeds = inputs_embeds[:, ::reduction_size]
-        # input_embeds = pool_embeddings(inputs_embeds, reduction_size)
-        print("Reduced projected patch embeddings shape:", inputs_embeds.shape)
 
         kv_caches = self.initial_kv_caches
         for i, decoder in enumerate(self.text_decoders):
@@ -187,8 +184,8 @@ class VL:
         Returns:
             str: The answer to the input question about the input image.
         """
-        if not question.startswith("\n\n"):
-            question = "\n\n" + question
+        question = f"\n\nQuestion: {question}\n\nAnswer:"
+
         question_tokens = self.tokenizer.encode(question).ids
         if type(question_tokens) == list:
             (question_tokens,) = self.text_encoder.run(
