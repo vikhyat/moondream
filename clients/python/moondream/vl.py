@@ -90,7 +90,7 @@ class VL:
         self.eos_token_id = self.tokenizer.encode("<|endoftext|>").ids[0]
         self.caption_prefix = self.tokenizer.encode("\n\nCaption:").ids
 
-    def encode_image(self, image: Image.Image) -> EncodedImage:
+    def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
         """
         Preprocess the image by running it through the model.
 
@@ -104,7 +104,11 @@ class VL:
         Returns:
             The encoded representation of the image.
         """
-        image_patches = create_patches(image)
+        if type(image) == EncodedImage:
+            return image
+
+        image_patches = create_patches(image)  # type: ignore
+
         patch_emb = self.vision_encoder.run(None, {"input": image_patches})[0]
         patch_emb = np.concatenate([patch_emb[0], patch_emb[1]], axis=-1)
         patch_emb = np.expand_dims(patch_emb, axis=0)
@@ -113,10 +117,35 @@ class VL:
         kv_caches = self.initial_kv_caches
         for i, decoder in enumerate(self.text_decoders):
             inputs_embeds, kv_caches[i] = decoder.run(
-                None, {"inputs_embeds": inputs_embeds, "kv_cache": kv_caches[i]}
+                None,
+                {
+                    "inputs_embeds": inputs_embeds,
+                    "kv_cache": kv_caches[i],
+                },
             )
-
         return EncodedImage(kv_caches=kv_caches)
+
+    def _generate(
+        self, hidden: np.ndarray, encoded_image: EncodedImage, max_tokens: int
+    ) -> Generator[str, None, None]:
+        kv_caches = {
+            i: encoded_image.kv_caches[i] for i in range(len(self.text_decoders))
+        }
+
+        generated_tokens = 0
+        while generated_tokens < max_tokens:
+            for i, decoder in enumerate(self.text_decoders):
+                hidden, kv_caches[i] = decoder.run(
+                    None, {"inputs_embeds": hidden, "kv_cache": kv_caches[i]}
+                )
+
+            next_token = np.argmax(hidden, axis=-1)[0]
+            if next_token == self.eos_token_id:
+                break
+
+            yield self.tokenizer.decode([next_token])
+            generated_tokens += 1
+            (hidden,) = self.text_encoder.run(None, {"input_ids": [[next_token]]})
 
     def caption(
         self,
@@ -134,36 +163,24 @@ class VL:
         Returns:
             str: The caption for the input image.
         """
-        if type(self.caption_prefix) == list:
-            (self.caption_prefix,) = self.text_encoder.run(
-                None, {"input_ids": [self.caption_prefix]}
-            )
-
+        (input_embeds,) = self.text_encoder.run(
+            None, {"input_ids": [self.caption_prefix]}
+        )
+        print(type(input_embeds))
         if settings is None:
             settings = {}
         max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
-        if type(image) != EncodedImage:
-            image = self.encode_image(image)  # type: ignore
+        encoded_image = self.encode_image(image)
+        for t in self._generate(input_embeds, encoded_image, max_tokens):
+            yield t
 
-        hidden = self.caption_prefix
-        kv_caches = {i: image.kv_caches[i] for i in range(len(self.text_decoders))}
-        generated_tokens = 0
-        while generated_tokens < max_tokens:
-            for i, decoder in enumerate(self.text_decoders):
-                hidden, kv_caches[i] = decoder.run(
-                    None, {"inputs_embeds": hidden, "kv_cache": kv_caches[i]}
-                )
-
-            next_token = np.argmax(hidden, axis=-1)[0]
-            if next_token == self.eos_token_id:
-                break
-
-            yield self.tokenizer.decode([next_token])
-            generated_tokens += 1
-            (hidden,) = self.text_encoder.run(None, {"input_ids": [[next_token]]})
-
-    def query(self, image: Union[Image.Image, EncodedImage], question: str) -> str:
+    def query(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        question: str,
+        settings: Optional[SamplingSettings] = None,
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Generate an answer to the input question about the input image.
 
@@ -174,7 +191,18 @@ class VL:
         Returns:
             str: The answer to the input question about the input image.
         """
-        return "To be implemented."
+        question_toks = self.tokenizer.encode(
+            f"\n\nQuestion: {question}\n\nAnswer:"
+        ).ids
+
+        (input_embeds,) = self.text_encoder.run(None, {"input_ids": [question_toks]})
+        if settings is None:
+            settings = {}
+        max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
+
+        encoded_image = self.encode_image(image)  # type: ignore
+        for t in self._generate(input_embeds, encoded_image, max_tokens):
+            yield t
 
     def detect(
         self, image: Union[Image.Image, EncodedImage], object: str
