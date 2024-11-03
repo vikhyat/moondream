@@ -15,23 +15,16 @@ not recommended yet.
 Install the library using pip:
 
 ```
-pip install git+https://github.com/vikhyat/moondream.git#subdirectory=moondream/clients/python
+pip install moondream==0.0.1
 ```
 
 Then download the model weights:
 
 ```
-wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int8.bin.gz?download=true" -O moondream-latest-int8.bin.gz
+# int8 weights (recommended):
+wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int8.bin.gz?download=true" -O - | gunzip > moondream-latest-int8.bin
 # ...or, for FP16 weights:
-wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-f16.bin.gz?download=true" -O moondream-latest-f16.bin.gz
-```
-
-This downloads gzipped weights, which offers significant bandwidth savings.
-You can load gzipped weights directly in the library, but to avoid runtime
-decompression (which takes time), we recommend unzipping the weights:
-
-```
-gunzip moondream-latest-*.bin.gz
+wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-f16.bin.gz?download=true" -O - | gunzip > moondream-latest-f16.bin
 ```
 
 ## Usage
@@ -49,7 +42,18 @@ image = Image.open("path/to/image.jpg")
 encoded_image = model.encode_image(image)
 
 # Caption the image.
-for t in model.caption(encoded_image):
+caption = model.caption(encoded_image)
+
+# ...or, if you want to stream the output:
+for t in model.caption(encoded_image, stream=True)["caption"]:
+    print(t, end="", flush=True)
+
+# Ask a question about the image.
+question = "How many people are in this image?"
+answer = model.answer_question(encoded_image, question)["answer"]
+
+# ...or again, if you want to stream the output:
+for t in model.answer_question(encoded_image, question, stream=True)["answer"]:
     print(t, end="", flush=True)
 ```
 

@@ -25,6 +25,13 @@ SamplingSettings = TypedDict(
     total=False,
 )
 
+CaptionOutput = TypedDict(
+    "CaptionOutput", {"caption": Union[str, Generator[str, None, None]]}
+)
+QueryOutput = TypedDict(
+    "QueryOutput", {"answer": Union[str, Generator[str, None, None]]}
+)
+
 DEFAULT_MAX_TOKENS = 1024
 LATEST_SUPPORTED_VERSION = 0
 
@@ -163,8 +170,9 @@ class VL:
         self,
         image: Union[Image.Image, EncodedImage],
         length: str = "normal",
+        stream: bool = False,
         settings: Optional[SamplingSettings] = None,
-    ) -> Union[str, Generator[str, None, None]]:
+    ) -> CaptionOutput:
         """
         Generate a caption for the input image.
 
@@ -189,15 +197,26 @@ class VL:
         max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
         encoded_image = self.encode_image(image)
-        for t in self._generate(input_embeds, encoded_image, max_tokens):
-            yield t
+
+        def generator():
+            for t in self._generate(input_embeds, encoded_image, max_tokens):
+                yield t
+
+        if stream:
+            return {"caption": generator()}
+        else:
+            out = ""
+            for t in generator():
+                out += t
+            return {"caption": out}
 
     def query(
         self,
         image: Union[Image.Image, EncodedImage],
         question: str,
+        stream: bool = False,
         settings: Optional[SamplingSettings] = None,
-    ) -> Union[str, Generator[str, None, None]]:
+    ) -> QueryOutput:
         """
         Generate an answer to the input question about the input image.
 
@@ -211,18 +230,30 @@ class VL:
         if "query" not in self.templates:
             raise ValueError("Model does not support querying.")
 
-        question_toks = self.templates["query"]["prefix"] + self.tokenizer.encode(
-            f"\n\nQuestion: {question}\n\nAnswer:"
-        ).ids + self.templates["query"]["suffix"]
+        question_toks = (
+            self.templates["query"]["prefix"]
+            + self.tokenizer.encode(question).ids
+            + self.templates["query"]["suffix"]
+        )
 
         (input_embeds,) = self.text_encoder.run(None, {"input_ids": [question_toks]})
         if settings is None:
             settings = {}
         max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
-        encoded_image = self.encode_image(image)  # type: ignore
-        for t in self._generate(input_embeds, encoded_image, max_tokens):
-            yield t
+        encoded_image = self.encode_image(image)
+
+        def generator():
+            for t in self._generate(input_embeds, encoded_image, max_tokens):
+                yield t
+
+        if stream:
+            return {"answer": generator()}
+        else:
+            out = ""
+            for t in generator():
+                out += t
+            return {"answer": out}
 
     def detect(
         self, image: Union[Image.Image, EncodedImage], object: str
