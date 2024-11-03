@@ -14,13 +14,13 @@ not recommended yet.
 
 Install the library using pip:
 
-```
+```bash
 pip install moondream==0.0.1
 ```
 
 Then download the model weights:
 
-```
+```bash
 # int8 weights (recommended):
 wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int8.bin.gz?download=true" -O - | gunzip > moondream-latest-int8.bin
 # ...or, for fp16 weights:

@@ -85,7 +85,9 @@ class Moondream(PreTrainedModel):
 
         with torch.no_grad():
             inputs_embeds = self.input_embeds(prompt, image_embeds, tokenizer)
-            attention_mask = torch.ones((inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device)
+            attention_mask = torch.ones(
+                (inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device
+            )
             output_ids = self.text_model.generate(
                 inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
@@ -105,13 +107,18 @@ class Moondream(PreTrainedModel):
         image_embeds = self.encode_image(images)
 
         templated_prompts = [
-            f"<image>\n\n{'Short caption' if length == 'short' else 'Caption'}:" for _ in images
+            f"<image>\n\n{'Short caption' if length == 'short' else 'Caption'}:"
+            for _ in images
         ]
-        inputs_embeds = torch.stack([
-            self.input_embeds(prompt, image_embed.unsqueeze(0), tokenizer)[0]
-            for prompt, image_embed in zip(templated_prompts, image_embeds)
-        ])
-        attention_mask = torch.ones((inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device)
+        inputs_embeds = torch.stack(
+            [
+                self.input_embeds(prompt, image_embed.unsqueeze(0), tokenizer)[0]
+                for prompt, image_embed in zip(templated_prompts, image_embeds)
+            ]
+        )
+        attention_mask = torch.ones(
+            (inputs_embeds.shape[0], inputs_embeds.shape[1]), device=self.device
+        )
 
         generate_config = {
             "eos_token_id": tokenizer.eos_token_id,

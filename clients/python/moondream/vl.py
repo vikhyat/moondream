@@ -57,7 +57,8 @@ class VL:
 
         if not tarfile.is_tarfile(model_path):
             raise ValueError(
-                "Model format not recognized. You may need to upgrade the moondream package."
+                "Model format not recognized. You may need to upgrade the moondream"
+                " package."
             )
 
         self.text_decoders = []
@@ -103,7 +104,8 @@ class VL:
             raise ValueError("Model format not recognized.")
         if self.config["model_version"] > LATEST_SUPPORTED_VERSION:
             raise ValueError(
-                "Model version not supported. You may need to upgrade the moondream package."
+                "Model version not supported. You may need to upgrade the moondream"
+                " package."
             )
 
         self.special_tokens = self.config["special_tokens"]

@@ -17,10 +17,13 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install isort autoflake
+        pip install isort autoflake black
     - name: Checking import sort order
       run: |
         isort --profile black --check .
     - name: Checking for unused imports
       run: |
         autoflake -c -r .
+    - name: Checking code style
+      run: |
+        black --check .

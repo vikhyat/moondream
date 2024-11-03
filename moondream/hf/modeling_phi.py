@@ -894,6 +894,7 @@ class Embedding(nn.Module):
     def forward(self, input_ids: torch.LongTensor) -> torch.FloatTensor:
         return self.wte(input_ids)
 
+
 PHI_INPUTS_DOCSTRING = r"""
     Args:
         input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
