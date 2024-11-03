@@ -3,6 +3,7 @@ import onnxruntime as ort
 import numpy as np
 import os
 import tarfile
+import json
 
 from typing import Generator, List, Union, Optional, Dict, TypedDict, Any
 from PIL import Image
@@ -25,6 +26,7 @@ SamplingSettings = TypedDict(
 )
 
 DEFAULT_MAX_TOKENS = 1024
+LATEST_SUPPORTED_VERSION = 0
 
 
 class Region:
@@ -79,6 +81,8 @@ class VL:
                     self.tokenizer = Tokenizer.from_buffer(contents)
                 elif name == "initial_kv_caches.npy":
                     self.initial_kv_caches = [x for x in np.load(BytesIO(contents))]
+                elif name == "config.json":
+                    self.config = json.loads(contents)
 
         assert self.vision_encoder is not None
         assert self.vision_projection is not None
@@ -86,9 +90,17 @@ class VL:
         assert len(self.text_decoders) > 0
         assert self.tokenizer is not None
         assert self.initial_kv_caches is not None
+        assert self.config is not None
 
-        self.eos_token_id = self.tokenizer.encode("<|endoftext|>").ids[0]
-        self.caption_prefix = self.tokenizer.encode("\n\nCaption:").ids
+        if type(self.config) != dict or "model_version" not in self.config:
+            raise ValueError("Model format not recognized.")
+        if self.config["model_version"] > LATEST_SUPPORTED_VERSION:
+            raise ValueError(
+                "Model version not supported. You may need to upgrade the moondream package."
+            )
+
+        self.special_tokens = self.config["special_tokens"]
+        self.templates = self.config["templates"]
 
     def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
         """
@@ -140,7 +152,7 @@ class VL:
                 )
 
             next_token = np.argmax(hidden, axis=-1)[0]
-            if next_token == self.eos_token_id:
+            if next_token == self.special_tokens["eos"]:
                 break
 
             yield self.tokenizer.decode([next_token])
@@ -150,6 +162,7 @@ class VL:
     def caption(
         self,
         image: Union[Image.Image, EncodedImage],
+        length: str = "normal",
         settings: Optional[SamplingSettings] = None,
     ) -> Union[str, Generator[str, None, None]]:
         """
@@ -163,10 +176,14 @@ class VL:
         Returns:
             str: The caption for the input image.
         """
+        if "caption" not in self.templates:
+            raise ValueError("Model does not support captioning.")
+        if length not in self.templates["caption"]:
+            raise ValueError(f"Model does not support caption length '{length}'.")
+
         (input_embeds,) = self.text_encoder.run(
-            None, {"input_ids": [self.caption_prefix]}
+            None, {"input_ids": [self.templates["caption"][length]]}
         )
-        print(type(input_embeds))
         if settings is None:
             settings = {}
         max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
@@ -191,9 +208,12 @@ class VL:
         Returns:
             str: The answer to the input question about the input image.
         """
-        question_toks = self.tokenizer.encode(
+        if "query" not in self.templates:
+            raise ValueError("Model does not support querying.")
+
+        question_toks = self.templates["query"]["prefix"] + self.tokenizer.encode(
             f"\n\nQuestion: {question}\n\nAnswer:"
-        ).ids
+        ).ids + self.templates["query"]["suffix"]
 
         (input_embeds,) = self.text_encoder.run(None, {"input_ids": [question_toks]})
         if settings is None:
