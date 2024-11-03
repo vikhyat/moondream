@@ -6,11 +6,10 @@ from io import BytesIO
 from typing import Any, Dict, Generator, List, Optional, TypedDict, Union
 
 import numpy as np
+import onnx
 import onnxruntime as ort
 from PIL import Image
 from tokenizers import Tokenizer
-
-import onnx
 
 from .preprocess import create_patches
 
