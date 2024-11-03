@@ -1,5 +1,4 @@
-import math
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 import torch
 from einops import rearrange
