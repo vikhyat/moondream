@@ -23,7 +23,6 @@ import torch.utils.checkpoint
 from packaging import version
 from torch import nn
 from torch.nn import CrossEntropyLoss
-
 from transformers.activations import ACT2FN
 from transformers.cache_utils import Cache, DynamicCache, StaticCache
 from transformers.modeling_attn_mask_utils import AttentionMaskConverter
@@ -42,8 +41,8 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from .configuration_moondream import PhiConfig
 
+from .configuration_moondream import PhiConfig
 
 if is_flash_attn_2_available():
     from transformers.modeling_flash_attention_utils import _flash_attention_forward

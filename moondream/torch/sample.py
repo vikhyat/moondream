@@ -1,15 +1,16 @@
-import torch
 import argparse
 import os
 
+import torch
 from PIL import Image
 from transformers import AutoTokenizer
+
 from moondream.hf import Moondream
 
-from .weights import load_from_safetensors
-from .vision import encode_image
-from .text import text_encoder, text_decoder, lm_head
 from .rope import precompute_freqs_cis
+from .text import lm_head, text_decoder, text_encoder
+from .vision import encode_image
+from .weights import load_from_safetensors
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

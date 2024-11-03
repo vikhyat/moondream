@@ -23,7 +23,7 @@ Then download the model weights:
 ```
 # int8 weights (recommended):
 wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int8.bin.gz?download=true" -O - | gunzip > moondream-latest-int8.bin
-# ...or, for FP16 weights:
+# ...or, for fp16 weights:
 wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-f16.bin.gz?download=true" -O - | gunzip > moondream-latest-f16.bin
 ```
 
@@ -56,7 +56,3 @@ answer = model.answer_question(encoded_image, question)["answer"]
 for t in model.answer_question(encoded_image, question, stream=True)["answer"]:
     print(t, end="", flush=True)
 ```
-
-### Accelerators
-
-(TK -- document how ONNX execution providers work.)

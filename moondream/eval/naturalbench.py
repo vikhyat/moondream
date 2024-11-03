@@ -1,7 +1,8 @@
 from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm import tqdm
-from .. import detect_device
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from ..hf import detect_device
 
 MODEL_ID = "vikhyatk/moondream2"
 DEVICE, DTYPE = detect_device()

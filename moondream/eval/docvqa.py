@@ -1,7 +1,8 @@
 import editdistance
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
 from tqdm import tqdm
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
 from ..hf import detect_device
 
 MODEL_ID = "vikhyatk/moondream2"

@@ -1,10 +1,11 @@
+from typing import Dict, List, Optional, Tuple
+
 import torch
-from typing import Dict, Tuple, Optional, List
 from torch.nn import functional as F
 
-from .rope import apply_rotary_emb, precompute_freqs_cis
 from .layers import layer_norm, linear, mlp
-from .weights import TextModel, AttentionWeights, load_from_safetensors
+from .rope import apply_rotary_emb, precompute_freqs_cis
+from .weights import AttentionWeights, TextModel, load_from_safetensors
 
 
 def text_encoder(input_ids: torch.Tensor, w: TextModel):

@@ -1,6 +1,7 @@
-from moondream.hf import Moondream, detect_device, LATEST_REVISION
-from transformers import AutoTokenizer
 from PIL import Image
+from transformers import AutoTokenizer
+
+from moondream.hf import LATEST_REVISION, Moondream, detect_device
 
 device, dtype = detect_device()
 

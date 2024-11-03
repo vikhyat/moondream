@@ -1,10 +1,12 @@
 import argparse
-import torch
 import time
-import gradio as gr
-from moondream.hf import detect_device, LATEST_REVISION
 from threading import Thread
-from transformers import TextIteratorStreamer, AutoTokenizer, AutoModelForCausalLM
+
+import gradio as gr
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+
+from moondream.hf import LATEST_REVISION, detect_device
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cpu", action="store_true")

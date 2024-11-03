@@ -1,14 +1,14 @@
+from typing import List, Literal, Optional, Union
+
 import torch
-
-from typing import List, Union, Literal, Optional
-from transformers import PreTrainedModel
 from PIL import Image
+from transformers import PreTrainedModel
 
-from .configuration_moondream import PhiConfig
-from .configuration_moondream import MoondreamConfig
-from .vision_encoder import VisionEncoder
-from .region_model import RegionModel
+from .configuration_moondream import MoondreamConfig, PhiConfig
 from .modeling_phi import PhiForCausalLM
+from .region_model import RegionModel
+from .vision_encoder import VisionEncoder
+
 
 class Moondream(PreTrainedModel):
     config_class = MoondreamConfig

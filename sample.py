@@ -1,10 +1,12 @@
-import torch
 import argparse
-from PIL import Image
-from moondream.hf import Moondream, detect_device, LATEST_REVISION
 from queue import Queue
 from threading import Thread
-from transformers import TextIteratorStreamer, AutoTokenizer
+
+import torch
+from PIL import Image
+from transformers import AutoTokenizer, TextIteratorStreamer
+
+from moondream.hf import LATEST_REVISION, Moondream, detect_device
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

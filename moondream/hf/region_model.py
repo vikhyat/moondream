@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+
 from .fourier_features import FourierFeatures
 
 

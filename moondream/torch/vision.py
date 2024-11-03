@@ -1,19 +1,17 @@
-import torch
 import math
 from typing import List, Tuple, Union
-from einops import rearrange
-from torch.nn import functional as F
-from PIL import Image
-from torchvision.transforms.v2 import InterpolationMode
-from torchvision.transforms.v2.functional import (
-    resize as tv_resize,
-    to_image,
-    to_dtype,
-    normalize,
-)
 
+import torch
+from einops import rearrange
+from PIL import Image
+from torch.nn import functional as F
+from torchvision.transforms.v2 import InterpolationMode
+from torchvision.transforms.v2.functional import normalize
+from torchvision.transforms.v2.functional import resize as tv_resize
+from torchvision.transforms.v2.functional import to_dtype, to_image
+
+from .layers import attn, layer_norm, linear, mlp
 from .weights import VisionModel, load_from_safetensors
-from .layers import attn, linear, layer_norm, mlp
 
 
 def im_resize(

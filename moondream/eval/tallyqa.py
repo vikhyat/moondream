@@ -16,10 +16,12 @@
 #   rm data/vg/VG_100K/images.zip
 #   rm data/tallyqa/tallyqa.zip
 
-from tqdm import tqdm
 import json
+
 from PIL import Image
+from tqdm import tqdm
 from transformers import AutoTokenizer
+
 from ..hf import Moondream, detect_device
 
 BATCH_SIZE = 16

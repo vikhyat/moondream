@@ -1,12 +1,14 @@
 import argparse
-import torch
-import gradio as gr
-from moondream.hf import detect_device, LATEST_REVISION, Moondream
-from threading import Thread
-from transformers import TextIteratorStreamer, AutoTokenizer
-from PIL import ImageDraw
 import re
+from threading import Thread
+
+import gradio as gr
+import torch
+from PIL import ImageDraw
 from torchvision.transforms.v2 import Resize
+from transformers import AutoTokenizer, TextIteratorStreamer
+
+from moondream.hf import LATEST_REVISION, Moondream, detect_device
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cpu", action="store_true")

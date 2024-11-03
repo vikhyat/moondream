@@ -1,8 +1,9 @@
 # Adopted from https://github.com/crowsonkb/k-diffusion/blob/transformer-model-v2/k_diffusion/layers.py
 
+import math
+
 import torch
 import torch.nn as nn
-import math
 
 
 class FourierFeatures(nn.Module):

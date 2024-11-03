@@ -1,7 +1,8 @@
 # Ethically sourced from https://github.com/xjdr-alt/entropix
 
-import torch
 from typing import Tuple
+
+import torch
 
 
 def precompute_freqs_cis(

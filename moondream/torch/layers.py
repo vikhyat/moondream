@@ -1,9 +1,10 @@
-import torch
 import math
+from dataclasses import dataclass
 from typing import Literal
+
+import torch
 from torch import nn
 from torch.nn import functional as F
-from dataclasses import dataclass
 
 
 def gelu_approx(x):
