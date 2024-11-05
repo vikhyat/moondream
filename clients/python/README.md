@@ -23,8 +23,10 @@ Then download the model weights:
 ```bash
 # int8 weights (recommended):
 wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int8.bin.gz?download=true" -O - | gunzip > moondream-latest-int8.bin
-# ...or, for fp16 weights:
+# ...or, for fp16 weights (full precision):
 wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-f16.bin.gz?download=true" -O - | gunzip > moondream-latest-f16.bin
+# ...or, for int4 weights (resource constrained environments):
+wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int4.bin.gz?download=true" -O - | gunzip > moondream-latest-f16.bin
 ```
 
 ## Usage
