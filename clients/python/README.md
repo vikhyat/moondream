@@ -26,7 +26,7 @@ wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest
 # ...or, for fp16 weights (full precision):
 wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-f16.bin.gz?download=true" -O - | gunzip > moondream-latest-f16.bin
 # ...or, for int4 weights (resource constrained environments):
-wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int4.bin.gz?download=true" -O - | gunzip > moondream-latest-f16.bin
+wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int4.bin.gz?download=true" -O - | gunzip > moondream-latest-int4.bin
 ```
 
 ## Usage
