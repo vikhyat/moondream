@@ -12,6 +12,8 @@ onnxruntime = "^1.19.2"
 numpy = "^2.1.2"
 onnx = "^1.17.0"
 tokenizers = "^0.20.1"
+black = "^24.10.0"
+httpx = {extras = ["http2"], version = "^0.27.2"}
 
 
 [tool.pyright]
