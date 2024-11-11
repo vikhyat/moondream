@@ -262,7 +262,23 @@ class VL:
         image_buffer: BytesIO,
         prompt: str,
     ) -> dict:
+        """
+        Makes an HTTP request to the Moondream API for image querying.
 
+        Args:
+            image_buffer (BytesIO): A buffer containing the image data in JPEG format.
+            prompt (str): The text prompt or question about the image.
+
+        Returns:
+            dict: The JSON response from the API containing the query results.
+
+        Raises:
+            httpx.HTTPError: If the API request fails.
+
+        Note:
+            This is an internal method used by the query() method for cloud inference.
+            The request includes the image file and prompt in a multipart form request.
+        """
         request_id = str(uuid.uuid4())
 
         request_files = {"content": (f"{request_id}.jpg", image_buffer, "image/jpeg")}
