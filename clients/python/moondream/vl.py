@@ -316,7 +316,7 @@ class VL:
 
         Args:
             image (Union[Image.Image, EncodedImage, Path, str]): The input image to be queried.
-                Can be a PIL Image, encoded image, file path, or URL string.
+                Can be a PIL Image, encoded image, file path, or base64 encoded image string.
             question (str): The question to be answered about the image.
             stream (bool, optional): If True, returns a generator that yields tokens as they're generated.
                 Defaults to False.

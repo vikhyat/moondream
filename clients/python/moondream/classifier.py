@@ -80,7 +80,7 @@ class Classifier:
 
         Args:
             image (Union[Image.Image, Path, str]): The image to classify. Can be a PIL Image,
-                a path to an image file, or a URL string.
+                a path to an image file, or a base64 encoded image string.
             classes (Optional[List[Dict[str, str]]]): A list of dictionaries containing
                 the class names and their corresponding labels, and descriptions.
                 Should be in the format:
