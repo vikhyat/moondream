@@ -1,6 +1,6 @@
 import moondream as md
 
-api_key = "XCP.rZtNgJVnJSU4G5ntI5GwAPF8KnnXdlL7jL0grajjabKd9quhSzyOhZhzsUUox_OdQN4WWQBKZvmy6YsNlysR8zUeLADJr_n9-Ze1rccq1gqPaT2GTepznOzSXOVuNQ"
+api_key = "..."
 # endpoint= "fail-enclave-2603"
 
 # model = md.VL(api_key=api_key, model_endpoint=endpoint)
