@@ -6,7 +6,8 @@ import traceback
 from io import BytesIO
 from typing import Union
 
-BASE_URL = "https://moondream-api-staging.fly.dev/v1"
+BASE_URL = "https://moondream-api-staging.fly.dev"
+API_VERSION = "v1"
 
 
 def validate_image(image: Union[Image.Image, Path, str]) -> BytesIO:

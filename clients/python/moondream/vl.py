@@ -4,7 +4,7 @@ import tarfile
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Dict, Generator, List, Optional, TypedDict, Union
-from moondream.utils import BASE_URL, validate_image
+from moondream.utils import BASE_URL, validate_image, API_VERSION
 
 import json
 from pathlib import Path
@@ -288,9 +288,9 @@ class VL:
         }
         request_data = {"body": json.dumps({"prompt": prompt})}
 
-        request_url = f"{BASE_URL}/default"
+        request_url = f"{BASE_URL}/{API_VERSION}"
         if self.model_endpoint:
-            request_url = f"{BASE_URL}/{self.model_endpoint}"
+            request_url = f"{BASE_URL}/{API_VERSION}/{self.model_endpoint}"
 
         response = self.httpx_client.post(
             request_url,

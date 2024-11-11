@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any, Union
 from pathlib import Path
 from PIL import Image
 from io import BytesIO
-from moondream.utils import BASE_URL, validate_image
+from moondream.utils import BASE_URL, validate_image, API_VERSION
 import httpx
 import uuid
 
@@ -52,9 +52,9 @@ class Classifier:
             "X-MD-Auth": self.api_key,
         }
 
-        request_url = f"{BASE_URL}/default"
+        request_url = f"{BASE_URL}/{API_VERSION}/default"
         if self.model_endpoint:
-            request_url = f"{BASE_URL}/{self.model_endpoint}"
+            request_url = f"{BASE_URL}/{API_VERSION}/{self.model_endpoint}"
 
         response = self.httpx_client.post(
             request_url,
