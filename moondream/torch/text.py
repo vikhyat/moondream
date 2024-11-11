@@ -51,6 +51,7 @@ def attn(
     q = torch.cat([q_rot, q_pass], dim=-1)
     k = torch.cat([k_rot, k_pass], dim=-1)
 
+    k_, v_ = k, v
     if layer_kv_cache is not None:
         k = torch.cat([layer_kv_cache[0], k], dim=2)
         v = torch.cat([layer_kv_cache[1], v], dim=2)
@@ -63,7 +64,7 @@ def attn(
     )
     out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
     out = linear(out, w.proj)
-    return out, torch.stack([k, v])
+    return out, torch.stack([k_, v_])
 
 
 def text_decoder(

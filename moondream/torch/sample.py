@@ -55,15 +55,20 @@ if __name__ == "__main__":
         dim=1,
     )
 
-    kv_cache = torch.empty(24, 2, 1, 32, 0, 64, dtype=torch.float16)
+    kv_cache = torch.empty(24, 2, 1, 32, 2048, 64, dtype=torch.float16)
     freqs_cis = precompute_freqs_cis(32, 2048)
+    pos = 0
 
     for _ in range(args.max_tokens):
         with torch.no_grad():
-            hidden, kv_cache = text_decoder(
-                inputs_embeds, model.text, kv_cache, freqs_cis
+            hidden, kv_cache_update = text_decoder(
+                inputs_embeds, model.text, kv_cache[:, :, :, :, :pos, :], freqs_cis
             )
             logits = lm_head(hidden, model.text)
+            kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
+                kv_cache_update
+            )
+            pos += kv_cache_update.size(-2)
 
             if args.sampler == "multinomial":
                 next_token = torch.multinomial(
