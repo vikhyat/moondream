@@ -62,8 +62,10 @@ class VL:
         Args:
             model_path (Optional[str]): Path to the model file for local inference. Required if running locally.
             ort_settings (Dict[str, Any]): ONNX Runtime settings for local inference configuration. Defaults to {}.
-            api_key (Optional[str]): API key from the Moondream console for cloud inference. Required if running in cloud mode. Sign up at https://moondream.ai
-            model_endpoint (Optional[str]): Endpoint of your fine-tuned model hosted on Moondream cloud. If not provided, uses the base Moondream model.
+            api_key (Optional[str]): API key from the Moondream console for cloud inference.
+                Required if running in cloud mode. Sign up at https://moondream.ai
+            model_endpoint (Optional[str]): Endpoint of your fine-tuned model hosted on Moondream cloud.
+                If not provided, uses the base Moondream model.
 
         Raises:
             ValueError: If neither model_path nor api_key is provided, or if both are provided.
@@ -288,7 +290,7 @@ class VL:
         }
         request_data = {"body": json.dumps({"prompt": prompt})}
 
-        request_url = f"{BASE_URL}/{API_VERSION}"
+        request_url = f"{BASE_URL}/{API_VERSION}/expert/vqa"
         if self.model_endpoint:
             request_url = f"{BASE_URL}/{API_VERSION}/{self.model_endpoint}"
 
