@@ -6,7 +6,7 @@ import traceback
 from io import BytesIO
 from typing import Union
 
-BASE_URL = "https://moondream-api-staging.fly.dev"
+BASE_URL = "http://localhost:4002"
 API_VERSION = "v1"
 
 

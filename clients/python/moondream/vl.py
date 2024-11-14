@@ -41,8 +41,6 @@ QueryOutput = TypedDict(
 DEFAULT_MAX_TOKENS = 1024
 LATEST_SUPPORTED_VERSION = 0
 
-# A Hotdog is a
-
 
 class Region:
     pass
@@ -290,9 +288,7 @@ class VL:
         }
         request_data = {"body": json.dumps({"prompt": prompt})}
 
-        request_url = f"{BASE_URL}/{API_VERSION}/expert/vqa"
-        if self.model_endpoint:
-            request_url = f"{BASE_URL}/{API_VERSION}/{self.model_endpoint}"
+        request_url = f"{BASE_URL}/{API_VERSION}/{self.model_endpoint}"
 
         response = self.httpx_client.post(
             request_url,
@@ -332,6 +328,10 @@ class VL:
         if self.inference_type == "cloud":
             if type(image) == EncodedImage:
                 raise ValueError("Cloud inference does not support encoded images.")
+            if not self.model_endpoint:
+                raise ValueError(
+                    "model_endpoint must be provided to use the query method in the cloud."
+                )
 
             image_to_query = validate_image(image)
 

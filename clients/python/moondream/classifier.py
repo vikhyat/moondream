@@ -33,7 +33,7 @@ class Classifier:
         self.httpx_client = httpx.Client(timeout=20.0)
 
     def _make_classification_request(
-        self, image_buffer: BytesIO, classes: Optional[List[Dict[str, str]]] = None
+        self, image_buffer: BytesIO
     ) -> List[Dict[str, Any]]:
         """Makes an HTTP request to the classification endpoint.
 
@@ -53,19 +53,12 @@ class Classifier:
             "X-MD-Auth": self.api_key,
         }
 
-        request_data = {}
-        if classes:
-            request_data = {"classes": classes}
-
-        request_url = f"{BASE_URL}/{API_VERSION}/expert/classify"
-        if self.model_endpoint:
-            request_url = f"{BASE_URL}/{API_VERSION}/{self.model_endpoint}"
+        request_url = f"{BASE_URL}/{API_VERSION}/{self.model_endpoint}"
 
         response = self.httpx_client.post(
             request_url,
             files=request_files,
             headers=request_headers,
-            data=request_data,
         )
         response.raise_for_status()
 
@@ -74,24 +67,25 @@ class Classifier:
     def classify(
         self,
         image: Union[Image.Image, Path, str],
-        classes: Optional[List[Dict[str, str]]] = None,
-    ) -> Dict[str, Any]:
+    ) -> Union[str, List[Dict[str, Any]]]:
         """Classifies the given image using the Moondream API.
 
         Args:
             image (Union[Image.Image, Path, str]): The image to classify. Can be a PIL Image,
                 a path to an image file, or a base64 encoded image string.
-            classes (Optional[List[Dict[str, str]]]): A list of dictionaries containing
-                the class names and their corresponding labels, and descriptions.
-                Should be in the format:
-                    [{"label": str, "description": str}, ...]
-                If you are using a distilled model, you can leave this blank.
 
         Returns:
-            Dict[str, Any]: Classification result in the format...
+            Union[str, List[Dict[str, Any]]]:
+            If you are using an expert model, the result will be a string of the predicted class.
+            If you are using a distilled model, the result will be a list of dictionaries in the format...
                 {"answer": [{"label": str, "confidence": float}]}. In descending order of confidence.
-            If you are using an expert model, confidence scores will be 100.0 for the predicted class and 0.0 for the rest.
         """
+        if not self.model_endpoint:
+            raise ValueError(
+                "model_endpoint must be provided to use the classify method."
+            )
+
         validated_image = validate_image(image)
-        server_response = self._make_classification_request(validated_image, classes)
+
+        server_response = self._make_classification_request(validated_image)
         return {"answer": server_response["result"]}
