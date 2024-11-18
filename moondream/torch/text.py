@@ -45,13 +45,9 @@ def attn(
         for t in linear(x, w.qkv).chunk(3, dim=-1)
     ]
 
-    q_rot, q_pass = q.chunk(2, dim=-1)
-    k_rot, k_pass = k.chunk(2, dim=-1)
     position_ids = torch.arange(pos, pos + q_len, dtype=torch.long)
-    q_rot = apply_rotary_emb(q_rot, freqs_cis, position_ids)
-    k_rot = apply_rotary_emb(k_rot, freqs_cis, position_ids)
-    q = torch.cat([q_rot, q_pass], dim=-1)
-    k = torch.cat([k_rot, k_pass], dim=-1)
+    q = apply_rotary_emb(q, freqs_cis, position_ids)
+    k = apply_rotary_emb(k, freqs_cis, position_ids)
 
     k_, v_ = k, v
     if layer_kv_cache is not None:

@@ -25,12 +25,15 @@ def apply_rotary_emb(
     position_ids: torch.Tensor,
     interleave: bool = False,
 ) -> torch.Tensor:
+    rot_dim = freqs_cis.shape[-2] * 2
+    x_rot, x_pass = x[..., :rot_dim], x[..., rot_dim:]
+
     if interleave:
-        xq_r = x.float().reshape(*x.shape[:-1], -1, 2)[..., 0]
-        xq_i = x.float().reshape(*x.shape[:-1], -1, 2)[..., 1]
+        xq_r = x_rot.float().reshape(*x_rot.shape[:-1], -1, 2)[..., 0]
+        xq_i = x_rot.float().reshape(*x_rot.shape[:-1], -1, 2)[..., 1]
     else:
-        d_q = x.shape[-1] // 2
-        xq_r, xq_i = x[..., :d_q], x[..., d_q:]
+        d_q = x_rot.shape[-1] // 2
+        xq_r, xq_i = x_rot[..., :d_q], x_rot[..., d_q:]
 
     freqs_cos = freqs_cis[..., 0][position_ids, :].unsqueeze(0).unsqueeze(0)
     freqs_sin = freqs_cis[..., 1][position_ids, :].unsqueeze(0).unsqueeze(0)
@@ -40,4 +43,4 @@ def apply_rotary_emb(
     xq_out_i = xq_r * freqs_sin + xq_i * freqs_cos
     xq_out = torch.stack((xq_out_r, xq_out_i), dim=-1).flatten(-2)
 
-    return xq_out.to(x.dtype)
+    return torch.cat([xq_out.to(x.dtype), x_pass], dim=-1)
