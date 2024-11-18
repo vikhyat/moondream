@@ -47,7 +47,9 @@ def attn(
 
     q_rot, q_pass = q.chunk(2, dim=-1)
     k_rot, k_pass = k.chunk(2, dim=-1)
-    q_rot, k_rot = apply_rotary_emb(q_rot, k_rot, freqs_cis[pos : pos + q_len])
+    position_ids = torch.arange(pos, pos + q_len, dtype=torch.long)
+    q_rot = apply_rotary_emb(q_rot, freqs_cis, position_ids)
+    k_rot = apply_rotary_emb(k_rot, freqs_cis, position_ids)
     q = torch.cat([q_rot, q_pass], dim=-1)
     k = torch.cat([k_rot, k_pass], dim=-1)
 
