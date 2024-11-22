@@ -115,7 +115,7 @@ end_time, end_memory = log_memory_and_time("Caption Stats", start_time, start_me
 print_metric("Token generation speed", f"{tokens / (end_time - start_time):.2f} tok/s")
 
 # Generate answer to question
-question = "How many people are in this image?"
+question = "How many people are in this image? Answer briefly."
 print_section("Question Answering")
 print(f"{Colors.BOLD}Question:{Colors.ENDC} {question}")
 print(f"{Colors.BOLD}Answer:{Colors.ENDC}", end="", flush=True)

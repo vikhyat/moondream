@@ -16,6 +16,7 @@ from .preprocess import create_patches
 
 @dataclass
 class EncodedImage:
+    pos: int
     kv_caches: List[np.ndarray]
 
 
@@ -33,7 +34,8 @@ QueryOutput = TypedDict(
 )
 
 DEFAULT_MAX_TOKENS = 1024
-LATEST_SUPPORTED_VERSION = 0
+MIN_SUPPORTED_VERSION = 1
+MAX_SUPPORT_VERSION = 1
 
 
 class Region:
@@ -102,7 +104,10 @@ class VL:
 
         if type(self.config) != dict or "model_version" not in self.config:
             raise ValueError("Model format not recognized.")
-        if self.config["model_version"] > LATEST_SUPPORTED_VERSION:
+        if (
+            self.config["model_version"] < MIN_SUPPORTED_VERSION
+            or self.config["model_version"] > MAX_SUPPORT_VERSION
+        ):
             raise ValueError(
                 "Model version not supported. You may need to upgrade the moondream"
                 " package."
@@ -136,29 +141,53 @@ class VL:
         (inputs_embeds,) = self.vision_projection.run(None, {"input": patch_emb})
 
         kv_caches = self.initial_kv_caches
+        pos = inputs_embeds.shape[-2] + kv_caches[0].shape[-2]
+
         for i, decoder in enumerate(self.text_decoders):
-            inputs_embeds, kv_caches[i] = decoder.run(
+            inputs_embeds, kv_cache_update = decoder.run(
                 None,
                 {
                     "inputs_embeds": inputs_embeds,
                     "kv_cache": kv_caches[i],
                 },
             )
-        return EncodedImage(kv_caches=kv_caches)
+            kv_caches[i] = np.concatenate([kv_caches[i], kv_cache_update], axis=-2)
+        return EncodedImage(pos=pos, kv_caches=kv_caches)
 
     def _generate(
         self, hidden: np.ndarray, encoded_image: EncodedImage, max_tokens: int
     ) -> Generator[str, None, None]:
         kv_caches = {
-            i: encoded_image.kv_caches[i] for i in range(len(self.text_decoders))
+            i: np.zeros(
+                (
+                    *self.initial_kv_caches[0].shape[:-2],
+                    2048,
+                    self.initial_kv_caches[0].shape[-1],
+                ),
+                dtype=np.float16,
+            )
+            for i in range(len(self.text_decoders))
         }
+        for i, kv_cache in kv_caches.items():
+            kv_cache[:, :, :, :, : encoded_image.pos, :] = encoded_image.kv_caches[i]
 
+        pos = encoded_image.pos
         generated_tokens = 0
         while generated_tokens < max_tokens:
+            # Track the original T dimension of the input hidden states, so we can
+            # bind the kv cache update accordingly. We can't check it just-in-time
+            # because the final 'hidden' output is actually the model's logits.
+            og_t = hidden.shape[-2]
+
             for i, decoder in enumerate(self.text_decoders):
-                hidden, kv_caches[i] = decoder.run(
-                    None, {"inputs_embeds": hidden, "kv_cache": kv_caches[i]}
+                hidden, kv_cache_update = decoder.run(
+                    None,
+                    {
+                        "inputs_embeds": hidden,
+                        "kv_cache": kv_caches[i][:, :, :, :, :pos, :],
+                    },
                 )
+                kv_caches[i][:, :, :, :, pos : pos + og_t, :] = kv_cache_update
 
             next_token = np.argmax(hidden, axis=-1)[0]
             if next_token == self.special_tokens["eos"]:
@@ -166,6 +195,7 @@ class VL:
 
             yield self.tokenizer.decode([next_token])
             generated_tokens += 1
+            pos += og_t
             (hidden,) = self.text_encoder.run(None, {"input_ids": [[next_token]]})
 
     def caption(
