@@ -15,7 +15,7 @@ not recommended yet.
 Install the library using pip:
 
 ```bash
-pip install moondream==0.0.1
+pip install moondream==0.0.2
 ```
 
 Then download the model weights:
@@ -52,9 +52,9 @@ for t in model.caption(encoded_image, stream=True)["caption"]:
 
 # Ask a question about the image.
 question = "How many people are in this image?"
-answer = model.answer_question(encoded_image, question)["answer"]
+answer = model.query(encoded_image, question)["answer"]
 
 # ...or again, if you want to stream the output:
-for t in model.answer_question(encoded_image, question, stream=True)["answer"]:
+for t in model.query(encoded_image, question, stream=True)["answer"]:
     print(t, end="", flush=True)
 ```
