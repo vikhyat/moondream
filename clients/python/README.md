@@ -36,7 +36,7 @@ import moondream as md
 from PIL import Image
 
 model = md.VL("moondream-latest-int8.bin")
-image = Image.open("path/to/image.jpg")
+image = Image.open("path/to/image.jpg").convert("RGB")
 
 # Optional -- encode the image to efficiently run multiple queries on the same
 # image. This is not mandatory, since the model will automatically encode the
