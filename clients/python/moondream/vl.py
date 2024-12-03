@@ -3,7 +3,7 @@ import os
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, Generator, List, Optional, TypedDict, Union
+from typing import Generator, List, Optional, TypedDict, Union
 import numpy as np
 import onnxruntime as ort
 from PIL import Image
@@ -40,6 +40,62 @@ DetectOutput = TypedDict("DetectOutput", {"objects": List[Region]})
 DEFAULT_MAX_TOKENS = 1024
 MIN_SUPPORTED_VERSION = 1
 MAX_SUPPORT_VERSION = 1
+
+
+def prepare_kv_caches(initial_kv_caches, encoded_image):
+    """
+    Initializes the key-value caches required for the transformer inference session.
+
+    Allocates a zero-initialized array to store the kv-cache states and copies over any
+    pre-existing cache states from the encoded image.
+
+    Args:
+        initial_kv_caches: Base kv-cache arrays to build upon
+        encoded_image: Pre-computed kv-cache states from the image encoder
+    Returns:
+        Dictionary mapping decoder indices to their initialized kv-cache arrays
+    """
+    kv_caches = {
+        i: np.zeros(
+            (
+                *initial_kv_caches[0].shape[:-2],
+                2048,  # max sequence length
+                initial_kv_caches[0].shape[-1],
+            ),
+            dtype=np.float16,
+        )
+        for i in range(len(initial_kv_caches))
+    }
+    for i, kv_cache in kv_caches.items():
+        kv_cache[:, :, :, :, : encoded_image.pos, :] = encoded_image.kv_caches[i]
+    return kv_caches
+
+
+def run_decoders(text_decoders, input_embeds, kv_caches, pos):
+    """
+    Runs through the text decoders sequentially while updating the kv caches in place.
+
+    Args:
+        text_decoders: List of transformer decoder layers
+        input_embeds: Initial token embeddings input
+        kv_caches: Key-value cache states to be updated
+        pos: Current sequence position for indexing into kv caches
+
+    Returns:
+        Tuple of (logits, hidden_states) for the final decoder layer
+    """
+    hidden, logits = input_embeds, None
+    for i, decoder in enumerate(text_decoders):
+        logits, hidden, kv_cache_update = decoder.run(
+            None,
+            {
+                "inputs_embeds": hidden,
+                "kv_cache": kv_caches[i][:, :, :, :, :pos, :],
+            },
+        )
+        kv_caches[i][:, :, :, :, pos : pos + hidden.shape[-2], :] = kv_cache_update
+    assert logits is not None  # at least one decoder must be present
+    return logits, hidden
 
 
 class VL:
@@ -162,16 +218,17 @@ class VL:
 
         image_patches = create_patches(image)  # type: ignore
 
+        # Run vision encoder.
         patch_emb = self.vision_encoder.run(None, {"input": image_patches})[0]
         patch_emb = np.concatenate([patch_emb[0], patch_emb[1]], axis=-1)
         patch_emb = np.expand_dims(patch_emb, axis=0)
         (inputs_embeds,) = self.vision_projection.run(None, {"input": patch_emb})
 
+        # Run image embeddings through text decoders.
         kv_caches = self.initial_kv_caches
         pos = inputs_embeds.shape[-2] + kv_caches[0].shape[-2]
-
         for i, decoder in enumerate(self.text_decoders):
-            inputs_embeds, kv_cache_update = decoder.run(
+            _, inputs_embeds, kv_cache_update = decoder.run(
                 None,
                 {
                     "inputs_embeds": inputs_embeds,
@@ -179,50 +236,26 @@ class VL:
                 },
             )
             kv_caches[i] = np.concatenate([kv_caches[i], kv_cache_update], axis=-2)
+
         return EncodedImage(pos=pos, kv_caches=kv_caches)
 
     def _generate(
         self, hidden: np.ndarray, encoded_image: EncodedImage, max_tokens: int
     ) -> Generator[str, None, None]:
-        kv_caches = {
-            i: np.zeros(
-                (
-                    *self.initial_kv_caches[0].shape[:-2],
-                    2048,
-                    self.initial_kv_caches[0].shape[-1],
-                ),
-                dtype=np.float16,
-            )
-            for i in range(len(self.text_decoders))
-        }
-        for i, kv_cache in kv_caches.items():
-            kv_cache[:, :, :, :, : encoded_image.pos, :] = encoded_image.kv_caches[i]
+        kv_caches = prepare_kv_caches(self.initial_kv_caches, encoded_image)
 
         pos = encoded_image.pos
         generated_tokens = 0
         while generated_tokens < max_tokens:
-            # Track the original T dimension of the input hidden states, so we can
-            # bind the kv cache update accordingly. We can't check it just-in-time
-            # because the final 'hidden' output is actually the model's logits.
-            og_t = hidden.shape[-2]
+            logits, hidden = run_decoders(self.text_decoders, hidden, kv_caches, pos)
+            pos += hidden.shape[-2]
 
-            for i, decoder in enumerate(self.text_decoders):
-                hidden, kv_cache_update = decoder.run(
-                    None,
-                    {
-                        "inputs_embeds": hidden,
-                        "kv_cache": kv_caches[i][:, :, :, :, :pos, :],
-                    },
-                )
-                kv_caches[i][:, :, :, :, pos : pos + og_t, :] = kv_cache_update
-
-            next_token = np.argmax(hidden, axis=-1)[0]
+            next_token = np.argmax(logits, axis=-1)[0]
             if next_token == self.special_tokens["eos"]:
                 break
 
             yield self.tokenizer.decode([next_token])
             generated_tokens += 1
-            pos += og_t
             (hidden,) = self.text_encoder.run(None, {"input_ids": [[next_token]]})
 
     def caption(
@@ -289,13 +322,13 @@ class VL:
         if "query" not in self.templates:
             raise ValueError("Model does not support querying.")
 
-        question_toks = (
+        prompt_toks = (
             self.templates["query"]["prefix"]
             + self.tokenizer.encode(question).ids
             + self.templates["query"]["suffix"]
         )
 
-        (input_embeds,) = self.text_encoder.run(None, {"input_ids": [question_toks]})
+        (input_embeds,) = self.text_encoder.run(None, {"input_ids": [prompt_toks]})
         if settings is None:
             settings = {}
         max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
@@ -318,15 +351,13 @@ class VL:
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
-        max_objects: int = 50,
-    ) -> List[Region]:
+    ) -> DetectOutput:
         """
         Detect and localize the specified object in the input image.
 
         Args:
             image (Union[Image.Image, EncodedImage]): The input image to be analyzed.
             object (str): The object to be detected in the image.
-            max_objects (int): The maximum number of instances of the object to detect.
 
         Returns:
             List[Region]: A list of Region objects representing the detected instances of the specified object.
@@ -341,4 +372,57 @@ class VL:
         ):
             raise NotImplementedError("Model does not support 'detect'.")
 
-        raise NotImplementedError("Object detection is not implemented yet.")
+        prompt_toks = (
+            self.templates["detect"]["prefix"]
+            + self.tokenizer.encode(object).ids
+            + self.templates["detect"]["suffix"]
+        )
+
+        (hidden,) = self.text_encoder.run(None, {"input_ids": [prompt_toks]})
+        encoded_image = self.encode_image(image)
+        kv_caches = prepare_kv_caches(self.initial_kv_caches, encoded_image)
+
+        objects = []
+        pos = encoded_image.pos
+        max_objects = 50
+
+        # Greedy decoding: check if EOS is the most likely token, and break if so.
+        # Otherwise, decode three tokens for the center coordinates and size.
+        while len(objects) < max_objects:
+            logits, hidden = run_decoders(self.text_decoders, hidden, kv_caches, pos)
+            pos += hidden.shape[-2]
+
+            if np.argmax(logits, axis=-1)[0] == self.special_tokens["eos"]:
+                break
+
+            # Decode and encode x center coordinate.
+            (x_center,) = self.coord_decoder.run(None, {"input": hidden[0, -1, :]})
+            x_center = np.argmax(x_center, axis=-1) / x_center.shape[-1]
+            hidden, = self.coord_encoder.run(None, {"input": [x_center]})
+            hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
+
+            # Decode and encode y center coordinate.
+            logits, hidden = run_decoders(self.text_decoders, hidden, kv_caches, pos)
+            pos += hidden.shape[-2]
+            (y_center,) = self.coord_decoder.run(None, {"input": hidden[0, -1, :]})
+            y_center = np.argmax(y_center, axis=-1) / y_center.shape[-1]
+            hidden, = self.coord_encoder.run(None, {"input": [y_center]})
+            hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
+
+            # Decode and encode size.
+            logits, hidden = run_decoders(self.text_decoders, hidden, kv_caches, pos)
+            pos += hidden.shape[-2]
+            (size,) = self.size_decoder.run(None, {"input": hidden[0, -1, :]})
+            w = np.argmax(size[0], axis=-1) / size.shape[-1]
+            h = np.argmax(size[1], axis=-1) / size.shape[-1]
+            hidden, = self.size_encoder.run(None, {"input": [w, h]})
+            hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
+
+            objects.append({
+                "x_min": float(x_center - w/2),
+                "y_min": float(y_center - h/2),
+                "x_max": float(x_center + w/2),
+                "y_max": float(y_center + h/2)
+            })
+
+        return {"objects": objects}

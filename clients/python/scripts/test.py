@@ -1,10 +1,9 @@
 import time
 import tracemalloc
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import moondream as md
-from moondream.preprocess import create_patches
 
 MODEL_PATH = "../../onnx/out/moondream-0_5b-int8.bin"
 
@@ -129,13 +128,25 @@ end_time, end_memory = log_memory_and_time(
 print_metric("Token generation speed", f"{tokens / (end_time - start_time):.2f} tok/s")
 
 # Object detection
-object = "Burger"
+object = "face"
 print_section("Object Detection")
 print(f"{Colors.BOLD}Detect:{Colors.ENDC} {object}")
 start_time = time.time()
 start_memory = get_memory_usage()
 objects = model.detect(encoded_image, object)["objects"]
 print(len(objects), "detected")
+
+# Draw rectangles for each detected object
+width, height = image.size
+draw = ImageDraw.Draw(image)
+for obj in objects:
+    x_min = int(obj['x_min'] * width)
+    x_max = int(obj['x_max'] * width)
+    y_min = int(obj['y_min'] * height)
+    y_max = int(obj['y_max'] * height)
+    draw.rectangle([(x_min, y_min), (x_max, y_max)], outline='green', width=2)
+image.save("detection_output.jpg")
+
 end_time, end_memory = log_memory_and_time(
     "Object Detection Stats", start_time, start_memory
 )
