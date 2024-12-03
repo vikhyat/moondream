@@ -12,22 +12,28 @@ not recommended yet.
 
 ## Setup
 
-Install the library using pip:
+Install the library from PyPI.
 
 ```bash
 pip install moondream==0.0.2
 ```
 
-Then download the model weights:
+Then download the model weights. We recommend using the int8 weights for most
+applications, as they offer a good balance between memory usage and accuracy.
 
-```bash
-# int8 weights (recommended):
-wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int8.bin.gz?download=true" -O - | gunzip > moondream-latest-int8.bin
-# ...or, for fp16 weights (full precision):
-wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-f16.bin.gz?download=true" -O - | gunzip > moondream-latest-f16.bin
-# ...or, for int4 weights (resource constrained environments):
-wget "https://huggingface.co/vikhyatk/moondream2/resolve/client/moondream-latest-int4.bin.gz?download=true" -O - | gunzip > moondream-latest-int4.bin
-```
+| Model          | Precision | Download Size | Memory Usage | Download Link                                                                                                                                    |
+| -------------- | --------- | ------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Moondream 2B   | int8      | 1,746 MiB     | 2,587 MiB    | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/1cf747d11539ba8827f172e57f2215b5df3306cd/moondream-2b-int8.bin.gz?download=true)   |
+| Moondream 2B   | int4      | 1,251 MiB     | 2,044 MiB    | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/1cf747d11539ba8827f172e57f2215b5df3306cd/moondream-2b-int4.bin.gz?download=true)   |
+| Moondream 0.5B | int8      | 585 MiB       | 1,007 MiB    | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/1cf747d11539ba8827f172e57f2215b5df3306cd/moondream-0_5b-int8.bin.gz?download=true) |
+| Moondream 0.5B | int4      | 457 MiB       | 871 MiB      | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/1cf747d11539ba8827f172e57f2215b5df3306cd/moondream-0_5b-int4.bin.gz?download=true) |
+
+While the library can load gzipped weights, we recommend decompressing the file
+before usage to avoid paying the decompression cost every time the model is
+initialized.
+
+Memory usage is measured using `scripts/test.py`, and indicates the peak memory
+usage expected during typical usage.
 
 ## Usage
 

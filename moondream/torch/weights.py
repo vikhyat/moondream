@@ -1,7 +1,7 @@
 import math
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import List, Callable
+from typing import Callable, List
 
 import safetensors
 import torch
@@ -68,8 +68,8 @@ def load_model(
     get_tensor: Callable[[str], torch.Tensor],
     vision_blocks: int = 27,
     text_blocks: int = 24,
-    vision_n_heads: int = 16,
-    text_n_heads: int = 32,
+    vision_n_heads: int = 10,
+    text_n_heads: int = 16,
 ) -> MoondreamModel:
     ## Vision encoder
     prefix = "vision_encoder.encoder.model.visual.patch_embed.linear"

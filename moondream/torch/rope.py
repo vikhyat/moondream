@@ -1,7 +1,5 @@
 # Ethically sourced from https://github.com/xjdr-alt/entropix
 
-from typing import Tuple
-
 import torch
 
 
