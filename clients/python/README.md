@@ -10,13 +10,22 @@ the PyTorch implementation for CUDA and MPS backends. If you are running on a
 Mac with M1/M2/M3 etc. chips, or if you have a GPU available, this library is
 not recommended yet.
 
+
 ## Setup
 
-Install the library from PyPI.
+
+Install the ```CPU``` library using pip
 
 ```bash
 pip install moondream==0.0.2
 ```
+
+Or the ```GPU``` library (requires [CUDA 12.x](https://docs.nvidia.com/cuda/) and [cuDNN 9.x](https://docs.nvidia.com/deeplearning/cudnn/latest/index.html))
+
+```bash
+pip install moondream-gpu==0.0.2
+```
+
 
 Then download the model weights. We recommend using the int8 weights for most
 applications, as they offer a good balance between memory usage and accuracy.
