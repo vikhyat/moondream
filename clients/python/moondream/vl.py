@@ -4,9 +4,7 @@ import tarfile
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Dict, Generator, List, Optional, TypedDict, Union
-
 import numpy as np
-import onnx
 import onnxruntime as ort
 from PIL import Image
 from tokenizers import Tokenizer
@@ -43,7 +41,7 @@ class Region:
 
 
 class VL:
-    def __init__(self, model_path: Optional[str], ort_settings: Dict[str, Any] = {}):
+    def __init__(self, model_path: Optional[str], ort_settings: Dict[str, Any] = {}, cuda_device_id: Optional[int] = 0):
         """
         Initialize the Moondream VL (Vision Language) model.
 
@@ -53,6 +51,20 @@ class VL:
         Returns:
             None
         """
+        self.ort_device = ort.get_device()
+        self.cuda_device_id = cuda_device_id 
+        ort.set_default_logger_severity(3)
+
+        if self.ort_device == 'GPU' and not ort_settings:
+            ort_settings = {
+                'providers': ['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                'provider_options': [
+                    {
+                        'device_id': self.cuda_device_id,  # Specify GPU device ID (0 for first GPU)
+                    },
+                    {},  # Empty dict for CPUExecutionProvider
+                ]
+            }
 
         if model_path is None or not os.path.isfile(model_path):
             raise ValueError("Model path is invalid or file does not exist.")
@@ -64,7 +76,6 @@ class VL:
             )
 
         self.text_decoders = []
-
         with tarfile.open(model_path, "r:*") as tar:
             for member in tar.getmembers():
                 name = member.name.split("/")[-1]
