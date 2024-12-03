@@ -102,7 +102,6 @@ class VL:
     def __init__(
         self,
         model_path: Optional[str],
-        cuda_device_id: Optional[int] = 0,
     ):
         """
         Initialize the Moondream VL (Vision Language) model.
@@ -113,17 +112,13 @@ class VL:
         Returns:
             None
         """
-        self.ort_device = ort.get_device()
-        self.cuda_device_id = cuda_device_id
         ort.set_default_logger_severity(3)
 
-        if self.ort_device == "GPU":
+        if ort.get_device() == "GPU":
             ort_settings = {
                 "providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
                 "provider_options": [
-                    {
-                        "device_id": self.cuda_device_id,  # Specify GPU device ID (0 for first GPU)
-                    },
+                    {"device_id": 0},
                     {},  # Empty dict for CPUExecutionProvider
                 ],
             }
@@ -398,7 +393,7 @@ class VL:
             # Decode and encode x center coordinate.
             (x_center,) = self.coord_decoder.run(None, {"input": hidden[0, -1, :]})
             x_center = np.argmax(x_center, axis=-1) / x_center.shape[-1]
-            hidden, = self.coord_encoder.run(None, {"input": [x_center]})
+            (hidden,) = self.coord_encoder.run(None, {"input": [x_center]})
             hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
 
             # Decode and encode y center coordinate.
@@ -406,7 +401,7 @@ class VL:
             pos += hidden.shape[-2]
             (y_center,) = self.coord_decoder.run(None, {"input": hidden[0, -1, :]})
             y_center = np.argmax(y_center, axis=-1) / y_center.shape[-1]
-            hidden, = self.coord_encoder.run(None, {"input": [y_center]})
+            (hidden,) = self.coord_encoder.run(None, {"input": [y_center]})
             hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
 
             # Decode and encode size.
@@ -415,14 +410,16 @@ class VL:
             (size,) = self.size_decoder.run(None, {"input": hidden[0, -1, :]})
             w = np.argmax(size[0], axis=-1) / size.shape[-1]
             h = np.argmax(size[1], axis=-1) / size.shape[-1]
-            hidden, = self.size_encoder.run(None, {"input": [w, h]})
+            (hidden,) = self.size_encoder.run(None, {"input": [w, h]})
             hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
 
-            objects.append({
-                "x_min": float(x_center - w/2),
-                "y_min": float(y_center - h/2),
-                "x_max": float(x_center + w/2),
-                "y_max": float(y_center + h/2)
-            })
+            objects.append(
+                {
+                    "x_min": float(x_center - w / 2),
+                    "y_min": float(y_center - h / 2),
+                    "x_max": float(x_center + w / 2),
+                    "y_max": float(y_center + h / 2),
+                }
+            )
 
         return {"objects": objects}
