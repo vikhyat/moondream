@@ -27,21 +27,27 @@ SamplingSettings = TypedDict(
 CaptionOutput = TypedDict(
     "CaptionOutput", {"caption": Union[str, Generator[str, None, None]]}
 )
+
 QueryOutput = TypedDict(
     "QueryOutput", {"answer": Union[str, Generator[str, None, None]]}
 )
+
+Region = TypedDict(
+    "Region", {"x_min": float, "y_min": float, "x_max": int, "y_max": float}
+)
+DetectOutput = TypedDict("DetectOutput", {"objects": List[Region]})
 
 DEFAULT_MAX_TOKENS = 1024
 MIN_SUPPORTED_VERSION = 1
 MAX_SUPPORT_VERSION = 1
 
 
-class Region:
-    pass
-
-
 class VL:
-    def __init__(self, model_path: Optional[str], ort_settings: Dict[str, Any] = {}, cuda_device_id: Optional[int] = 0):
+    def __init__(
+        self,
+        model_path: Optional[str],
+        cuda_device_id: Optional[int] = 0,
+    ):
         """
         Initialize the Moondream VL (Vision Language) model.
 
@@ -52,19 +58,21 @@ class VL:
             None
         """
         self.ort_device = ort.get_device()
-        self.cuda_device_id = cuda_device_id 
+        self.cuda_device_id = cuda_device_id
         ort.set_default_logger_severity(3)
 
-        if self.ort_device == 'GPU' and not ort_settings:
+        if self.ort_device == "GPU":
             ort_settings = {
-                'providers': ['CUDAExecutionProvider', 'CPUExecutionProvider'],
-                'provider_options': [
+                "providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+                "provider_options": [
                     {
-                        'device_id': self.cuda_device_id,  # Specify GPU device ID (0 for first GPU)
+                        "device_id": self.cuda_device_id,  # Specify GPU device ID (0 for first GPU)
                     },
                     {},  # Empty dict for CPUExecutionProvider
-                ]
+                ],
             }
+        else:
+            ort_settings = {}
 
         if model_path is None or not os.path.isfile(model_path):
             raise ValueError("Model path is invalid or file does not exist.")
@@ -94,6 +102,14 @@ class VL:
                     )
                 elif name == "text_encoder.onnx":
                     self.text_encoder = ort.InferenceSession(contents, **ort_settings)
+                elif name == "size_encoder.onnx":
+                    self.size_encoder = ort.InferenceSession(contents, **ort_settings)
+                elif name == "size_decoder.onnx":
+                    self.size_decoder = ort.InferenceSession(contents, **ort_settings)
+                elif name == "coord_encoder.onnx":
+                    self.coord_encoder = ort.InferenceSession(contents, **ort_settings)
+                elif name == "coord_decoder.onnx":
+                    self.coord_decoder = ort.InferenceSession(contents, **ort_settings)
                 elif "text_decoder" in name and name.endswith(".onnx"):
                     self.text_decoders.append(
                         ort.InferenceSession(contents, **ort_settings)
@@ -299,7 +315,10 @@ class VL:
             return {"answer": out}
 
     def detect(
-        self, image: Union[Image.Image, EncodedImage], object: str
+        self,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        max_objects: int = 50,
     ) -> List[Region]:
         """
         Detect and localize the specified object in the input image.
@@ -307,8 +326,19 @@ class VL:
         Args:
             image (Union[Image.Image, EncodedImage]): The input image to be analyzed.
             object (str): The object to be detected in the image.
+            max_objects (int): The maximum number of instances of the object to detect.
 
         Returns:
             List[Region]: A list of Region objects representing the detected instances of the specified object.
         """
-        return []
+
+        # Verify that the coord and size encoders and decoders are available.
+        if not (
+            hasattr(self, "coord_decoder")
+            and hasattr(self, "coord_encoder")
+            and hasattr(self, "size_decoder")
+            and hasattr(self, "size_encoder")
+        ):
+            raise NotImplementedError("Model does not support 'detect'.")
+
+        raise NotImplementedError("Object detection is not implemented yet.")

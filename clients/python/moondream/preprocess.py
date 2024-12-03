@@ -46,6 +46,7 @@ def create_patches(image: Image.Image, image_patch_size=378) -> np.ndarray:
         res_template = min(
             res_templates, key=lambda size: abs((size[1] / size[0]) - aspect_ratio)
         )
+
         # TODO: Actually implement patching... just going to put in the global
         # patch for now to make progress on other aspects.
         patches.append(patches[0])

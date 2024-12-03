@@ -6,7 +6,7 @@ from PIL import Image
 import moondream as md
 from moondream.preprocess import create_patches
 
-MODEL_PATH = "../../onnx/out/moondream-latest-int4.bin"
+MODEL_PATH = "../../onnx/out/moondream-0_5b-int8.bin"
 
 
 class Colors:
@@ -21,10 +21,7 @@ class Colors:
 
 def format_memory(memory_mb):
     """Format memory size with appropriate unit"""
-    if memory_mb < 1024:
-        return f"{memory_mb:.2f} MB"
-    else:
-        return f"{memory_mb/1024:.2f} GB"
+    return f"{memory_mb:.2f} MiB"
 
 
 def print_section(title):
@@ -67,7 +64,7 @@ def log_memory_and_time(operation_name, start_time, start_memory):
 
 
 def get_memory_usage():
-    """Get current memory usage in MB"""
+    """Get current memory usage in MiB"""
     current, peak = tracemalloc.get_traced_memory()
     return current / 1024 / 1024
 
@@ -130,6 +127,18 @@ end_time, end_memory = log_memory_and_time(
     "Question Answering Stats", start_time, start_memory
 )
 print_metric("Token generation speed", f"{tokens / (end_time - start_time):.2f} tok/s")
+
+# Object detection
+object = "Burger"
+print_section("Object Detection")
+print(f"{Colors.BOLD}Detect:{Colors.ENDC} {object}")
+start_time = time.time()
+start_memory = get_memory_usage()
+objects = model.detect(encoded_image, object)["objects"]
+print(len(objects), "detected")
+end_time, end_memory = log_memory_and_time(
+    "Object Detection Stats", start_time, start_memory
+)
 
 # Final summary
 print_section("Final Summary")
