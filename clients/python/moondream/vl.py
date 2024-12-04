@@ -15,7 +15,7 @@ from .preprocess import create_patches
 @dataclass
 class EncodedImage:
     pos: int
-    kv_caches: List[np.ndarray]
+    kv_cache: np.ndarray
 
 
 SamplingSettings = TypedDict(
@@ -37,64 +37,50 @@ Region = TypedDict(
 )
 DetectOutput = TypedDict("DetectOutput", {"objects": List[Region]})
 
-DEFAULT_MAX_TOKENS = 1024
+DEFAULT_MAX_TOKENS = 512
 MIN_SUPPORTED_VERSION = 1
 MAX_SUPPORT_VERSION = 1
 
 
-def prepare_kv_caches(initial_kv_caches, encoded_image):
+def prepare_kv_cache(encoded_image):
     """
-    Initializes the key-value caches required for the transformer inference session.
-
-    Allocates a zero-initialized array to store the kv-cache states and copies over any
-    pre-existing cache states from the encoded image.
+    Creates a copy of the encoded image kv cache with max sequence length 2048.
 
     Args:
-        initial_kv_caches: Base kv-cache arrays to build upon
-        encoded_image: Pre-computed kv-cache states from the image encoder
+        encoded_image (EncodedImage): The encoded image with KV cache.
+
     Returns:
-        Dictionary mapping decoder indices to their initialized kv-cache arrays
+        numpy.ndarray: Copy of KV cache expanded to max sequence length of 2048.
     """
-    kv_caches = {
-        i: np.zeros(
-            (
-                *initial_kv_caches[0].shape[:-2],
-                2048,  # max sequence length
-                initial_kv_caches[0].shape[-1],
-            ),
-            dtype=np.float16,
-        )
-        for i in range(len(initial_kv_caches))
-    }
-    for i, kv_cache in kv_caches.items():
-        kv_cache[:, :, :, :, : encoded_image.pos, :] = encoded_image.kv_caches[i]
-    return kv_caches
+    original_shape = encoded_image.kv_cache.shape
+    new_shape = original_shape[:-2] + (2048, original_shape[-1])
+
+    kv_cache = np.zeros(new_shape, dtype=encoded_image.kv_cache.dtype)
+    kv_cache[..., : original_shape[-2], :] = encoded_image.kv_cache
+    return kv_cache
 
 
-def run_decoders(text_decoders, input_embeds, kv_caches, pos):
+def run_decoder(text_decoder, input_embeds, kv_cache, pos):
     """
-    Runs through the text decoders sequentially while updating the kv caches in place.
+    Runs through the text decoder while updating the kv cache in-place.
 
     Args:
-        text_decoders: List of transformer decoder layers
+        text_decoder: The text decoder model
         input_embeds: Initial token embeddings input
-        kv_caches: Key-value cache states to be updated
+        kv_cache: Key-value cache states to be updated
         pos: Current sequence position for indexing into kv caches
 
     Returns:
         Tuple of (logits, hidden_states) for the final decoder layer
     """
-    hidden, logits = input_embeds, None
-    for i, decoder in enumerate(text_decoders):
-        logits, hidden, kv_cache_update = decoder.run(
-            None,
-            {
-                "inputs_embeds": hidden,
-                "kv_cache": kv_caches[i][:, :, :, :, :pos, :],
-            },
-        )
-        kv_caches[i][:, :, :, :, pos : pos + hidden.shape[-2], :] = kv_cache_update
-    assert logits is not None  # at least one decoder must be present
+    hidden, kv_cache_update, logits = text_decoder.run(
+        ["hidden", "new_kv_cache", "logits"],
+        {
+            "input_embeds": input_embeds,
+            "kv_cache": kv_cache[:, :, :, :, :pos, :],
+        },
+    )
+    kv_cache[:, :, :, :, pos : pos + hidden.shape[-2], :] = kv_cache_update
     return logits, hidden
 
 
@@ -141,7 +127,6 @@ class VL:
                 " package."
             )
 
-        self.text_decoders = []
         with tarfile.open(model_path, "r:*") as tar:
             for member in tar.getmembers():
                 name = member.name.split("/")[-1]
@@ -168,23 +153,21 @@ class VL:
                     self.coord_encoder = ort.InferenceSession(contents, **ort_settings)
                 elif name == "coord_decoder.onnx":
                     self.coord_decoder = ort.InferenceSession(contents, **ort_settings)
-                elif "text_decoder" in name and name.endswith(".onnx"):
-                    self.text_decoders.append(
-                        ort.InferenceSession(contents, **ort_settings)
-                    )
+                elif name == "text_decoder.onnx":
+                    self.text_decoder = ort.InferenceSession(contents, **ort_settings)
                 elif name == "tokenizer.json":
                     self.tokenizer = Tokenizer.from_buffer(contents)
-                elif name == "initial_kv_caches.npy":
-                    self.initial_kv_caches = [x for x in np.load(BytesIO(contents))]
+                elif name == "initial_kv_cache.npy":
+                    self.initial_kv_cache = np.load(BytesIO(contents))
                 elif name == "config.json":
                     self.config = json.loads(contents)
 
         assert self.vision_encoder is not None
         assert self.vision_projection is not None
         assert self.text_encoder is not None
-        assert len(self.text_decoders) > 0
+        assert self.text_decoder is not None
         assert self.tokenizer is not None
-        assert self.initial_kv_caches is not None
+        assert self.initial_kv_cache is not None
         assert self.config is not None
 
         if type(self.config) != dict or "model_version" not in self.config:
@@ -224,33 +207,40 @@ class VL:
         patch_emb = self.vision_encoder.run(None, {"input": image_patches})[0]
         patch_emb = np.concatenate([patch_emb[0], patch_emb[1]], axis=-1)
         patch_emb = np.expand_dims(patch_emb, axis=0)
-        (inputs_embeds,) = self.vision_projection.run(None, {"input": patch_emb})
+        (input_embeds,) = self.vision_projection.run(None, {"input": patch_emb})
 
         # Run image embeddings through text decoders.
-        kv_caches = self.initial_kv_caches
-        pos = inputs_embeds.shape[-2] + kv_caches[0].shape[-2]
-        for i, decoder in enumerate(self.text_decoders):
-            _, inputs_embeds, kv_cache_update = decoder.run(
-                None,
-                {
-                    "inputs_embeds": inputs_embeds,
-                    "kv_cache": kv_caches[i],
-                },
-            )
-            kv_caches[i] = np.concatenate([kv_caches[i], kv_cache_update], axis=-2)
+        kv_cache = self.initial_kv_cache
+        pos = input_embeds.shape[-2] + kv_cache.shape[-2]
+        kv_cache_update, = self.text_decoder.run(
+            ["new_kv_cache"],
+            {
+                "input_embeds": input_embeds,
+                "kv_cache": kv_cache,
+            },
+        )
+        kv_cache = np.concatenate([kv_cache, kv_cache_update], axis=-2)
 
-        return EncodedImage(pos=pos, kv_caches=kv_caches)
+        return EncodedImage(pos=pos, kv_cache=kv_cache)
 
     def _generate(
-        self, hidden: np.ndarray, encoded_image: EncodedImage, max_tokens: int
+        self, input_embeds: np.ndarray, encoded_image: EncodedImage, max_tokens: int
     ) -> Generator[str, None, None]:
-        kv_caches = prepare_kv_caches(self.initial_kv_caches, encoded_image)
-
+        kv_cache = prepare_kv_cache(encoded_image)
         pos = encoded_image.pos
         generated_tokens = 0
+        input_length = input_embeds.shape[-2]
+
         while generated_tokens < max_tokens:
-            logits, hidden = run_decoders(self.text_decoders, hidden, kv_caches, pos)
-            pos += hidden.shape[-2]
+            logits, kv_cache_update = self.text_decoder.run(
+                ["logits", "new_kv_cache"],
+                {
+                    "input_embeds": input_embeds,
+                    "kv_cache": kv_cache[:, :, :, :, :pos, :],
+                },
+            )
+            kv_cache[:, :, :, :, pos : pos + input_length, :] = kv_cache_update
+            pos += input_length
 
             next_token = np.argmax(logits, axis=-1)[0]
             if next_token == self.special_tokens["eos"]:
@@ -258,7 +248,8 @@ class VL:
 
             yield self.tokenizer.decode([next_token])
             generated_tokens += 1
-            (hidden,) = self.text_encoder.run(None, {"input_ids": [[next_token]]})
+            (input_embeds,) = self.text_encoder.run(None, {"input_ids": [[next_token]]})
+            input_length = 1
 
     def caption(
         self,
@@ -382,7 +373,7 @@ class VL:
 
         (hidden,) = self.text_encoder.run(None, {"input_ids": [prompt_toks]})
         encoded_image = self.encode_image(image)
-        kv_caches = prepare_kv_caches(self.initial_kv_caches, encoded_image)
+        kv_cache = prepare_kv_cache(encoded_image)
 
         objects = []
         pos = encoded_image.pos
@@ -391,7 +382,7 @@ class VL:
         # Greedy decoding: check if EOS is the most likely token, and break if so.
         # Otherwise, decode three tokens for the center coordinates and size.
         while len(objects) < max_objects:
-            logits, hidden = run_decoders(self.text_decoders, hidden, kv_caches, pos)
+            logits, hidden = run_decoder(self.text_decoder, hidden, kv_cache, pos)
             pos += hidden.shape[-2]
 
             if np.argmax(logits, axis=-1)[0] == self.special_tokens["eos"]:
@@ -404,7 +395,7 @@ class VL:
             hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
 
             # Decode and encode y center coordinate.
-            logits, hidden = run_decoders(self.text_decoders, hidden, kv_caches, pos)
+            logits, hidden = run_decoder(self.text_decoder, hidden, kv_cache, pos)
             pos += hidden.shape[-2]
             (y_center,) = self.coord_decoder.run(None, {"input": hidden[0, -1, :]})
             y_center = np.argmax(y_center, axis=-1) / y_center.shape[-1]
@@ -412,7 +403,7 @@ class VL:
             hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
 
             # Decode and encode size.
-            logits, hidden = run_decoders(self.text_decoders, hidden, kv_caches, pos)
+            logits, hidden = run_decoder(self.text_decoder, hidden, kv_cache, pos)
             pos += hidden.shape[-2]
             (size,) = self.size_decoder.run(None, {"input": hidden[0, -1, :]})
             w = np.argmax(size[0], axis=-1) / size.shape[-1]
