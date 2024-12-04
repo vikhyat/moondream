@@ -131,7 +131,7 @@ end_time, end_memory = log_memory_and_time(
 print_metric("Token generation speed", f"{tokens / (end_time - start_time):.2f} tok/s")
 
 # Object detection
-object = "face"
+object = "burger"
 print_section("Object Detection")
 print(f"{Colors.BOLD}Detect:{Colors.ENDC} {object}")
 start_time = time.time()

@@ -1,41 +1,26 @@
 import json
 import os
 import tarfile
+import numpy as np
+import math
+import onnxruntime as ort
+
+from typing import Generator, Optional, Union, Dict, Any, List
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Generator, List, Optional, TypedDict, Union
-import numpy as np
-import onnxruntime as ort
 from PIL import Image
 from tokenizers import Tokenizer
 
-from .preprocess import create_patches
-
-
-@dataclass
-class EncodedImage:
-    pos: int
-    kv_cache: np.ndarray
-
-
-SamplingSettings = TypedDict(
-    "SamplingSettings",
-    {"max_tokens": int},
-    total=False,
+from .preprocess import create_patches, adaptive_avg_pool2d
+from .types import (
+    VLM,
+    EncodedImage,
+    SamplingSettings,
+    CaptionOutput,
+    QueryOutput,
+    DetectOutput,
 )
 
-CaptionOutput = TypedDict(
-    "CaptionOutput", {"caption": Union[str, Generator[str, None, None]]}
-)
-
-QueryOutput = TypedDict(
-    "QueryOutput", {"answer": Union[str, Generator[str, None, None]]}
-)
-
-Region = TypedDict(
-    "Region", {"x_min": float, "y_min": float, "x_max": int, "y_max": float}
-)
-DetectOutput = TypedDict("DetectOutput", {"objects": List[Region]})
 
 DEFAULT_MAX_TOKENS = 512
 MIN_SUPPORTED_VERSION = 1
@@ -84,20 +69,24 @@ def run_decoder(text_decoder, input_embeds, kv_cache, pos):
     return logits, hidden
 
 
-class VL:
-    def __init__(
-        self,
-        model_path: Optional[str],
-    ):
-        """
-        Initialize the Moondream VL (Vision Language) model.
+@dataclass
+class OnnxVL(VLM):
+    vision_encoder: ort.InferenceSession
+    vision_projection: ort.InferenceSession
+    text_encoder: ort.InferenceSession
+    text_decoder: ort.InferenceSession
+    size_encoder: ort.InferenceSession
+    size_decoder: ort.InferenceSession
+    coord_encoder: ort.InferenceSession
+    coord_decoder: ort.InferenceSession
+    tokenizer: Tokenizer
+    initial_kv_cache: np.ndarray
+    config: Dict[str, Any]
+    special_tokens: Dict[str, int]
+    templates: Dict[str, Dict[str, List[int]]]
 
-        Args:
-            model_path (str): The path to the model file.
-
-        Returns:
-            None
-        """
+    @classmethod
+    def from_path(cls, model_path: str) -> "OnnxVL":
         ort.set_default_logger_severity(3)
 
         if ort.get_device() == "GPU":
@@ -127,62 +116,44 @@ class VL:
                 " package."
             )
 
+        components: Dict[str, Any] = {}
+        file_handlers = {
+            ".onnx": lambda contents: ort.InferenceSession(contents, **ort_settings),
+            ".json": lambda contents: json.loads(contents),
+            ".npy": lambda contents: np.load(BytesIO(contents)),
+        }
         with tarfile.open(model_path, "r:*") as tar:
             for member in tar.getmembers():
                 name = member.name.split("/")[-1]
-
-                f = tar.extractfile(member)
-                if f is not None:
+                if f := tar.extractfile(member):
                     contents = f.read()
-                else:
-                    continue
+                    key = name.split(".")[0]
+                    ext = "." + name.split(".")[1]
+                    if name == "tokenizer.json":
+                        components[key] = Tokenizer.from_buffer(contents)
+                    else:
+                        components[key] = file_handlers[ext](contents)
 
-                if name == "vision_encoder.onnx":
-                    self.vision_encoder = ort.InferenceSession(contents, **ort_settings)
-                elif name == "vision_projection.onnx":
-                    self.vision_projection = ort.InferenceSession(
-                        contents, **ort_settings
-                    )
-                elif name == "text_encoder.onnx":
-                    self.text_encoder = ort.InferenceSession(contents, **ort_settings)
-                elif name == "size_encoder.onnx":
-                    self.size_encoder = ort.InferenceSession(contents, **ort_settings)
-                elif name == "size_decoder.onnx":
-                    self.size_decoder = ort.InferenceSession(contents, **ort_settings)
-                elif name == "coord_encoder.onnx":
-                    self.coord_encoder = ort.InferenceSession(contents, **ort_settings)
-                elif name == "coord_decoder.onnx":
-                    self.coord_decoder = ort.InferenceSession(contents, **ort_settings)
-                elif name == "text_decoder.onnx":
-                    self.text_decoder = ort.InferenceSession(contents, **ort_settings)
-                elif name == "tokenizer.json":
-                    self.tokenizer = Tokenizer.from_buffer(contents)
-                elif name == "initial_kv_cache.npy":
-                    self.initial_kv_cache = np.load(BytesIO(contents))
-                elif name == "config.json":
-                    self.config = json.loads(contents)
+        for component in [
+            "vision_encoder",
+            "vision_projection",
+            "text_encoder",
+            "text_decoder",
+            "size_decoder",
+            "size_encoder",
+            "coord_decoder",
+            "coord_encoder",
+            "tokenizer",
+            "initial_kv_cache",
+            "config",
+        ]:
+            assert component in components
 
-        assert self.vision_encoder is not None
-        assert self.vision_projection is not None
-        assert self.text_encoder is not None
-        assert self.text_decoder is not None
-        assert self.tokenizer is not None
-        assert self.initial_kv_cache is not None
-        assert self.config is not None
-
-        if type(self.config) != dict or "model_version" not in self.config:
-            raise ValueError("Model format not recognized.")
-        if (
-            self.config["model_version"] < MIN_SUPPORTED_VERSION
-            or self.config["model_version"] > MAX_SUPPORT_VERSION
-        ):
-            raise ValueError(
-                "Model version not supported. You may need to upgrade the moondream"
-                " package."
-            )
-
-        self.special_tokens = self.config["special_tokens"]
-        self.templates = self.config["templates"]
+        return cls(
+            special_tokens=components["config"]["special_tokens"],
+            templates=components["config"]["templates"],
+            **components,
+        )
 
     def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
         """
@@ -201,11 +172,32 @@ class VL:
         if type(image) == EncodedImage:
             return image
 
-        image_patches = create_patches(image)  # type: ignore
-
         # Run vision encoder.
-        patch_emb = self.vision_encoder.run(None, {"input": image_patches})[0]
-        patch_emb = np.concatenate([patch_emb[0], patch_emb[1]], axis=-1)
+        image_patches, template = create_patches(image)  # type: ignore
+        (patch_emb,) = self.vision_encoder.run(None, {"input": image_patches})
+
+        # Reassemble patches into a single image embedding.
+        global_patch = patch_emb[0]
+        if template == (1, 1):
+            patch_emb = np.concatenate([global_patch, global_patch], axis=-1)
+        else:
+            seq_len = patch_emb.shape[-2]
+            w = int(math.sqrt(seq_len))
+
+            rows = []
+            for r in range(template[0]):
+                row = []
+                for c in range(template[1]):
+                    patch = patch_emb[r * template[1] + c]
+                    patch = patch.reshape(w, w, -1)
+                    row.append(patch)
+                rows.append(np.concatenate(row, axis=1))
+            patch_emb = np.concatenate(rows, axis=0)
+            patch_emb = adaptive_avg_pool2d(patch_emb, (w, w))
+            patch_emb = patch_emb.reshape((w * w, -1))
+            patch_emb = np.concatenate([global_patch, patch_emb], axis=-1)
+
+        # Run vision projection.
         patch_emb = np.expand_dims(patch_emb, axis=0)
         (input_embeds,) = self.vision_projection.run(None, {"input": patch_emb})
 
@@ -362,6 +354,7 @@ class VL:
             and hasattr(self, "coord_encoder")
             and hasattr(self, "size_decoder")
             and hasattr(self, "size_encoder")
+            and "detect" in self.templates
         ):
             raise NotImplementedError("Model does not support 'detect'.")
 
