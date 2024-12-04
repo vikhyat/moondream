@@ -212,7 +212,7 @@ class VL:
         # Run image embeddings through text decoders.
         kv_cache = self.initial_kv_cache
         pos = input_embeds.shape[-2] + kv_cache.shape[-2]
-        kv_cache_update, = self.text_decoder.run(
+        (kv_cache_update,) = self.text_decoder.run(
             ["new_kv_cache"],
             {
                 "input_embeds": input_embeds,

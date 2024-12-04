@@ -1,3 +1,4 @@
+import argparse
 import time
 import tracemalloc
 
@@ -5,7 +6,9 @@ from PIL import Image, ImageDraw
 
 import moondream as md
 
-MODEL_PATH = "../../onnx/out/moondream-0_5b-int8.bin"
+parser = argparse.ArgumentParser()
+parser.add_argument("--model-path", type=str, required=True)
+args = parser.parse_args()
 
 
 class Colors:
@@ -87,7 +90,7 @@ log_memory_and_time("Image Loading", start_time, start_memory)
 print_section("Model Initialization")
 start_time = time.time()
 start_memory = get_memory_usage()
-model = md.VL(MODEL_PATH)
+model = md.VL(args.model_path)
 log_memory_and_time("Model Initialization", start_time, start_memory)
 
 # Encode image
@@ -140,11 +143,11 @@ print(len(objects), "detected")
 width, height = image.size
 draw = ImageDraw.Draw(image)
 for obj in objects:
-    x_min = int(obj['x_min'] * width)
-    x_max = int(obj['x_max'] * width)
-    y_min = int(obj['y_min'] * height)
-    y_max = int(obj['y_max'] * height)
-    draw.rectangle([(x_min, y_min), (x_max, y_max)], outline='green', width=2)
+    x_min = int(obj["x_min"] * width)
+    x_max = int(obj["x_max"] * width)
+    y_min = int(obj["y_min"] * height)
+    y_max = int(obj["y_max"] * height)
+    draw.rectangle([(x_min, y_min), (x_max, y_max)], outline="green", width=2)
 image.save("detection_output.jpg")
 
 end_time, end_memory = log_memory_and_time(
