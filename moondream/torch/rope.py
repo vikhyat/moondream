@@ -21,9 +21,13 @@ def apply_rotary_emb(
     x: torch.Tensor,
     freqs_cis: torch.Tensor,
     position_ids: torch.Tensor,
+    num_heads: int,
+    rot_dim: int = 32,
     interleave: bool = False,
 ) -> torch.Tensor:
-    rot_dim = freqs_cis.shape[-2] * 2
+    assert rot_dim == freqs_cis.shape[-2] * 2
+    assert num_heads == x.shape[1]
+
     x_rot, x_pass = x[..., :rot_dim], x[..., rot_dim:]
 
     if interleave:

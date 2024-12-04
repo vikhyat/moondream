@@ -2,8 +2,8 @@ import torch
 from torch.nn import functional as F
 
 from .layers import layer_norm, linear, mlp
-from .rope import apply_rotary_emb, precompute_freqs_cis
-from .weights import AttentionWeights, TextModel, load_from_safetensors
+from .rope import apply_rotary_emb
+from .weights import AttentionWeights, TextModel
 
 
 def text_encoder(input_ids: torch.Tensor, w: TextModel):
@@ -46,8 +46,8 @@ def attn(
     ]
 
     position_ids = torch.arange(pos, pos + q_len, dtype=torch.long)
-    q = apply_rotary_emb(q, freqs_cis, position_ids)
-    k = apply_rotary_emb(k, freqs_cis, position_ids)
+    q = apply_rotary_emb(q, freqs_cis, position_ids, w.n_heads)
+    k = apply_rotary_emb(k, freqs_cis, position_ids, w.n_heads)
 
     k_, v_ = k, v
     if layer_kv_cache is not None:

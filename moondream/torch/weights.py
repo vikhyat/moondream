@@ -43,9 +43,20 @@ class TextModel:
 
 
 @dataclass
+class RegionModel:
+    coord_features: torch.Tensor
+    coord_encoder: LinearWeights
+    coord_decoder: MLPWeights
+    size_features: torch.Tensor
+    size_encoder: LinearWeights
+    size_decoder: MLPWeights
+
+
+@dataclass
 class MoondreamModel:
     vision: VisionModel
     text: TextModel
+    region: RegionModel
 
 
 @contextmanager
@@ -68,8 +79,8 @@ def load_model(
     get_tensor: Callable[[str], torch.Tensor],
     vision_blocks: int = 27,
     text_blocks: int = 24,
-    vision_n_heads: int = 10,
-    text_n_heads: int = 16,
+    vision_n_heads: int = 16,
+    text_n_heads: int = 32,
 ) -> MoondreamModel:
     ## Vision encoder
     prefix = "vision_encoder.encoder.model.visual.patch_embed.linear"
@@ -183,17 +194,49 @@ def load_model(
         )
     text = TextModel(wte=wte, blocks=blocks, post_ln=post_ln, lm_head=lm_head)
 
-    return MoondreamModel(vision=vision, text=text)
+    ## Region model
+    region = RegionModel(
+        coord_features=get_tensor("region_model.coordinate_features.weight").T,
+        coord_encoder=LinearWeights(
+            weight=get_tensor("region_model.coordinate_encoder.weight"),
+            bias=get_tensor("region_model.coordinate_encoder.bias"),
+        ),
+        coord_decoder=MLPWeights(
+            fc1=LinearWeights(
+                weight=get_tensor("region_model.coordinate_decoder.fc1.weight"),
+                bias=get_tensor("region_model.coordinate_decoder.fc1.bias"),
+            ),
+            fc2=LinearWeights(
+                weight=get_tensor("region_model.coordinate_decoder.fc2.weight"),
+                bias=get_tensor("region_model.coordinate_decoder.fc2.bias"),
+            ),
+        ),
+        size_features=get_tensor("region_model.size_features.weight").T,
+        size_encoder=LinearWeights(
+            weight=get_tensor("region_model.size_encoder.weight"),
+            bias=get_tensor("region_model.size_encoder.bias"),
+        ),
+        size_decoder=MLPWeights(
+            fc1=LinearWeights(
+                weight=get_tensor("region_model.size_decoder.fc1.weight"),
+                bias=get_tensor("region_model.size_decoder.fc1.bias"),
+            ),
+            fc2=LinearWeights(
+                weight=get_tensor("region_model.size_decoder.fc2.weight"),
+                bias=get_tensor("region_model.size_decoder.fc2.bias"),
+            ),
+        ),
+    )
+
+    return MoondreamModel(vision=vision, text=text, region=region)
 
 
 def load_from_safetensors(
     safetensors_file: str,
-    vision_blocks: int = 27,
-    text_blocks: int = 24,
     **kwargs,
 ) -> MoondreamModel:
     with safetensors_open(safetensors_file) as get_tensor:
-        return load_model(get_tensor, vision_blocks, text_blocks, **kwargs)
+        return load_model(get_tensor, **kwargs)
 
 
 def load_from_pt(
