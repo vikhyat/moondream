@@ -18,6 +18,7 @@ BASE_CONFIG = {
                 "numpy": "^2.1.2",
                 "tokenizers": "^0.20.1",
             },
+            "scripts": {"moondream": "moondream:main"},
         },
         "pyright": {
             "venvPath": ".",
