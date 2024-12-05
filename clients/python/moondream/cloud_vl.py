@@ -34,7 +34,11 @@ class CloudVL(VLM):
         self.api_key = api_key
         self.api_url = "https://api.moondream.ai/v1"
 
-    def _encode_image(self, image: Image.Image) -> str:
+    def encode_image(
+        self, image: Union[Image.Image, Base64EncodedImage]
+    ) -> EncodedImage:
+        if isinstance(image, Base64EncodedImage):
+            return image
         try:
             width, height = image.size
             max_size = 768
@@ -48,17 +52,9 @@ class CloudVL(VLM):
             buffered = BytesIO()
             image.save(buffered, format="JPEG", quality=95)
             img_str = base64.b64encode(buffered.getvalue()).decode()
-            return f"data:image/jpeg;base64,{img_str}"
+            return Base64EncodedImage(image_url=f"data:image/jpeg;base64,{img_str}")
         except Exception as e:
             raise ValueError(f"Failed to convert image to JPEG: {str(e)}") from e
-
-    def encode_image(
-        self, image: Union[Image.Image, Base64EncodedImage]
-    ) -> EncodedImage:
-        if isinstance(image, Base64EncodedImage):
-            return image
-        image_url = self._encode_image(image)
-        return Base64EncodedImage(image_url)
 
     def _stream_response(self, req):
         """Helper function to stream response chunks from the API."""
@@ -69,10 +65,10 @@ class CloudVL(VLM):
                 line = line.decode("utf-8")
                 if line.startswith("data: "):
                     try:
-                        chunk = json.loads(line[6:])
-                        if "chunk" in chunk:
-                            yield chunk["chunk"]
-                        if chunk.get("completed"):
+                        data = json.loads(line[6:])
+                        if "chunk" in data:
+                            yield data["chunk"]
+                        if data.get("completed"):
                             break
                     except json.JSONDecodeError:
                         continue
