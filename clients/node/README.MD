@@ -139,7 +139,7 @@ const model = new vl({
 
 ### Methods
 
-#### caption(request: CaptionRequest)
+#### caption({ image: string, length: string, stream: boolean })
 
 Generate a caption for an image.
 
@@ -158,7 +158,7 @@ const stream = await model.caption({
 });
 ```
 
-#### query(request: QueryRequest)
+#### query({ image: string, question: string, stream: boolean })
 
 Ask a question about an image.
 
@@ -177,7 +177,7 @@ const stream = await model.query({
 });
 ```
 
-#### detect(request: DetectRequest)
+#### detect({ image: string, object: string })
 
 Detect specific objects in an image.
 
@@ -188,7 +188,7 @@ const result = await model.detect({
 });
 ```
 
-#### point(request: PointRequest)
+#### point({ image: string, object: string })
 
 Get coordinates of specific objects in an image.
 
