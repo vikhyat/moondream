@@ -12,7 +12,7 @@ def test_cloud_client():
     client = md.VL(api_key)
 
     # Load a test image
-    image_path = "/Users/caleb/Projects/moondream/moondream/data/raven_01.webp"
+    image_path = "/path/to/image.jpg"
     image = Image.open(image_path)
 
     # Test caption
