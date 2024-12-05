@@ -1,7 +1,8 @@
 import argparse
-from . import vl
-from .server import MoondreamHandler
 from http import server
+import sys
+from .server import MoondreamHandler
+from . import vl
 
 
 def main():
@@ -15,7 +16,7 @@ def main():
         "--host", type=str, default="localhost", help="Host to bind to"
     )
     server_parser.add_argument(
-        "--port", type=int, default=3281, help="Port to listen on"
+        "--port", type=int, default=3475, help="Port to listen on"
     )
 
     args = parser.parse_args()
@@ -28,9 +29,16 @@ def main():
 
         MoondreamHandler.model = model
         server_address = (args.host, args.port)
-        httpd = server.HTTPServer(server_address, MoondreamHandler)
-        print(f"Starting Moondream server on http://{args.host}:{args.port}")
-        httpd.serve_forever()
+        try:
+            httpd = server.HTTPServer(server_address, MoondreamHandler)
+            print(f"Starting Moondream server on http://{args.host}:{args.port}")
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nShutting down server...")
+            httpd.server_close()
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
     else:
         parser.print_help()
 

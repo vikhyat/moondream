@@ -1,11 +1,12 @@
-from http import server
 import json
 import io
-from PIL import Image
 import urllib.parse
-from typing import Dict, Any
 import base64
 import logging
+
+from typing import Dict, Any
+from http import server
+from PIL import Image
 
 from .onnx_vl import OnnxVL
 
