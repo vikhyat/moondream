@@ -388,7 +388,7 @@ class OnnxVL(VLM):
             and hasattr(self, "coord_encoder")
             and "point" in self.templates
         ):
-            raise NotImplementedError("Model does not support 'detect'.")
+            raise NotImplementedError("Model does not support 'point'.")
 
         prompt_toks = (
             self.templates["point"]["prefix"]
