@@ -15,6 +15,7 @@ from .preprocess import create_patches, adaptive_avg_pool2d
 from .types import (
     VLM,
     EncodedImage,
+    OnnxEncodedImage,
     SamplingSettings,
     CaptionOutput,
     QueryOutput,
@@ -213,7 +214,7 @@ class OnnxVL(VLM):
         )
         kv_cache = np.concatenate([kv_cache, kv_cache_update], axis=-2)
 
-        return EncodedImage(pos=pos, kv_cache=kv_cache)
+        return OnnxEncodedImage(pos=pos, kv_cache=kv_cache)
 
     def _generate(
         self, input_embeds: np.ndarray, encoded_image: EncodedImage, max_tokens: int

@@ -6,9 +6,28 @@ from typing import Generator, List, TypedDict, Union, Optional, Literal
 
 
 @dataclass
-class EncodedImage:
+class EncodedImage(ABC):
+    @abstractmethod
+    def get_format(self) -> str:
+        """Returns the format of the encoded image."""
+        pass
+
+
+@dataclass
+class OnnxEncodedImage(EncodedImage):
     pos: int
     kv_cache: np.ndarray
+
+    def get_format(self) -> str:
+        return "onnx"
+
+
+@dataclass
+class Base64EncodedImage(EncodedImage):
+    image_url: str
+
+    def get_format(self) -> str:
+        return "base64"
 
 
 SamplingSettings = TypedDict(
