@@ -71,13 +71,13 @@ For JavaScript/TypeScript developers, we offer a full-featured Node.js client li
 
 ### Hugging Face Transformers Integration
 
+The Hugging Face hub version tracks the last official release of the 2B model. While more stable, it doesn't include the latest features or support for the 0.5B model. Use this if you need GPU acceleration or prefer the transformers ecosystem:
+
 First, install the required packages:
 
 ```bash
 pip install transformers torch einops
 ```
-
-The Hugging Face hub version tracks the last official release of the 2B model. While more stable, it doesn't include the latest features or support for the 0.5B model. Use this if you need GPU acceleration or prefer the transformers ecosystem:
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
