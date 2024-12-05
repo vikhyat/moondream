@@ -5,15 +5,14 @@ import moondream as md
 
 def test_cloud_client():
     # Initialize client
-    api_key = os.getenv("MOONDREAM_API_KEY")
-    if not api_key:
-        raise ValueError("MOONDREAM_API_KEY environment variable not set")
+    api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlfaWQiOiJzb2xhci1mYWxjb24tNTMzIiwiaWF0IjoxNzMzMzU2NTgwfQ.f_nfSeVS1W-kCxr1p57B9i2cze2O0lOZAVOYFflzNeo"
 
     client = md.VL(api_key=api_key)
 
     # Load a test image
-    image_path = "/Users/caleb/Projects/moondream/moondream/data/raven_01.webp"
+    image_path = "../../assets/demo-3.webp"
     image = Image.open(image_path)
+    encoded_image = client.encode_image(image)
 
     # Test caption
     print("\nTesting non-streaming caption...")
@@ -22,7 +21,7 @@ def test_cloud_client():
 
     # Test streaming caption
     print("\nTesting streaming caption...")
-    for tok in client.caption(image, stream=True)["caption"]:
+    for tok in client.caption(encoded_image, stream=True)["caption"]:
         print(tok, end="", flush=True)
     print()
 
@@ -33,8 +32,8 @@ def test_cloud_client():
 
     # Test query
     print("\nTesting non-streaming query...")
-    question = "What type of animal is this? Be detailed."
-    answer = client.query(image, question)
+    question = "What bird is that?"
+    answer = client.query(encoded_image, question)
     print(f"Query result: {answer['answer']}")
 
     # Test streaming query
@@ -46,7 +45,7 @@ def test_cloud_client():
     # Test detect
     print("\nTesting detect...")
     object_to_detect = "bird"
-    objects = client.detect(image, object_to_detect)
+    objects = client.detect(encoded_image, object_to_detect)
     print(f"Detect result: {objects}")
 
 

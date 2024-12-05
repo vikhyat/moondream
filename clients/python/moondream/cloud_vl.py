@@ -10,6 +10,7 @@ from typing import Union, Optional, Literal
 from .types import (
     VLM,
     CaptionOutput,
+    Base64EncodedImage,
     EncodedImage,
     QueryOutput,
     DetectOutput,
@@ -35,22 +36,12 @@ class CloudVL(VLM):
 
     def _encode_image(self, image: Image.Image) -> str:
         try:
-            # Resize image preserving aspect ratio
             width, height = image.size
-            if width > height:
-                if width > 768:
-                    new_width = 768
-                    new_height = int(height * (768 / width))
-                    image = image.resize(
-                        (new_width, new_height), Image.Resampling.LANCZOS
-                    )
-            else:
-                if height > 768:
-                    new_height = 768
-                    new_width = int(width * (768 / height))
-                    image = image.resize(
-                        (new_width, new_height), Image.Resampling.LANCZOS
-                    )
+            max_size = 768
+            scale = max_size / max(width, height)
+            if scale < 1:
+                new_size = (int(width * scale), int(height * scale))
+                image = image.resize(new_size, Image.Resampling.LANCZOS)
 
             if image.mode != "RGB":
                 image = image.convert("RGB")
@@ -61,8 +52,13 @@ class CloudVL(VLM):
         except Exception as e:
             raise ValueError(f"Failed to convert image to JPEG: {str(e)}") from e
 
-    def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
-        raise NotImplementedError("encode_image is not supported for cloud inference")
+    def encode_image(
+        self, image: Union[Image.Image, Base64EncodedImage]
+    ) -> EncodedImage:
+        if isinstance(image, Base64EncodedImage):
+            return image
+        image_url = self._encode_image(image)
+        return Base64EncodedImage(image_url)
 
     def _stream_response(self, req):
         """Helper function to stream response chunks from the API."""
@@ -84,15 +80,14 @@ class CloudVL(VLM):
     def caption(
         self,
         image: Union[Image.Image, EncodedImage],
-        length: Literal["short", "normal"] = "normal",
+        length: str = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
-        if isinstance(image, EncodedImage):
-            raise ValueError("EncodedImage not supported for cloud inference")
+        encoded_image = self.encode_image(image)
 
         payload = {
-            "image_url": self._encode_image(image),
+            "image_url": encoded_image.image_url,
             "length": length,
             "stream": stream,
         }
@@ -123,11 +118,10 @@ class CloudVL(VLM):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> QueryOutput:
-        if isinstance(image, EncodedImage):
-            raise ValueError("EncodedImage not supported for cloud inference")
+        encoded_image = self.encode_image(image)
 
         payload = {
-            "image_url": self._encode_image(image),
+            "image_url": encoded_image.image_url,
             "question": question,
             "stream": stream,
         }
@@ -152,10 +146,9 @@ class CloudVL(VLM):
         image: Union[Image.Image, EncodedImage],
         object: str,
     ) -> DetectOutput:
-        if isinstance(image, EncodedImage):
-            raise ValueError("EncodedImage not supported for cloud inference")
+        encoded_image = self.encode_image(image)
 
-        payload = {"image_url": self._encode_image(image), "object": object}
+        payload = {"image_url": encoded_image.image_url, "object": object}
 
         data = json.dumps(payload).encode("utf-8")
         headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
