@@ -19,17 +19,6 @@ from .types import (
 
 
 class CloudVL(VLM):
-    @classmethod
-    def from_api_key(cls, api_key: str) -> "CloudVL":
-        """Initialize a CloudVL instance with an API key.
-
-        Args:
-            api_key (str): The API key for authentication
-        Returns:
-            CloudVL: An initialized CloudVL instance
-        """
-        return cls(api_key=api_key)
-
     def __init__(self, api_key: str = None):
         self.api_key = api_key
         self.api_url = "https://api.moondream.ai/v1"
