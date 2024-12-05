@@ -19,42 +19,47 @@ from .types import (
 
 class CloudVL(VLM):
     @classmethod
-    def from_api_key(
-        cls, api_key: str, api_url: str = None, version: str = "v1"
-    ) -> "CloudVL":
+    def from_api_key(cls, api_key: str) -> "CloudVL":
         """Initialize a CloudVL instance with an API key.
 
         Args:
             api_key (str): The API key for authentication
-            api_url (str, optional): Custom API URL. Defaults to None.
-            version (str, optional): API version. Defaults to "v1".
-
         Returns:
             CloudVL: An initialized CloudVL instance
         """
-        return cls(api_key=api_key, api_url=api_url, version=version)
+        return cls(api_key=api_key)
 
-    def __init__(self, api_key: str = None, api_url: str = None, version: str = "v1"):
-        self.api_key = api_key or os.getenv("MOONDREAM_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "API key is required. Set MOONDREAM_API_KEY env var or pass api_key"
-            )
-
-        self.api_url = api_url or f"https://api.moondream.ai/{version}"
-        self.client = urllib.request.urlopen
-        self.headers = {"X-Moondream-Auth": self.api_key}
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key
+        self.api_url = "https://api.moondream.ai/v1"
 
     def _encode_image(self, image: Image.Image) -> str:
         try:
-            if image.mode != "RGBA":
-                image = image.convert("RGBA")
+            # Resize image preserving aspect ratio
+            width, height = image.size
+            if width > height:
+                if width > 768:
+                    new_width = 768
+                    new_height = int(height * (768 / width))
+                    image = image.resize(
+                        (new_width, new_height), Image.Resampling.LANCZOS
+                    )
+            else:
+                if height > 768:
+                    new_height = 768
+                    new_width = int(width * (768 / height))
+                    image = image.resize(
+                        (new_width, new_height), Image.Resampling.LANCZOS
+                    )
+
+            if image.mode != "RGB":
+                image = image.convert("RGB")
             buffered = BytesIO()
-            image.save(buffered, format="PNG")
+            image.save(buffered, format="JPEG", quality=95)
             img_str = base64.b64encode(buffered.getvalue()).decode()
-            return f"data:image/png;base64,{img_str}"
+            return f"data:image/jpeg;base64,{img_str}"
         except Exception as e:
-            raise ValueError(f"Failed to convert image to PNG: {str(e)}")
+            raise ValueError(f"Failed to convert image to JPEG: {str(e)}") from e
 
     def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
         raise NotImplementedError("encode_image is not supported for cloud inference")
@@ -69,16 +74,17 @@ class CloudVL(VLM):
                 if line.startswith("data: "):
                     try:
                         chunk = json.loads(line[6:])
+                        if "chunk" in chunk:
+                            yield chunk["chunk"]
                         if chunk.get("completed"):
                             break
-                        yield chunk.get("chunk", "")
                     except json.JSONDecodeError:
                         continue
 
     def caption(
         self,
         image: Union[Image.Image, EncodedImage],
-        length: Literal["long", "short"] = "long",
+        length: Literal["short", "normal"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
@@ -92,10 +98,11 @@ class CloudVL(VLM):
         }
 
         data = json.dumps(payload).encode("utf-8")
+        headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
         req = urllib.request.Request(
             f"{self.api_url}/caption",
             data=data,
-            headers={**self.headers, "Content-Type": "application/json"},
+            headers=headers,
         )
 
         def generator():
@@ -126,10 +133,11 @@ class CloudVL(VLM):
         }
 
         data = json.dumps(payload).encode("utf-8")
+        headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
         req = urllib.request.Request(
             f"{self.api_url}/query",
             data=data,
-            headers={**self.headers, "Content-Type": "application/json"},
+            headers=headers,
         )
 
         if stream:
@@ -150,12 +158,13 @@ class CloudVL(VLM):
         payload = {"image_url": self._encode_image(image), "object": object}
 
         data = json.dumps(payload).encode("utf-8")
+        headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
         req = urllib.request.Request(
             f"{self.api_url}/detect",
             data=data,
-            headers={**self.headers, "Content-Type": "application/json"},
+            headers=headers,
         )
 
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return {"objects": result.get("objects", [])}
+            return result["objects"]

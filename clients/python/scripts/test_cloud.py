@@ -9,10 +9,10 @@ def test_cloud_client():
     if not api_key:
         raise ValueError("MOONDREAM_API_KEY environment variable not set")
 
-    client = md.VL(api_key)
+    client = md.VL(api_key=api_key)
 
     # Load a test image
-    image_path = "/path/to/image.jpg"
+    image_path = "/Users/caleb/Projects/moondream/moondream/data/raven_01.webp"
     image = Image.open(image_path)
 
     # Test caption
