@@ -2,25 +2,34 @@ import { Buffer } from 'buffer';
 import sharp from 'sharp';
 import {
   Base64EncodedImage,
-  Length,
-  SamplingSettings,
   CaptionOutput,
   QueryOutput,
   DetectOutput,
   PointOutput,
+  CaptionRequest,
+  QueryRequest,
+  DetectRequest,
+  PointRequest,
 } from './types';
 
 export interface MoondreamVLConfig {
-  apiKey: string;
+  apiKey?: string;
+  apiUrl?: string;
 }
+const DEFAULT_API_URL = 'https://api.moondream.ai/v1';
 
 export class vl {
   private apiKey: string;
   private apiUrl: string;
 
   constructor(config: MoondreamVLConfig) {
-    this.apiKey = config.apiKey;
-    this.apiUrl = 'https://api.moondream.ai/v1';
+    this.apiKey = config.apiKey || '';
+    this.apiUrl = config.apiUrl || DEFAULT_API_URL;
+    if (this.apiKey === '' && this.apiUrl === DEFAULT_API_URL) {
+      throw new Error(
+        'An apiKey is required for cloud inference. '
+      );
+    }
   }
 
   private async encodeImage(
@@ -108,12 +117,9 @@ export class vl {
   }
 
   public async caption(
-    image: Buffer | Base64EncodedImage,
-    length: Length = 'normal',
-    stream = false,
-    settings?: SamplingSettings
+    request: CaptionRequest
   ): Promise<CaptionOutput> {
-    const encodedImage = await this.encodeImage(image);
+    const encodedImage = await this.encodeImage(request.image);
 
     const response = await fetch(`${this.apiUrl}/caption`, {
       method: 'POST',
@@ -123,8 +129,8 @@ export class vl {
       },
       body: JSON.stringify({
         image_url: encodedImage.imageUrl,
-        length,
-        stream,
+        length: request.length,
+        stream: request.stream,
       }),
     });
 
@@ -132,7 +138,7 @@ export class vl {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    if (stream) {
+    if (request.stream) {
       return { caption: this.streamResponse(response) };
     }
 
@@ -141,12 +147,9 @@ export class vl {
   }
 
   public async query(
-    image: Buffer | Base64EncodedImage,
-    question: string,
-    stream = false,
-    settings?: SamplingSettings
+    request: QueryRequest
   ): Promise<QueryOutput> {
-    const encodedImage = await this.encodeImage(image);
+    const encodedImage = await this.encodeImage(request.image);
 
     const response = await fetch(`${this.apiUrl}/query`, {
       method: 'POST',
@@ -156,8 +159,8 @@ export class vl {
       },
       body: JSON.stringify({
         image_url: encodedImage.imageUrl,
-        question,
-        stream,
+        question: request.question,
+        stream: request.stream,
         // TODO: Pass sampling settings
       }),
     });
@@ -166,7 +169,7 @@ export class vl {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    if (stream) {
+    if (request.stream) {
       return { answer: this.streamResponse(response) };
     }
 
@@ -175,10 +178,9 @@ export class vl {
   }
 
   public async detect(
-    image: Buffer | Base64EncodedImage,
-    object: string
+    request: DetectRequest
   ): Promise<DetectOutput> {
-    const encodedImage = await this.encodeImage(image);
+    const encodedImage = await this.encodeImage(request.image);
 
     const response = await fetch(`${this.apiUrl}/detect`, {
       method: 'POST',
@@ -188,7 +190,7 @@ export class vl {
       },
       body: JSON.stringify({
         image_url: encodedImage.imageUrl,
-        object,
+        object: request.object,
       }),
     });
 
@@ -201,10 +203,9 @@ export class vl {
   }
 
   public async point(
-    image: Buffer | Base64EncodedImage,
-    object: string
+    request: PointRequest
   ): Promise<PointOutput> {
-    const encodedImage = await this.encodeImage(image);
+    const encodedImage = await this.encodeImage(request.image);
 
     const response = await fetch(`${this.apiUrl}/point`, {
       method: 'POST',
@@ -214,7 +215,7 @@ export class vl {
       },
       body: JSON.stringify({
         image_url: encodedImage.imageUrl,
-        object,
+        object: request.object,
       }),
     });
 

@@ -1,5 +1,5 @@
-import { Readable } from 'stream';
 import { vl, MoondreamVLConfig } from '../moondream';
+import { CaptionRequest, DetectRequest, PointRequest, QueryRequest } from '../types';
 
 // Mock sharp
 jest.mock('sharp', () => {
@@ -36,7 +36,12 @@ describe('MoondreamClient', () => {
       const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      const result = await client.caption(mockImageBuffer);
+      const request: CaptionRequest = {
+        image: mockImageBuffer,
+        length: 'normal',
+        stream: false
+      };
+      const result = await client.caption(request);
 
       expect(result).toEqual({ caption: 'A beautiful landscape' });
       expect(mockedFetch).toHaveBeenCalledWith(
@@ -80,7 +85,12 @@ describe('MoondreamClient', () => {
       const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      const result = await client.caption(mockImageBuffer, 'normal', true);
+      const request: CaptionRequest = {
+        image: mockImageBuffer,
+        length: 'normal',
+        stream: true
+      };
+      const result = await client.caption(request);
       expect(result.caption).toBeDefined();
 
       const chunks = [];
@@ -98,7 +108,12 @@ describe('MoondreamClient', () => {
       const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      await expect(client.caption(mockImageBuffer))
+      const request: CaptionRequest = {
+        image: mockImageBuffer,
+        length: 'normal',
+        stream: false
+      };
+      await expect(client.caption(request))
         .rejects
         .toThrow('HTTP error! status: 400');
     });
@@ -113,7 +128,11 @@ describe('MoondreamClient', () => {
       const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      const result = await client.query(mockImageBuffer, 'What is in this image?');
+      const request: QueryRequest = {
+        image: mockImageBuffer,
+        question: 'What is in this image?'
+      };
+      const result = await client.query(request);
 
       expect(result).toEqual({ answer: 'This is a dog' });
       expect(mockedFetch).toHaveBeenCalledWith(
@@ -157,7 +176,12 @@ describe('MoondreamClient', () => {
       const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      const result = await client.query(mockImageBuffer, 'What is this?', true);
+      const request: QueryRequest = {
+        image: mockImageBuffer,
+        question: 'What is this?',
+        stream: true
+      };
+      const result = await client.query(request);
       expect(result.answer).toBeDefined();
 
       const chunks = [];
@@ -171,7 +195,7 @@ describe('MoondreamClient', () => {
   describe('detect', () => {
     it('should successfully detect objects in an image', async () => {
       const mockObjects = [
-        { bbox: [0, 0, 100, 100], score: 0.95 }
+        { x_min: 0, y_min: 0, x_max: 100, y_max: 100 }
       ];
       const mockResponse = {
         ok: true,
@@ -180,7 +204,11 @@ describe('MoondreamClient', () => {
       const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      const result = await client.detect(mockImageBuffer, 'dog');
+      const request: DetectRequest = {
+        image: mockImageBuffer,
+        object: 'dog'
+      };
+      const result = await client.detect(request);
 
       expect(result).toEqual({ objects: mockObjects });
       expect(mockedFetch).toHaveBeenCalledWith(
@@ -314,7 +342,11 @@ describe('MoondreamClient', () => {
       const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      const result = await client.point(mockImageBuffer, 'dog');
+      const request: PointRequest = {
+        image: mockImageBuffer,
+        object: 'dog'
+      };
+      const result = await client.point(request);
 
       expect(result).toEqual({ points: mockPoints });
       expect(mockedFetch).toHaveBeenCalledWith(

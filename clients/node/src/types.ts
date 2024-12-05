@@ -18,12 +18,30 @@ export interface SamplingSettings {
 }
 
 /**
+ * Request structure for image caption requests
+ */
+export interface CaptionRequest {
+  image: Buffer | Base64EncodedImage;
+  length?: Length;
+  stream?: boolean;
+  settings?: SamplingSettings;
+}
+/**
  * Response structure for image caption requests
  */
 export interface CaptionOutput {
   caption: string | AsyncGenerator<string, void, unknown>;
 }
 
+/**
+ * Request structure for image query requests
+ */
+export interface QueryRequest {
+  image: Buffer | Base64EncodedImage;
+  question: string;
+  stream?: boolean;
+  settings?: SamplingSettings;
+}
 /**
  * Response structure for image query requests
  */
@@ -32,9 +50,18 @@ export interface QueryOutput {
 }
 
 /**
- * Bounding box coordinates [x1, y1, x2, y2]
+ * Request structure for object detection requests
  */
-export type BoundingBox = [number, number, number, number];
+export interface DetectRequest {
+  image: Buffer | Base64EncodedImage;
+  object: string;
+}
+/**
+ * Response structure for object detection requests
+ */
+export interface DetectOutput {
+  objects: DetectedObject[];
+}
 
 /**
  * Object detection result
@@ -103,6 +130,13 @@ export type ApiResponse<T> = {
   requestId?: string;
 }
 
+/**
+ * Pointing request structure
+ */
+export interface PointRequest {
+  image: Buffer | Base64EncodedImage;
+  object: string;
+}
 /**
  * Point coordinates for object location
  */
