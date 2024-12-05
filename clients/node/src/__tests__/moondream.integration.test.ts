@@ -183,7 +183,7 @@ describe('MoondreamClient Local Server Integration Tests', () => {
     let imageBuffer: Base64EncodedImage;
 
     const moondreamConfig: MoondreamVLConfig = {
-        apiUrl: 'http://localhost:3281'
+        apiUrl: 'http://localhost:3475'
     };
 
     beforeAll(async () => {
