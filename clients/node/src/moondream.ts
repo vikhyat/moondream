@@ -1,7 +1,5 @@
 import { Buffer } from 'buffer';
 import sharp from 'sharp';
-import { Readable } from 'node:stream';
-import { ReadableStream } from 'node:stream/web';
 import {
   Base64EncodedImage,
   Length,
@@ -9,6 +7,7 @@ import {
   CaptionOutput,
   QueryOutput,
   DetectOutput,
+  PointOutput,
 } from './types';
 
 export interface MoondreamVLConfig {
@@ -199,5 +198,31 @@ export class vl {
 
     const result = await response.json();
     return { objects: result.objects };
+  }
+
+  public async point(
+    image: Buffer | Base64EncodedImage,
+    object: string
+  ): Promise<PointOutput> {
+    const encodedImage = await this.encodeImage(image);
+
+    const response = await fetch(`${this.apiUrl}/point`, {
+      method: 'POST',
+      headers: {
+        'X-Moondream-Auth': this.apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image_url: encodedImage.imageUrl,
+        object,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return { points: result.points };
   }
 }

@@ -22,7 +22,7 @@ describe('MoondreamClient Integration Tests', () => {
     beforeAll(async () => {
         client = new vl(moondreamConfig);
         // Load test image
-        imageBuffer = await fs.readFile(path.join(__dirname, '../__fixtures__/demo-1.jpg'));
+        imageBuffer = await fs.readFile(path.join(__dirname, '../../../../assets/demo-1.jpg'));
     });
 
     describe('caption', () => {
@@ -35,7 +35,7 @@ describe('MoondreamClient Integration Tests', () => {
 
         it('should stream captions for a real image', async () => {
             const result = await client.caption(imageBuffer, 'normal', true);
-            
+
             // Handle both streaming and non-streaming responses
             if (typeof result.caption === 'string') {
                 expect(result.caption).toBeTruthy();
@@ -77,7 +77,7 @@ describe('MoondreamClient Integration Tests', () => {
         it('should stream answers about a real image', async () => {
             const question = "What is the character doing?";
             const result = await client.query(imageBuffer, question, true);
-            
+
             // Handle both streaming and non-streaming responses
             if (typeof result.answer === 'string') {
                 expect(result.answer).toBeTruthy();
@@ -109,12 +109,29 @@ describe('MoondreamClient Integration Tests', () => {
 
     describe('detect', () => {
         it('should detect objects in a real image', async () => {
-            const objectToDetect = "burger"; // Adjust based on what's in your test image
+            const objectToDetect = "burger";
             const result = await client.detect(imageBuffer, objectToDetect);
 
             expect(result.objects).toBeDefined();
             expect(Array.isArray(result.objects)).toBe(true);
             console.log('Detected objects:', result.objects);
+        }, 10000);
+    });
+
+    describe('point', () => {
+        it('should point to objects in a real image', async () => {
+            const objectToPoint = "burger";
+            const result = await client.point(imageBuffer, objectToPoint);
+
+            expect(result.points).toBeDefined();
+            expect(Array.isArray(result.points)).toBe(true);
+            result.points.forEach(point => {
+                expect(point).toHaveProperty('x');
+                expect(point).toHaveProperty('y');
+                expect(typeof point.x).toBe('number');
+                expect(typeof point.y).toBe('number');
+            });
+            console.log('Pointed locations:', result.points);
         }, 10000);
     });
 });

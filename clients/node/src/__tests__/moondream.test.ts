@@ -5,8 +5,8 @@ import { vl, MoondreamVLConfig } from '../moondream';
 jest.mock('sharp', () => {
   return jest.fn().mockImplementation(() => ({
     metadata: () => Promise.resolve({ width: 1024, height: 768 }),
-    resize: function() { return this; },
-    toFormat: function() { return this; },
+    resize: function () { return this; },
+    toFormat: function () { return this; },
     toBuffer: () => Promise.resolve(Buffer.from('mock-image-data')),
   }));
 });
@@ -21,7 +21,7 @@ describe('MoondreamClient', () => {
 
   beforeEach(() => {
     const moondreamConfig: MoondreamVLConfig = {
-        apiKey: mockApiKey
+      apiKey: mockApiKey
     };
     client = new vl(moondreamConfig);
     jest.clearAllMocks();
@@ -37,7 +37,7 @@ describe('MoondreamClient', () => {
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       const result = await client.caption(mockImageBuffer);
-      
+
       expect(result).toEqual({ caption: 'A beautiful landscape' });
       expect(mockedFetch).toHaveBeenCalledWith(
         'https://api.moondream.ai/v1/caption',
@@ -55,19 +55,19 @@ describe('MoondreamClient', () => {
       const mockReader = {
         read: jest.fn()
       };
-      
+
       mockReader.read
-        .mockResolvedValueOnce({ 
-          done: false, 
+        .mockResolvedValueOnce({
+          done: false,
           value: new TextEncoder().encode('data: {"chunk":"test chunk"}\n')
         })
-        .mockResolvedValueOnce({ 
-          done: false, 
+        .mockResolvedValueOnce({
+          done: false,
           value: new TextEncoder().encode('data: {"completed":true}\n')
         })
-        .mockResolvedValueOnce({ 
-          done: true, 
-          value: undefined 
+        .mockResolvedValueOnce({
+          done: true,
+          value: undefined
         });
 
       const mockResponse = {
@@ -82,7 +82,7 @@ describe('MoondreamClient', () => {
 
       const result = await client.caption(mockImageBuffer, 'normal', true);
       expect(result.caption).toBeDefined();
-      
+
       const chunks = [];
       for await (const chunk of result.caption as AsyncGenerator<string>) {
         chunks.push(chunk);
@@ -114,7 +114,7 @@ describe('MoondreamClient', () => {
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       const result = await client.query(mockImageBuffer, 'What is in this image?');
-      
+
       expect(result).toEqual({ answer: 'This is a dog' });
       expect(mockedFetch).toHaveBeenCalledWith(
         'https://api.moondream.ai/v1/query',
@@ -132,19 +132,19 @@ describe('MoondreamClient', () => {
       const mockReader = {
         read: jest.fn()
       };
-      
+
       mockReader.read
-        .mockResolvedValueOnce({ 
-          done: false, 
+        .mockResolvedValueOnce({
+          done: false,
           value: new TextEncoder().encode('data: {"chunk":"test answer"}\n')
         })
-        .mockResolvedValueOnce({ 
-          done: false, 
+        .mockResolvedValueOnce({
+          done: false,
           value: new TextEncoder().encode('data: {"completed":true}\n')
         })
-        .mockResolvedValueOnce({ 
-          done: true, 
-          value: undefined 
+        .mockResolvedValueOnce({
+          done: true,
+          value: undefined
         });
 
       const mockResponse = {
@@ -159,7 +159,7 @@ describe('MoondreamClient', () => {
 
       const result = await client.query(mockImageBuffer, 'What is this?', true);
       expect(result.answer).toBeDefined();
-      
+
       const chunks = [];
       for await (const chunk of result.answer as AsyncGenerator<string>) {
         chunks.push(chunk);
@@ -181,7 +181,7 @@ describe('MoondreamClient', () => {
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       const result = await client.detect(mockImageBuffer, 'dog');
-      
+
       expect(result).toEqual({ objects: mockObjects });
       expect(mockedFetch).toHaveBeenCalledWith(
         'https://api.moondream.ai/v1/detect',
@@ -225,19 +225,19 @@ describe('MoondreamClient', () => {
       const mockReader = {
         read: jest.fn()
       };
-      
+
       mockReader.read
-        .mockResolvedValueOnce({ 
-          done: false, 
+        .mockResolvedValueOnce({
+          done: false,
           value: new TextEncoder().encode('data: {"chunk":"test chunk"}\n')
         })
-        .mockResolvedValueOnce({ 
-          done: false, 
+        .mockResolvedValueOnce({
+          done: false,
           value: new TextEncoder().encode('data: {"completed":true}\n')
         })
-        .mockResolvedValueOnce({ 
-          done: true, 
-          value: undefined 
+        .mockResolvedValueOnce({
+          done: true,
+          value: undefined
         });
 
       const mockResponse = {
@@ -247,12 +247,12 @@ describe('MoondreamClient', () => {
       };
 
       const generator = (client as any).streamResponse(mockResponse as any);
-      
+
       const chunks = [];
       for await (const chunk of generator) {
         chunks.push(chunk);
       }
-      
+
       expect(chunks).toEqual(['test chunk']);
     });
 
@@ -260,15 +260,15 @@ describe('MoondreamClient', () => {
       const mockReader = {
         read: jest.fn()
       };
-      
+
       mockReader.read
-        .mockResolvedValueOnce({ 
-          done: false, 
+        .mockResolvedValueOnce({
+          done: false,
           value: new TextEncoder().encode('data: invalid-json\n')
         })
-        .mockResolvedValueOnce({ 
-          done: true, 
-          value: undefined 
+        .mockResolvedValueOnce({
+          done: true,
+          value: undefined
         });
 
       const mockResponse = {
@@ -298,6 +298,36 @@ describe('MoondreamClient', () => {
           // consume generator
         }
       }).rejects.toThrow('Response body is null');
+    });
+  });
+
+  describe('point', () => {
+    it('should successfully point to objects in an image', async () => {
+      const mockPoints = [
+        { x: 100, y: 200 },
+        { x: 300, y: 400 }
+      ];
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({ points: mockPoints })
+      };
+      const mockedFetch = jest.spyOn(global, 'fetch');
+      mockedFetch.mockResolvedValueOnce(mockResponse as any);
+
+      const result = await client.point(mockImageBuffer, 'dog');
+
+      expect(result).toEqual({ points: mockPoints });
+      expect(mockedFetch).toHaveBeenCalledWith(
+        'https://api.moondream.ai/v1/point',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'X-Moondream-Auth': mockApiKey,
+            'Content-Type': 'application/json'
+          },
+          body: expect.stringContaining('dog')
+        })
+      );
     });
   });
 });

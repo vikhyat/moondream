@@ -107,3 +107,18 @@ export type ApiResponse<T> = {
   timestamp?: string;
   requestId?: string;
 }
+
+/**
+ * Point coordinates for object location
+ */
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * Response structure for point requests
+ */
+export interface PointOutput {
+  points: Point[];
+}
