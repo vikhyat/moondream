@@ -24,6 +24,8 @@ Before using this client library, you'll need an API key to access Moondream's h
 You can get a free API key from [console.moondream.ai](https://console.moondream.ai). Currently
 local inference is only available in Python, but Node.js support is coming very soon.
 
+### Cloud
+
 ```javascript
 import { vl } from "moondream";
 import fs from "fs";
@@ -34,6 +36,39 @@ const model = new vl({
 });
 
 // Read an image file
+const image = fs.readFileSync("path/to/image.jpg");
+
+// Basic usage examples
+async function main() {
+  // Generate a caption for the image
+  const caption = await model.caption(image);
+  console.log("Caption:", caption);
+
+  // Ask a question about the image
+  const answer = await model.query(image, "What's in this image?");
+  console.log("Answer:", answer);
+
+  // Stream the response
+  const stream = await model.caption(image, "normal", true);
+  for await (const chunk of stream.caption) {
+    process.stdout.write(chunk);
+  }
+}
+
+main();
+```
+
+### Local Inference
+
+- Install the `moondream` CLI: `pip install moondream`
+- Run the local server: `moondream serve --model <path-to-model>`
+- Set the `apiUrl` parameter to the URL of the local server (the default is `http://localhost:3475`)
+
+```javascript
+const model = new vl({
+  apiUrl: "http://localhost:3475",
+});
+
 const image = fs.readFileSync("path/to/image.jpg");
 
 // Basic usage examples
