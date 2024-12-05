@@ -156,7 +156,7 @@ class OnnxVL(VLM):
             **components,
         )
 
-    def encode_image(self, image: Union[Image.Image, OnnxEncodedImage]) -> EncodedImage:
+    def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
         """
         Preprocess the image by running it through the model.
 

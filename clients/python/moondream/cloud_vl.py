@@ -9,8 +9,8 @@ from typing import Union, Optional, Literal
 
 from .types import (
     VLM,
-    CaptionOutput,
     Base64EncodedImage,
+    CaptionOutput,
     EncodedImage,
     QueryOutput,
     DetectOutput,
@@ -34,10 +34,8 @@ class CloudVL(VLM):
         self.api_key = api_key
         self.api_url = "https://api.moondream.ai/v1"
 
-    def encode_image(
-        self, image: Union[Image.Image, Base64EncodedImage]
-    ) -> EncodedImage:
-        if isinstance(image, Base64EncodedImage):
+    def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
+        if isinstance(image, EncodedImage):
             return image
         try:
             width, height = image.size
@@ -107,7 +105,7 @@ class CloudVL(VLM):
 
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return {"caption": result.get("caption", "")}
+            return {"caption": result["caption"]}
 
     def query(
         self,
@@ -137,7 +135,7 @@ class CloudVL(VLM):
 
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return {"answer": result.get("answer", "")}
+            return {"answer": result["answer"]}
 
     def detect(
         self,
