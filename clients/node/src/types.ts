@@ -15,11 +15,6 @@ export type Length = 'normal' | 'short';
  */
 export interface SamplingSettings {
   maxTokens?: number;
-  temperature?: number;
-  topP?: number;
-  topK?: number;
-  repetitionPenalty?: number;
-  seed?: number;
 }
 
 /**
