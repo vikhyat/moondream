@@ -16,7 +16,7 @@
     "client"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "",
   "dependencies": {
     "sharp": "^0.32.1"
   },
