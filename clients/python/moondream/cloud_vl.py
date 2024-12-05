@@ -19,9 +19,13 @@ from .types import (
 
 
 class CloudVL(VLM):
-    def __init__(self, api_key: str):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        api_url: Optional[str] = "https://api.moondream.ai/v1",
+    ):
         self.api_key = api_key
-        self.api_url = "https://api.moondream.ai/v1"
+        self.api_url = api_url
 
     def encode_image(
         self, image: Union[Image.Image, EncodedImage]
@@ -80,7 +84,9 @@ class CloudVL(VLM):
         }
 
         data = json.dumps(payload).encode("utf-8")
-        headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
             f"{self.api_url}/caption",
             data=data,
@@ -114,7 +120,9 @@ class CloudVL(VLM):
         }
 
         data = json.dumps(payload).encode("utf-8")
-        headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
             f"{self.api_url}/query",
             data=data,
@@ -137,7 +145,9 @@ class CloudVL(VLM):
         payload = {"image_url": encoded_image.image_url, "object": object}
 
         data = json.dumps(payload).encode("utf-8")
-        headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
             f"{self.api_url}/detect",
             data=data,
@@ -157,7 +167,9 @@ class CloudVL(VLM):
         payload = {"image_url": encoded_image.image_url, "object": object}
 
         data = json.dumps(payload).encode("utf-8")
-        headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
             f"{self.api_url}/point",
             data=data,
