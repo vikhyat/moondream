@@ -18,7 +18,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "node-fetch": "^2.6.1",
     "sharp": "^0.32.1"
   },
   "devDependencies": {

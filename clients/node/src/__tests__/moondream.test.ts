@@ -1,11 +1,5 @@
-// src/__tests__/moondream.test.ts
-import { vl, MoondreamVLConfig } from '../moondream';
-import fetch from 'node-fetch';
 import { Readable } from 'stream';
-
-// Mock node-fetch
-jest.mock('node-fetch');
-const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
+import { vl, MoondreamVLConfig } from '../moondream';
 
 // Mock sharp
 jest.mock('sharp', () => {
@@ -39,6 +33,7 @@ describe('MoondreamClient', () => {
         ok: true,
         json: () => Promise.resolve({ caption: 'A beautiful landscape' })
       };
+      const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       const result = await client.caption(mockImageBuffer);
@@ -57,20 +52,33 @@ describe('MoondreamClient', () => {
     });
 
     it('should handle streaming responses', async () => {
-      const mockStream = new Readable();
-      mockStream._read = () => {};
+      const mockReader = {
+        read: jest.fn()
+      };
+      
+      mockReader.read
+        .mockResolvedValueOnce({ 
+          done: false, 
+          value: new TextEncoder().encode('data: {"chunk":"test chunk"}\n')
+        })
+        .mockResolvedValueOnce({ 
+          done: false, 
+          value: new TextEncoder().encode('data: {"completed":true}\n')
+        })
+        .mockResolvedValueOnce({ 
+          done: true, 
+          value: undefined 
+        });
+
       const mockResponse = {
         ok: true,
-        body: mockStream,
+        body: {
+          getReader: () => mockReader
+        }
       };
-      mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      // Simulate streaming data
-      setTimeout(() => {
-        mockStream.push('data: {"chunk":"test chunk"}\n');
-        mockStream.push('data: {"completed":true}\n');
-        mockStream.push(null);
-      }, 0);
+      const mockedFetch = jest.spyOn(global, 'fetch');
+      mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       const result = await client.caption(mockImageBuffer, 'normal', true);
       expect(result.caption).toBeDefined();
@@ -87,6 +95,7 @@ describe('MoondreamClient', () => {
         ok: false,
         status: 400
       };
+      const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       await expect(client.caption(mockImageBuffer))
@@ -101,6 +110,7 @@ describe('MoondreamClient', () => {
         ok: true,
         json: () => Promise.resolve({ answer: 'This is a dog' })
       };
+      const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       const result = await client.query(mockImageBuffer, 'What is in this image?');
@@ -119,20 +129,33 @@ describe('MoondreamClient', () => {
     });
 
     it('should handle streaming query responses', async () => {
-      const mockStream = new Readable();
-      mockStream._read = () => {};
+      const mockReader = {
+        read: jest.fn()
+      };
+      
+      mockReader.read
+        .mockResolvedValueOnce({ 
+          done: false, 
+          value: new TextEncoder().encode('data: {"chunk":"test answer"}\n')
+        })
+        .mockResolvedValueOnce({ 
+          done: false, 
+          value: new TextEncoder().encode('data: {"completed":true}\n')
+        })
+        .mockResolvedValueOnce({ 
+          done: true, 
+          value: undefined 
+        });
+
       const mockResponse = {
         ok: true,
-        body: mockStream,
+        body: {
+          getReader: () => mockReader
+        }
       };
-      mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
-      // Simulate streaming data
-      setTimeout(() => {
-        mockStream.push('data: {"chunk":"test answer"}\n');
-        mockStream.push('data: {"completed":true}\n');
-        mockStream.push(null);
-      }, 0);
+      const mockedFetch = jest.spyOn(global, 'fetch');
+      mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       const result = await client.query(mockImageBuffer, 'What is this?', true);
       expect(result.answer).toBeDefined();
@@ -154,6 +177,7 @@ describe('MoondreamClient', () => {
         ok: true,
         json: () => Promise.resolve({ objects: mockObjects })
       };
+      const mockedFetch = jest.spyOn(global, 'fetch');
       mockedFetch.mockResolvedValueOnce(mockResponse as any);
 
       const result = await client.detect(mockImageBuffer, 'dog');
@@ -198,18 +222,31 @@ describe('MoondreamClient', () => {
 
   describe('streamResponse', () => {
     it('should handle streaming data chunks', async () => {
-      const mockStream = new Readable();
-      mockStream._read = () => {};
+      const mockReader = {
+        read: jest.fn()
+      };
+      
+      mockReader.read
+        .mockResolvedValueOnce({ 
+          done: false, 
+          value: new TextEncoder().encode('data: {"chunk":"test chunk"}\n')
+        })
+        .mockResolvedValueOnce({ 
+          done: false, 
+          value: new TextEncoder().encode('data: {"completed":true}\n')
+        })
+        .mockResolvedValueOnce({ 
+          done: true, 
+          value: undefined 
+        });
+
       const mockResponse = {
-        body: mockStream
+        body: {
+          getReader: () => mockReader
+        }
       };
 
       const generator = (client as any).streamResponse(mockResponse as any);
-      
-      // Simulate streaming data
-      mockStream.push('data: {"chunk":"test chunk"}\n');
-      mockStream.push('data: {"completed":true}\n');
-      mockStream.push(null);
       
       const chunks = [];
       for await (const chunk of generator) {
@@ -220,23 +257,47 @@ describe('MoondreamClient', () => {
     });
 
     it('should handle JSON parsing errors', async () => {
-      const mockStream = new Readable();
-      mockStream._read = () => {};
+      const mockReader = {
+        read: jest.fn()
+      };
+      
+      mockReader.read
+        .mockResolvedValueOnce({ 
+          done: false, 
+          value: new TextEncoder().encode('data: invalid-json\n')
+        })
+        .mockResolvedValueOnce({ 
+          done: true, 
+          value: undefined 
+        });
+
       const mockResponse = {
-        body: mockStream
+        body: {
+          getReader: () => mockReader
+        }
       };
 
       const generator = (client as any).streamResponse(mockResponse as any);
-      
-      // Push invalid JSON data
-      mockStream.push('data: invalid-json\n');
-      mockStream.push(null);
 
       await expect(async () => {
         for await (const _ of generator) {
           // consume generator
         }
       }).rejects.toThrow('Failed to parse JSON response from server');
+    });
+
+    it('should handle null response body', async () => {
+      const mockResponse = {
+        body: null
+      };
+
+      const generator = (client as any).streamResponse(mockResponse as any);
+
+      await expect(async () => {
+        for await (const _ of generator) {
+          // consume generator
+        }
+      }).rejects.toThrow('Response body is null');
     });
   });
 });

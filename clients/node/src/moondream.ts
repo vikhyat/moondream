@@ -1,7 +1,5 @@
 import { Buffer } from 'buffer';
 import sharp from 'sharp';
-import fetch from 'node-fetch';
-import { Response as NodeFetchResponse } from 'node-fetch';
 import { Readable } from 'node:stream';
 import { ReadableStream } from 'node:stream/web';
 import {
@@ -72,24 +70,13 @@ export class vl {
     }
   }
 
-  private async* streamResponse(response: NodeFetchResponse): AsyncGenerator<string, void, unknown> {
+  private async* streamResponse(response: Response): AsyncGenerator<string, void, unknown> {
     if (!response.body) {
       throw new Error('Response body is null');
     }
 
-    // Convert Node.js readable stream to Web ReadableStream
-    const webStream = new ReadableStream({
-      start(controller) {
-        if (response.body instanceof Readable) {
-          response.body.on('data', chunk => controller.enqueue(chunk));
-          response.body.on('end', () => controller.close());
-          response.body.on('error', err => controller.error(err));
-        } else {
-          controller.error(new Error('Response body is not a readable stream'));
-        }
-      }
-    });
-    const reader = webStream.getReader();
+    // Use the Web ReadableStream directly since fetch returns that
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 

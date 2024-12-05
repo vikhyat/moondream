@@ -45,9 +45,10 @@ export type BoundingBox = [number, number, number, number];
  * Object detection result
  */
 export interface DetectedObject {
-  bbox: BoundingBox;
-  score: number;
-  label?: string;
+  x_min: number;
+  y_min: number;
+  x_max: number;
+  y_max: number;
 }
 
 /**
