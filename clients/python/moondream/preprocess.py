@@ -78,6 +78,8 @@ def create_patches(
     resolution. Returns the patches as a numpy array, and the selected patching
     template as a tuple of (rows, cols).
     """
+    image = image.convert("RGB")
+
     # Start off with the global patch.
     patches = [im_resize(image, (image_patch_size, image_patch_size))]
 
