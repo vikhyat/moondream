@@ -21,8 +21,7 @@ yarn add moondream
 ## Quick Start
 
 Before using this client library, you'll need an API key to access Moondream's hosted service.
-You can get a free API key from [console.moondream.ai](https://console.moondream.ai). Currently
-local inference is only available in Python, but Node.js support is coming very soon.
+You can get a free API key from [console.moondream.ai](https://console.moondream.ai).
 
 ### Cloud
 
@@ -41,15 +40,27 @@ const image = fs.readFileSync("path/to/image.jpg");
 // Basic usage examples
 async function main() {
   // Generate a caption for the image
-  const caption = await model.caption(image);
+  const caption = await model.caption({
+    image: image,
+    length: "normal",
+    stream: false
+  });
   console.log("Caption:", caption);
 
   // Ask a question about the image
-  const answer = await model.query(image, "What's in this image?");
+  const answer = await model.query({
+    image: image,
+    question: "What's in this image?",
+    stream: false
+  });
   console.log("Answer:", answer);
 
   // Stream the response
-  const stream = await model.caption(image, "normal", true);
+  const stream = await model.caption({
+    image: image,
+    length: "normal",
+    stream: true
+  });
   for await (const chunk of stream.caption) {
     process.stdout.write(chunk);
   }
@@ -74,15 +85,27 @@ const image = fs.readFileSync("path/to/image.jpg");
 // Basic usage examples
 async function main() {
   // Generate a caption for the image
-  const caption = await model.caption(image);
+  const caption = await model.caption({
+    image: image,
+    length: "normal",
+    stream: false
+  });
   console.log("Caption:", caption);
 
   // Ask a question about the image
-  const answer = await model.query(image, "What's in this image?");
+  const answer = await model.query({
+    image: image,
+    question: "What's in this image?",
+    stream: false
+  });
   console.log("Answer:", answer);
 
   // Stream the response
-  const stream = await model.caption(image, "normal", true);
+  const stream = await model.caption({
+    image: image,
+    length: "normal",
+    stream: true
+  });
   for await (const chunk of stream.caption) {
     process.stdout.write(chunk);
   }
@@ -116,40 +139,64 @@ const model = new vl({
 
 ### Methods
 
-#### caption(image, length?, stream?, settings?)
+#### caption(request: CaptionRequest)
 
 Generate a caption for an image.
 
 ```javascript
-const result = await model.caption(image, "normal", false);
+const result = await model.caption({
+  image: image,
+  length: "normal",
+  stream: false
+});
+
 // or with streaming
-const stream = await model.caption(image, "normal", true);
+const stream = await model.caption({
+  image: image,
+  length: "normal",
+  stream: true
+});
 ```
 
-#### query(image, question, stream?, settings?)
+#### query(request: QueryRequest)
 
 Ask a question about an image.
 
 ```javascript
-const result = await model.query(image, "What's in this image?", false);
+const result = await model.query({
+  image: image,
+  question: "What's in this image?",
+  stream: false
+});
+
 // or with streaming
-const stream = await model.query(image, "What's in this image?", true);
+const stream = await model.query({
+  image: image,
+  question: "What's in this image?",
+  stream: true
+});
 ```
 
-#### detect(image, object)
+#### detect(request: DetectRequest)
 
 Detect specific objects in an image.
 
 ```javascript
-const result = await model.detect(image, "car");
+const result = await model.detect({
+  image: image,
+  object: "car"
+});
 ```
 
-#### point(image, object)
+#### point(request: PointRequest)
 
 Get coordinates of specific objects in an image.
 
 ```javascript
-const result = await model.point(image, "person");
+const result = await model.point({
+  image: image,
+  object: "person"
+});
 ```
 
 ### Input Types
