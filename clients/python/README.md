@@ -27,12 +27,12 @@ pip install moondream-gpu==0.0.2 # note: not deployed yet
 Then download the model weights. We recommend using the int8 weights for most
 applications, as they offer a good balance between memory usage and accuracy.
 
-| Model          | Precision | Download Size | Memory Usage | Download Link                                                                                                                                    |
-| -------------- | --------- | ------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Moondream 2B   | int8      | 1,746 MiB     | 2,587 MiB    | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/1cf747d11539ba8827f172e57f2215b5df3306cd/moondream-2b-int8.bin.gz?download=true)   |
-| Moondream 2B   | int4      | 1,251 MiB     | 2,044 MiB    | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/1cf747d11539ba8827f172e57f2215b5df3306cd/moondream-2b-int4.bin.gz?download=true)   |
-| Moondream 0.5B | int8      | 585 MiB       | 1,007 MiB    | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/1cf747d11539ba8827f172e57f2215b5df3306cd/moondream-0_5b-int8.bin.gz?download=true) |
-| Moondream 0.5B | int4      | 457 MiB       | 871 MiB      | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/1cf747d11539ba8827f172e57f2215b5df3306cd/moondream-0_5b-int4.bin.gz?download=true) |
+| Model          | Precision | Download Size | Memory Usage | Download Link                                                                                               |
+| -------------- | --------- | ------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| Moondream 2B   | int8      | 1,733 MiB     | 2,624 MiB    | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/onnx/moondream-2b-int8.mf.gz?download=true)   |
+| Moondream 2B   | int4      | 1,167 MiB     | 2,002 MiB    | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/onnx/moondream-2b-int4.mf.gz?download=true)   |
+| Moondream 0.5B | int8      | 593 MiB       | 996 MiB      | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/onnx/moondream-0_5b-int8.mf.gz?download=true) |
+| Moondream 0.5B | int4      | 422 MiB       | 816 MiB      | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/onnx/moondream-0_5b-int4.mf.gz?download=true) |
 
 While the library can load gzipped weights, we recommend decompressing the file
 before usage to avoid paying the decompression cost every time the model is
@@ -47,7 +47,7 @@ usage expected during typical usage.
 import moondream as md
 from PIL import Image
 
-model = md.VL("moondream-latest-int8.bin")
+model = md.vl(model="path/to/moondream-latest-int8.bin")
 image = Image.open("path/to/image.jpg").convert("RGB")
 
 # Optional -- encode the image to efficiently run multiple queries on the same
