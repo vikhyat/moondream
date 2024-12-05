@@ -54,7 +54,7 @@ class CloudVL(VLM):
             img_str = base64.b64encode(buffered.getvalue()).decode()
             return Base64EncodedImage(image_url=f"data:image/jpeg;base64,{img_str}")
         except Exception as e:
-            raise ValueError(f"Failed to convert image to JPEG: {str(e)}") from e
+            raise ValueError(f"Failed to convert image to JPEG.") from e
 
     def _stream_response(self, req):
         """Helper function to stream response chunks from the API."""
@@ -70,8 +70,10 @@ class CloudVL(VLM):
                             yield data["chunk"]
                         if data.get("completed"):
                             break
-                    except json.JSONDecodeError:
-                        continue
+                    except json.JSONDecodeError as e:
+                        raise ValueError(
+                            f"Failed to parse JSON response from server."
+                        ) from e
 
     def caption(
         self,
