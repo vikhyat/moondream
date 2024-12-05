@@ -2,8 +2,9 @@ import struct
 import gzip
 from typing import BinaryIO, Tuple, Iterator, Union
 
-MOON_MAGIC = b'MOON'
+MOON_MAGIC = b"MOON"
 MOON_VERSION = 1
+
 
 class MoonReader:
     def __init__(self, input_path: str):
@@ -11,9 +12,9 @@ class MoonReader:
 
     def _get_file_handle(self) -> Union[BinaryIO, gzip.GzipFile]:
         """Returns appropriate file handle based on extension"""
-        if self.input_path.endswith('.gz'):
-            return gzip.open(self.input_path, 'rb')
-        return open(self.input_path, 'rb')
+        if self.input_path.endswith(".gz"):
+            return gzip.open(self.input_path, "rb")
+        return open(self.input_path, "rb")
 
     def _validate_header(self, f: Union[BinaryIO, gzip.GzipFile]) -> None:
         """Validate magic bytes and version"""
@@ -21,7 +22,7 @@ class MoonReader:
         if magic != MOON_MAGIC:
             raise ValueError(f"Invalid magic bytes: {magic}")
 
-        version = struct.unpack('!B', f.read(1))[0]
+        version = struct.unpack("!B", f.read(1))[0]
         if version != MOON_VERSION:
             raise ValueError(f"Unsupported version: {version}")
 
@@ -36,16 +37,17 @@ class MoonReader:
                 if not filename_len_bytes:
                     break  # End of file
 
-                filename_len = struct.unpack('!I', filename_len_bytes)[0]
+                filename_len = struct.unpack("!I", filename_len_bytes)[0]
 
                 # Read filename
-                filename = f.read(filename_len).decode('utf-8')
+                filename = f.read(filename_len).decode("utf-8")
 
                 # Read content length and content
-                content_len = struct.unpack('!Q', f.read(8))[0]
+                content_len = struct.unpack("!Q", f.read(8))[0]
                 content = f.read(content_len)
 
                 yield filename, content
+
 
 def unpack(input_path: str) -> Iterator[Tuple[str, bytes]]:
     """Unpack a .mf file"""
