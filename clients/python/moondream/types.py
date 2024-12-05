@@ -61,7 +61,6 @@ class VLM(ABC):
         Returns:
             The encoded representation of the image.
         """
-        pass
 
     @abstractmethod
     def caption(
@@ -87,7 +86,6 @@ class VLM(ABC):
             CaptionOutput: A dictionary containing the 'caption' field with either a string
                 or generator that yields strings for the caption.
         """
-        pass
 
     @abstractmethod
     def query(
@@ -112,7 +110,6 @@ class VLM(ABC):
             QueryOutput: A dictionary containing the 'answer' field with either a string
                 or generator that yields strings for the response.
         """
-        pass
 
     @abstractmethod
     def detect(
@@ -136,7 +133,6 @@ class VLM(ABC):
                     - x_max (float): Right boundary of detection box
                     - y_max (float): Bottom boundary of detection box
         """
-        pass
 
     @abstractmethod
     def point(
@@ -163,4 +159,3 @@ class VLM(ABC):
         indicates the approximate center or most relevant position for that object
         instance.
         """
-        pass
