@@ -45,8 +45,9 @@ The recommended way to use the latest version of Moondream is through our Python
 import moondream as md
 from PIL import Image
 
-# Initialize with local model path
-model = md.vl(model="path/to/moondream-2b-int8.bin")
+# Initialize with local model path. Can also read .mf.gz files, but we recommend decompressing
+# up-front to avoid decompression overhead every time the model is initialized.
+model = md.vl(model="path/to/moondream-2b-int8.mf")
 
 # Load and process image
 image = Image.open("path/to/image.jpg")
