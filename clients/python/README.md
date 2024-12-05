@@ -17,7 +17,7 @@ local inference and cloud-based API access.
 Install the package from PyPI:
 
 ```bash
-pip install moondream==0.0.4
+pip install moondream==0.0.5
 ```
 
 ## Quick Start
