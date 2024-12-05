@@ -22,18 +22,15 @@ def main():
     from .onnx_vl import OnnxVL
 
     parser = argparse.ArgumentParser(description="Moondream local server")
-    parser.add_argument(
-        "--model", "-m", type=str, help="Path to model file", required=True
-    )
+    parser.add_argument("--model", type=str, help="Path to model file", required=True)
     parser.add_argument(
         "--host",
-        "-h",
         type=str,
         default="localhost",
         help="Server host (default: localhost)",
     )
     parser.add_argument(
-        "--port", "-p", type=int, default=1738, help="Server port (default: 1738)"
+        "--port", type=int, default=3281, help="Server port (default: 3281)"
     )
 
     args = parser.parse_args()
