@@ -139,7 +139,7 @@ const model = new vl({
 
 ### Methods
 
-#### caption({ image: string, length: string, stream: boolean })
+#### caption({ image: string, length: string, stream?: boolean })
 
 Generate a caption for an image.
 
@@ -158,7 +158,7 @@ const stream = await model.caption({
 });
 ```
 
-#### query({ image: string, question: string, stream: boolean })
+#### query({ image: string, question: string, stream?: boolean })
 
 Ask a question about an image.
 
