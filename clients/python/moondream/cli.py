@@ -1,8 +1,9 @@
 import argparse
-from http import server
 import sys
+from http import server
+
+from .onnx_vl import OnnxVL
 from .server import MoondreamHandler
-from . import vl
 
 
 def main():
@@ -23,7 +24,7 @@ def main():
 
     if args.command == "serve":
         if args.model:
-            model = vl(model=args.model)
+            model = OnnxVL.from_path(args.model)
         else:
             parser.error("Model path is required")
 

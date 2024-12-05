@@ -1,19 +1,19 @@
+import base64
 import json
 import urllib.request
-import base64
-from PIL import Image
 from io import BytesIO
-from typing import Union, Optional, Literal
+from typing import Literal, Optional, Union
 
+from PIL import Image
 
 from .types import (
     VLM,
     Base64EncodedImage,
     CaptionOutput,
-    EncodedImage,
-    QueryOutput,
     DetectOutput,
+    EncodedImage,
     PointOutput,
+    QueryOutput,
     SamplingSettings,
 )
 
