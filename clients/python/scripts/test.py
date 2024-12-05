@@ -90,7 +90,7 @@ log_memory_and_time("Image Loading", start_time, start_memory)
 print_section("Model Initialization")
 start_time = time.time()
 start_memory = get_memory_usage()
-model = md.VL(args.model_path)
+model = md.vl(model_path=args.model_path)
 log_memory_and_time("Model Initialization", start_time, start_memory)
 
 # Encode image

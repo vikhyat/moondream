@@ -1,5 +1,4 @@
 import json
-import os
 import urllib.request
 import base64
 from PIL import Image
@@ -19,12 +18,15 @@ from .types import (
 
 
 class CloudVL(VLM):
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str):
         self.api_key = api_key
         self.api_url = "https://api.moondream.ai/v1"
 
-    def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
+    def encode_image(
+        self, image: Union[Image.Image, EncodedImage]
+    ) -> Base64EncodedImage:
         if isinstance(image, EncodedImage):
+            assert type(image) == Base64EncodedImage
             return image
         try:
             width, height = image.size
@@ -41,7 +43,7 @@ class CloudVL(VLM):
             img_str = base64.b64encode(buffered.getvalue()).decode()
             return Base64EncodedImage(image_url=f"data:image/jpeg;base64,{img_str}")
         except Exception as e:
-            raise ValueError(f"Failed to convert image to JPEG.") from e
+            raise ValueError("Failed to convert image to JPEG.") from e
 
     def _stream_response(self, req):
         """Helper function to stream response chunks from the API."""
@@ -59,13 +61,13 @@ class CloudVL(VLM):
                             break
                     except json.JSONDecodeError as e:
                         raise ValueError(
-                            f"Failed to parse JSON response from server."
+                            "Failed to parse JSON response from server."
                         ) from e
 
     def caption(
         self,
         image: Union[Image.Image, EncodedImage],
-        length: str = "normal",
+        length: Literal["normal", "short"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
@@ -109,6 +111,7 @@ class CloudVL(VLM):
             "image_url": encoded_image.image_url,
             "question": question,
             "stream": stream,
+            # TODO: Pass sampling settings like max_tokens to the API.
         }
 
         data = json.dumps(payload).encode("utf-8")
@@ -145,4 +148,4 @@ class CloudVL(VLM):
 
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return result["objects"]
+            return {"objects": result["objects"]}

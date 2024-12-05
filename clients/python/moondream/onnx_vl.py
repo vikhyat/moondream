@@ -1,17 +1,17 @@
 import json
 import os
-import tarfile
 import numpy as np
 import math
 import onnxruntime as ort
 
-from typing import Generator, Optional, Union, Dict, Any, List
+from typing import Generator, Optional, Union, Dict, Any, List, Literal
 from dataclasses import dataclass
 from io import BytesIO
 from PIL import Image
 from tokenizers import Tokenizer
 
 from .preprocess import create_patches, adaptive_avg_pool2d
+from .moonfile import unpack
 from .types import (
     VLM,
     EncodedImage,
@@ -28,7 +28,7 @@ MIN_SUPPORTED_VERSION = 1
 MAX_SUPPORT_VERSION = 1
 
 
-def prepare_kv_cache(encoded_image):
+def prepare_kv_cache(encoded_image: OnnxEncodedImage):
     """
     Creates a copy of the encoded image kv cache with max sequence length 2048.
 
@@ -111,29 +111,18 @@ class OnnxVL(VLM):
         if model_path is None or not os.path.isfile(model_path):
             raise ValueError("Model path is invalid or file does not exist.")
 
-        if not tarfile.is_tarfile(model_path):
-            raise ValueError(
-                "Model format not recognized. You may need to upgrade the moondream"
-                " package."
-            )
-
         components: Dict[str, Any] = {}
         file_handlers = {
-            ".onnx": lambda contents: ort.InferenceSession(contents, **ort_settings),
-            ".json": lambda contents: json.loads(contents),
-            ".npy": lambda contents: np.load(BytesIO(contents)),
+            "onnx": lambda contents: ort.InferenceSession(contents, **ort_settings),
+            "json": lambda contents: json.loads(contents),
+            "npy": lambda contents: np.load(BytesIO(contents)),
         }
-        with tarfile.open(model_path, "r:*") as tar:
-            for member in tar.getmembers():
-                name = member.name.split("/")[-1]
-                if f := tar.extractfile(member):
-                    contents = f.read()
-                    key = name.split(".")[0]
-                    ext = "." + name.split(".")[1]
-                    if name == "tokenizer.json":
-                        components[key] = Tokenizer.from_buffer(contents)
-                    else:
-                        components[key] = file_handlers[ext](contents)
+        for filename, contents in unpack(model_path):
+            key, ext = filename.split("/")[-1].split(".")
+            if key == "tokenizer":
+                components[key] = Tokenizer.from_buffer(contents)
+            else:
+                components[key] = file_handlers[ext](contents)
 
         for component in [
             "vision_encoder",
@@ -170,7 +159,8 @@ class OnnxVL(VLM):
         Returns:
             The encoded representation of the image.
         """
-        if type(image) == EncodedImage:
+        if isinstance(image, EncodedImage):
+            assert type(image) == OnnxEncodedImage
             return image
 
         # Run vision encoder.
@@ -219,6 +209,8 @@ class OnnxVL(VLM):
     def _generate(
         self, input_embeds: np.ndarray, encoded_image: EncodedImage, max_tokens: int
     ) -> Generator[str, None, None]:
+        assert type(encoded_image) == OnnxEncodedImage
+
         kv_cache = prepare_kv_cache(encoded_image)
         pos = encoded_image.pos
         generated_tokens = 0
@@ -247,7 +239,7 @@ class OnnxVL(VLM):
     def caption(
         self,
         image: Union[Image.Image, EncodedImage],
-        length: str = "normal",
+        length: Literal["normal", "short"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
@@ -348,7 +340,6 @@ class OnnxVL(VLM):
         Returns:
             List[Region]: A list of Region objects representing the detected instances of the specified object.
         """
-
         # Verify that the coord and size encoders and decoders are available.
         if not (
             hasattr(self, "coord_decoder")
@@ -367,6 +358,7 @@ class OnnxVL(VLM):
 
         (hidden,) = self.text_encoder.run(None, {"input_ids": [prompt_toks]})
         encoded_image = self.encode_image(image)
+        assert type(encoded_image) == OnnxEncodedImage
         kv_cache = prepare_kv_cache(encoded_image)
 
         objects = []
