@@ -1,6 +1,8 @@
 # Moondream Python Client Library
 
-Official Python client library for Moondream, a tiny vision language model that can analyze images and answer questions about them. This library supports both local inference and cloud-based API access.
+Official Python client library for Moondream, a tiny vision language model that
+can analyze images and answer questions about them. This library supports both
+local inference and cloud-based API access.
 
 ## Features
 
@@ -21,6 +23,10 @@ pip install moondream==0.0.2
 ## Quick Start
 
 ### Using Cloud API
+
+To use Moondream's cloud API, you'll first need an API key. Sign up for a free
+account at [console.moondream.ai](https://console.moondream.ai) to get your key.
+Once you have your key, you can use it to initialize the client as shown below.
 
 ```python
 import moondream as md
@@ -67,7 +73,11 @@ model = md.vl(model="path/to/moondream-2b-int8.bin")
 
 # Load and encode image
 image = Image.open("path/to/image.jpg")
-encoded_image = model.encode_image(image)  # Optional optimization for multiple queries
+
+# Since encoding an image is computationally expensive, you can encode it once
+# and reuse the encoded version for multiple queries/captions/etc. This avoids
+# having to re-encode the same image multiple times.
+encoded_image = model.encode_image(image)
 
 # Generate caption
 caption = model.caption(encoded_image)["caption"]

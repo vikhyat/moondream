@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "moondream"
-version = "0.0.2"
+version = "0.0.3"
 description = "Python client library for moondream"
 authors = ["vik <vik@moondream.ai>"]
 readme = "README.md"
