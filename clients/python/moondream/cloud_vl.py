@@ -21,8 +21,9 @@ from .types import (
 class CloudVL(VLM):
     def __init__(
         self,
+        *,
+        api_url: str = "https://api.moondream.ai/v1",
         api_key: Optional[str] = None,
-        api_url: Optional[str] = "https://api.moondream.ai/v1",
     ):
         self.api_key = api_key
         self.api_url = api_url

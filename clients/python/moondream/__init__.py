@@ -11,16 +11,19 @@ def vl(
     *,
     model: Optional[str] = None,
     api_key: Optional[str] = None,
-    api_url: Optional[str] = DEFAULT_API_URL,
+    api_url: Optional[str] = None,
 ) -> VLM:
     if model:
         return OnnxVL.from_path(model)
 
     if api_key:
+        if not api_url:
+            api_url = DEFAULT_API_URL
+
         return CloudVL(api_key=api_key, api_url=api_url)
 
-    if api_url:
-        if api_url == DEFAULT_API_URL and not api_key:
+    if api_url and api_url == DEFAULT_API_URL:
+        if not api_key:
             raise ValueError("An api_key is required for cloud inference.")
 
         return CloudVL(api_url=api_url)

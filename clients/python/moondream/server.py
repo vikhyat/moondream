@@ -156,24 +156,30 @@ class MoondreamHandler(server.BaseHTTPRequestHandler):
             logger.error("Unexpected error in request handling", exc_info=True)
             self.send_error_response("An unexpected error occurred.")
 
-    def do_OPTIONS(self) -> None:
-        self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
-
     def do_GET(self) -> None:
-        if self.path == "/health" or self.path == "/":
+        if self.path == "/":
             self.send_response(200)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "text/html")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            self.wfile.write(
-                json.dumps(
-                    {"status": "ok", "message": "Moondream server is running!"}
-                ).encode()
-            )
+            html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Moondream Local Inference Server</title>
+                <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌙</text></svg>">
+                <style>
+                    body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+                    a { color: #0066cc; }
+                </style>
+            </head>
+            <body>
+                <h1>Moondream Local Inference Server is Running!</h1>
+                <p>Visit the <a href="https://docs.moondream.ai">Moondream documentation</a> to learn more.</p>
+            </body>
+            </html>
+            """
+            self.wfile.write(html.encode())
         else:
             self.send_error_response("Method not allowed", 405)
 
