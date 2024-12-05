@@ -103,8 +103,14 @@ main();
 ### Constructor
 
 ```javascript
+// for cloud inference
 const model = new vl({
   apiKey: "your-api-key",
+});
+
+// or for local inference
+const model = new vl({
+  apiUrl: "http://localhost:3475",
 });
 ```
 
