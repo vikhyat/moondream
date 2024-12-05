@@ -64,11 +64,6 @@ export interface DetectOutput {
 }
 
 /**
- * Bounding box coordinates
- */
-export type BoundingBox = [number, number, number, number];
-
-/**
  * Object detection result
  */
 export interface DetectedObject {
