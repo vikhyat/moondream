@@ -1,14 +1,31 @@
 from typing import Optional
-from .types import VLM
-from .onnx_vl import OnnxVL
+
 from .cloud_vl import CloudVL
+from .onnx_vl import OnnxVL
+from .types import VLM
+
+DEFAULT_API_URL = "https://api.moondream.ai/v1"
 
 
-def vl(*, model: Optional[str] = None, api_key: Optional[str] = None) -> VLM:
-    if api_key:
-        return CloudVL(api_key)
-
+def vl(
+    *,
+    model: Optional[str] = None,
+    api_key: Optional[str] = None,
+    api_url: Optional[str] = None,
+) -> VLM:
     if model:
         return OnnxVL.from_path(model)
 
-    raise ValueError("Either model_path or api_key must be provided.")
+    if api_key:
+        if not api_url:
+            api_url = DEFAULT_API_URL
+
+        return CloudVL(api_key=api_key, api_url=api_url)
+
+    if api_url and api_url == DEFAULT_API_URL:
+        if not api_key:
+            raise ValueError("An api_key is required for cloud inference.")
+
+        return CloudVL(api_url=api_url)
+
+    raise ValueError("At least one of `model`, `api_key`, or `api_url` is required.")

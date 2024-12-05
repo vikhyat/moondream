@@ -13,6 +13,8 @@ numpy = "^2.1.2"
 onnx = "^1.17.0"
 tokenizers = "^0.20.1"
 
+[tool.poetry.scripts]
+moondream = "moondream.cli:main"
 
 [tool.pyright]
 venvPath = "."
