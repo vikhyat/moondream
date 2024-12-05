@@ -137,3 +137,30 @@ class VLM(ABC):
                     - y_max (float): Bottom boundary of detection box
         """
         pass
+
+    @abstractmethod
+    def point(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+    ) -> PointOutput:
+        """
+        Points out all instances of the given object in the input image.
+
+        Args:
+            image (Union[Image.Image, EncodedImage]): The input image to be analyzed for
+                pointing out objects.
+            object (str): The object type to be pointed out in the image.
+
+        Returns:
+            PointOutput: A dictionary containing:
+                'points' (List[Point]): List of detected points, where each Point has:
+                    - x (float): X coordinate of the point marking the object
+                    - y (float): Y coordinate of the point marking the object
+
+        This method identifies instances of the specified object in the image and returns
+        a list of coordinates marking the location of each instance found. Each point
+        indicates the approximate center or most relevant position for that object
+        instance.
+        """
+        pass

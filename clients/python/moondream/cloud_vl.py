@@ -13,6 +13,7 @@ from .types import (
     EncodedImage,
     QueryOutput,
     DetectOutput,
+    PointOutput,
     SamplingSettings,
 )
 
@@ -72,7 +73,6 @@ class CloudVL(VLM):
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
         encoded_image = self.encode_image(image)
-
         payload = {
             "image_url": encoded_image.image_url,
             "length": length,
@@ -106,7 +106,6 @@ class CloudVL(VLM):
         settings: Optional[SamplingSettings] = None,
     ) -> QueryOutput:
         encoded_image = self.encode_image(image)
-
         payload = {
             "image_url": encoded_image.image_url,
             "question": question,
@@ -135,7 +134,6 @@ class CloudVL(VLM):
         object: str,
     ) -> DetectOutput:
         encoded_image = self.encode_image(image)
-
         payload = {"image_url": encoded_image.image_url, "object": object}
 
         data = json.dumps(payload).encode("utf-8")
@@ -149,3 +147,23 @@ class CloudVL(VLM):
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
             return {"objects": result["objects"]}
+
+    def point(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+    ) -> PointOutput:
+        encoded_image = self.encode_image(image)
+        payload = {"image_url": encoded_image.image_url, "object": object}
+
+        data = json.dumps(payload).encode("utf-8")
+        headers = {"X-Moondream-Auth": self.api_key, "Content-Type": "application/json"}
+        req = urllib.request.Request(
+            f"{self.api_url}/point",
+            data=data,
+            headers=headers,
+        )
+
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            return {"points": result["points"]}

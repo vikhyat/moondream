@@ -20,6 +20,7 @@ from .types import (
     CaptionOutput,
     QueryOutput,
     DetectOutput,
+    PointOutput,
 )
 
 
@@ -243,17 +244,6 @@ class OnnxVL(VLM):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
-        """
-        Generate a caption for the input image.
-
-        Args:
-            image (Union[Image.Image, EncodedImage]): The input image to be captioned.
-            settings (Optional[SamplingSettings]): Optional settings for the caption generation.
-                If not provided, default settings will be used.
-
-        Returns:
-            str: The caption for the input image.
-        """
         if "caption" not in self.templates:
             raise ValueError("Model does not support captioning.")
         if length not in self.templates["caption"]:
@@ -287,16 +277,6 @@ class OnnxVL(VLM):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> QueryOutput:
-        """
-        Generate an answer to the input question about the input image.
-
-        Args:
-            image (Union[Image.Image, EncodedImage]): The input image to be queried.
-            question (str): The question to be answered.
-
-        Returns:
-            str: The answer to the input question about the input image.
-        """
         if "query" not in self.templates:
             raise ValueError("Model does not support querying.")
 
@@ -330,17 +310,7 @@ class OnnxVL(VLM):
         image: Union[Image.Image, EncodedImage],
         object: str,
     ) -> DetectOutput:
-        """
-        Detect and localize the specified object in the input image.
-
-        Args:
-            image (Union[Image.Image, EncodedImage]): The input image to be analyzed.
-            object (str): The object to be detected in the image.
-
-        Returns:
-            List[Region]: A list of Region objects representing the detected instances of the specified object.
-        """
-        # Verify that the coord and size encoders and decoders are available.
+        # Check whether model supports object detection.
         if not (
             hasattr(self, "coord_decoder")
             and hasattr(self, "coord_encoder")
@@ -352,7 +322,7 @@ class OnnxVL(VLM):
 
         prompt_toks = (
             self.templates["detect"]["prefix"]
-            + self.tokenizer.encode(object).ids
+            + self.tokenizer.encode(" " + object).ids
             + self.templates["detect"]["suffix"]
         )
 
@@ -407,3 +377,55 @@ class OnnxVL(VLM):
             )
 
         return {"objects": objects}
+
+    def point(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+    ) -> PointOutput:
+        if not (
+            hasattr(self, "coord_decoder")
+            and hasattr(self, "coord_encoder")
+            and "point" in self.templates
+        ):
+            raise NotImplementedError("Model does not support 'detect'.")
+
+        prompt_toks = (
+            self.templates["point"]["prefix"]
+            + self.tokenizer.encode(" " + object).ids
+            + self.templates["point"]["suffix"]
+        )
+
+        (hidden,) = self.text_encoder.run(None, {"input_ids": [prompt_toks]})
+        encoded_image = self.encode_image(image)
+        assert type(encoded_image) == OnnxEncodedImage
+        kv_cache = prepare_kv_cache(encoded_image)
+
+        points = []
+        pos = encoded_image.pos
+        max_points = 50
+
+        while len(points) < max_points:
+            logits, hidden = run_decoder(self.text_decoder, hidden, kv_cache, pos)
+            pos += hidden.shape[-2]
+
+            if np.argmax(logits, axis=-1)[0] == self.special_tokens["eos"]:
+                break
+
+            # Decode and encode x center coordinate.
+            (x,) = self.coord_decoder.run(None, {"input": hidden[0, -1, :]})
+            x = np.argmax(x, axis=-1) / x.shape[-1]
+            (hidden,) = self.coord_encoder.run(None, {"input": [x]})
+            hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
+
+            # Decode and encode y center coordinate.
+            logits, hidden = run_decoder(self.text_decoder, hidden, kv_cache, pos)
+            pos += hidden.shape[-2]
+            (y,) = self.coord_decoder.run(None, {"input": hidden[0, -1, :]})
+            y = np.argmax(y, axis=-1) / y.shape[-1]
+            (hidden,) = self.coord_encoder.run(None, {"input": [y]})
+            hidden = np.expand_dims(np.expand_dims(hidden, 0), 0)
+
+            points.append({"x": float(x), "y": float(y)})
+
+        return {"points": points}

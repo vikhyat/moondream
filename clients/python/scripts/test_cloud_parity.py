@@ -14,6 +14,11 @@ cloud = md.vl(api_key=os.environ["MOONDREAM_API_KEY"])
 image_path = "../../assets/demo-1.jpg"
 image = Image.open(image_path)
 
+print("# Pointing")
+object = "person"
+print("Local:", local.point(image, object))
+print("Cloud:", cloud.point(image, object))
+
 print("# Captioning")
 print("Local:", local.caption(image))
 print("Cloud:", cloud.caption(image))
