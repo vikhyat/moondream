@@ -21,6 +21,6 @@ def vl(
 
     raise ValueError(
         "A model path is required for local inference. "
-        "An api_key and api_url for cloud inference. "
+        "An api_key is required for cloud inference. "
         "An api_url is required for using the local server."
     )
