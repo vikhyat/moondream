@@ -68,7 +68,7 @@ For complete documentation of the Python client, including cloud API usage and a
 
 ### Node.js Client Library
 
-For JavaScript/TypeScript developers, we offer a full-featured Node.js client library. See the [Node.js Client README](clients/node/README.md) for installation and usage instructions.
+For JavaScript/TypeScript developers, we offer a full-featured Node.js client library. See the [Node.js Client README](https://github.com/rohan-kulkarni-25/moondream/blob/main/clients/node/README.MD) for installation and usage instructions.
 
 ### Hugging Face Transformers Integration
 
