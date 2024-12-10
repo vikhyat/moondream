@@ -12,8 +12,6 @@ if (!apiKey) {
     throw new Error('MOONDREAM_API_KEY environment variable is required');
 }
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 describe('MoondreamClient Integration Tests', () => {
     let client: vl;
     let imageBuffer: Base64EncodedImage;
