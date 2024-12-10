@@ -28,8 +28,6 @@ class CloudVL(VLM):
     ):
         self.api_key = api_key
         self.api_url = api_url
-        self.user_agent = f"moondream-python/{__version__}"
-        print(self.user_agent)
 
     def encode_image(
         self, image: Union[Image.Image, EncodedImage]
@@ -90,7 +88,7 @@ class CloudVL(VLM):
         data = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": self.user_agent,
+            "User-Agent": f"moondream-python/{__version__}",
         }
         if self.api_key:
             headers["X-Moondream-Auth"] = self.api_key
@@ -127,7 +125,10 @@ class CloudVL(VLM):
         }
 
         data = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": f"moondream-python/{__version__}",
+        }
         if self.api_key:
             headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
@@ -152,7 +153,10 @@ class CloudVL(VLM):
         payload = {"image_url": encoded_image.image_url, "object": object}
 
         data = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": f"moondream-python/{__version__}",
+        }
         if self.api_key:
             headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
@@ -174,7 +178,10 @@ class CloudVL(VLM):
         payload = {"image_url": encoded_image.image_url, "object": object}
 
         data = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": f"moondream-python/{__version__}",
+        }
         if self.api_key:
             headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
