@@ -1,6 +1,3 @@
-# Source files
-src/
-
 # Test files
 test/
 *.test.ts
