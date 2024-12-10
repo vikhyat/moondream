@@ -31,7 +31,7 @@ describe('MoondreamClient Integration Tests', () => {
 
     describe('caption', () => {
         it('should get a caption for a real image', async () => {
-            //await delay(200);
+            
             const request: CaptionRequest = {
                 image: imageBuffer,
                 length: 'normal',
@@ -44,7 +44,7 @@ describe('MoondreamClient Integration Tests', () => {
         }, 100000); // Increased timeout for API call
 
         it('should stream captions for a real image', async () => {
-            //await delay(200);
+            
             const request: CaptionRequest = {
                 image: imageBuffer,
                 length: 'normal',
@@ -75,7 +75,7 @@ describe('MoondreamClient Integration Tests', () => {
 
     describe('caption-no-stream', () => {
         it('should get a caption for a real image', async () => {
-            //await delay(200);
+            
             const request: CaptionRequest = {
                 image: imageBuffer,
                 length: 'short',
@@ -92,7 +92,7 @@ describe('MoondreamClient Integration Tests', () => {
 
     describe('query', () => {
         it('should answer questions about a real image', async () => {
-            //await delay(200);
+            
             const question = "What colors are present in this image?";
             const request: QueryRequest = {
                 image: imageBuffer,
@@ -108,7 +108,7 @@ describe('MoondreamClient Integration Tests', () => {
         }, 100000);
 
         it('should stream answers about a real image', async () => {
-            //await delay(200);
+            
             const question = "What is the character doing?";
             const request: QueryRequest = {
                 image: imageBuffer,
@@ -138,7 +138,7 @@ describe('MoondreamClient Integration Tests', () => {
 
     describe('query-no-stream', () => {
         it('should answer questions about a real image', async () => {
-            //await delay(200);
+            
             const question = "What colors are present in this image?";
             const request: QueryRequest = {
                 image: imageBuffer,
@@ -154,7 +154,7 @@ describe('MoondreamClient Integration Tests', () => {
 
     describe('detect', () => {
         it('should detect objects in a real image', async () => {
-            //await delay(200);
+            
             const objectToDetect = "burger";
             const request: DetectRequest = {
                 image: imageBuffer,
@@ -170,7 +170,7 @@ describe('MoondreamClient Integration Tests', () => {
 
     describe('point', () => {
         it('should point to objects in a real image', async () => {
-            //await delay(200);
+            
             const objectToPoint = "burger";
             const request: PointRequest = {
                 image: imageBuffer,
