@@ -1,0 +1,35 @@
+# Source files
+src/
+
+# Test files
+test/
+*.test.ts
+*.spec.ts
+
+# Configuration files
+tsconfig.json
+.eslintrc*
+.prettierrc*
+jest.config.*
+
+# Development files
+.git/
+.github/
+.gitignore
+.npmignore
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs and debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+coverage/
+docs/
+examples/
+.DS_Store 
