@@ -50,7 +50,8 @@ describe('MoondreamClient', () => {
           method: 'POST',
           headers: {
             'X-Moondream-Auth': mockApiKey,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': expect.stringMatching(/^moondream-node\/\d+\.\d+\.\d+$/)
           }
         })
       );
@@ -141,7 +142,8 @@ describe('MoondreamClient', () => {
           method: 'POST',
           headers: {
             'X-Moondream-Auth': mockApiKey,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': expect.stringMatching(/^moondream-node\/\d+\.\d+\.\d+$/)
           }
         })
       );
@@ -217,7 +219,8 @@ describe('MoondreamClient', () => {
           method: 'POST',
           headers: {
             'X-Moondream-Auth': mockApiKey,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': expect.stringMatching(/^moondream-node\/\d+\.\d+\.\d+$/)
           }
         })
       );
@@ -355,7 +358,8 @@ describe('MoondreamClient', () => {
           method: 'POST',
           headers: {
             'X-Moondream-Auth': mockApiKey,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': expect.stringMatching(/^moondream-node\/\d+\.\d+\.\d+$/)
           },
           body: expect.stringContaining('dog')
         })

@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 import sharp from 'sharp';
+import { version } from '../package.json';
 import {
   Base64EncodedImage,
   CaptionOutput,
@@ -126,6 +127,7 @@ export class vl {
       headers: {
         'X-Moondream-Auth': this.apiKey,
         'Content-Type': 'application/json',
+        'User-Agent': `moondream-node/${version}`,
       },
       body: JSON.stringify({
         image_url: encodedImage.imageUrl,
@@ -156,6 +158,7 @@ export class vl {
       headers: {
         'X-Moondream-Auth': this.apiKey,
         'Content-Type': 'application/json',
+        'User-Agent': `moondream-node/${version}`,
       },
       body: JSON.stringify({
         image_url: encodedImage.imageUrl,
@@ -187,6 +190,7 @@ export class vl {
       headers: {
         'X-Moondream-Auth': this.apiKey,
         'Content-Type': 'application/json',
+        'User-Agent': `moondream-node/${version}`,
       },
       body: JSON.stringify({
         image_url: encodedImage.imageUrl,
@@ -212,6 +216,7 @@ export class vl {
       headers: {
         'X-Moondream-Auth': this.apiKey,
         'Content-Type': 'application/json',
+        'User-Agent': `moondream-node/${version}`,
       },
       body: JSON.stringify({
         image_url: encodedImage.imageUrl,
