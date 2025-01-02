@@ -1,0 +1,39 @@
+name: Node.js Client Tests
+
+on:
+  # Only run on PRs to avoid duplicate runs
+  pull_request:
+    paths:
+      - 'clients/node/**'
+      - '.github/workflows/node-client-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: clients/node/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./clients/node
+      run: npm ci
+    
+    - name: Run unit tests
+      working-directory: ./clients/node
+      run: npm test -- src/__tests__/moondream.test.ts
+    
+    - name: Run integration tests
+      working-directory: ./clients/node
+      env:
+        MOONDREAM_API_KEY: ${{ secrets.MOONDREAM_API_KEY }}
+      run: npm test -- src/__tests__/moondream.integration.test.ts

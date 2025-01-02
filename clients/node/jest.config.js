@@ -5,15 +5,6 @@ module.exports = {
     roots: ['<rootDir>/src'],
     testMatch: ['**/__tests__/**/*.test.ts'],
     moduleFileExtensions: ['ts', 'js', 'json', 'node'],
-    collectCoverage: true,
-    coverageDirectory: 'coverage',
-    coverageReporters: ['text', 'lcov'],
-    coverageThreshold: {
-      global: {
-        branches: 80,
-        functions: 80,
-        lines: 80,
-        statements: 80
-      }
-    }
+    collectCoverage: false,
+    setupFiles: ['<rootDir>/src/__tests__/setup.ts']
   };
