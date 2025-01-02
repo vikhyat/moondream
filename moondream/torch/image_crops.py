@@ -2,7 +2,7 @@ import math
 import numpy as np
 import torch
 
-from typing import TypedDict, Union
+from typing import TypedDict
 from PIL import Image
 
 
