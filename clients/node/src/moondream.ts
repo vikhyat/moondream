@@ -130,68 +130,43 @@ export class vl {
   private async* streamResponse(response: any): AsyncGenerator<string, void, unknown> {
     let buffer = '';
 
-    // Create a promise that resolves when we get data or end
-    const getNextChunk = () => new Promise<{ value: string | undefined; done: boolean }>((resolve, reject) => {
-      const onData = (chunk: Buffer) => {
-        try {
-          buffer += chunk.toString();
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+    try {
+      for await (const chunk of response) {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
               const data = JSON.parse(line.slice(6));
               if ('chunk' in data) {
-                response.removeListener('data', onData);
-                response.removeListener('end', onEnd);
-                response.removeListener('error', onError);
-                resolve({ value: data.chunk, done: false });
-                return;
+                yield data.chunk;
               }
               if (data.completed) {
-                response.removeListener('data', onData);
-                response.removeListener('end', onEnd);
-                response.removeListener('error', onError);
-                resolve({ value: undefined, done: true });
                 return;
               }
+            } catch (error) {
+              throw new Error(`Failed to parse JSON response from server: ${(error as Error).message}`);
             }
           }
-        } catch (error) {
-          response.removeListener('data', onData);
-          response.removeListener('end', onEnd);
-          response.removeListener('error', onError);
-          reject(new Error(`Failed to parse JSON response from server: ${(error as Error).message}`));
         }
-      };
+      }
 
-      const onEnd = () => {
-        response.removeListener('data', onData);
-        response.removeListener('end', onEnd);
-        response.removeListener('error', onError);
-        resolve({ value: undefined, done: true });
-      };
-
-      const onError = (error: Error) => {
-        response.removeListener('data', onData);
-        response.removeListener('end', onEnd);
-        response.removeListener('error', onError);
-        reject(error);
-      };
-
-      response.on('data', onData);
-      response.on('end', onEnd);
-      response.on('error', onError);
-    });
-
-    try {
-      while (true) {
-        const result = await getNextChunk();
-        if (result.done) {
-          return;
-        }
-        if (result.value !== undefined) {
-          yield result.value;
+      // Handle any remaining data in the buffer
+      if (buffer) {
+        const lines = buffer.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if ('chunk' in data) {
+                yield data.chunk;
+              }
+            } catch (error) {
+              throw new Error(`Failed to parse JSON response from server: ${(error as Error).message}`);
+            }
+          }
         }
       }
     } catch (error) {

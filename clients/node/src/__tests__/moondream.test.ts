@@ -7,6 +7,7 @@ import { EventEmitter } from 'events';
 // Extend EventEmitter to include http/https specific properties
 interface MockResponse extends EventEmitter {
   statusCode: number;
+  [Symbol.asyncIterator]?: () => AsyncGenerator<Buffer, void, unknown>;
 }
 
 interface MockRequest extends EventEmitter {
@@ -114,11 +115,14 @@ describe('MoondreamClient', () => {
       );
     });
 
-    // TODO: Fix streaming unit tests. Integration tests verify this functionality works.
-    it.skip('should handle streaming responses', async () => {
+    it('should handle streaming responses', async () => {
       const mockReq = createMockRequest();
       const mockRes = new EventEmitter() as MockResponse;
       mockRes.statusCode = 200;
+      mockRes[Symbol.asyncIterator] = async function* () {
+        yield Buffer.from('data: {"chunk":"test chunk"}\n');
+        yield Buffer.from('data: {"completed":true}\n');
+      };
       
       (https.request as jest.Mock).mockImplementation((url, options, callback) => {
         callback(mockRes);
@@ -133,19 +137,12 @@ describe('MoondreamClient', () => {
       const result = await client.caption(request);
       expect(result.caption).toBeDefined();
 
-      // Emit chunks immediately
-      mockRes.emit('data', Buffer.from('data: {"chunk":"test chunk"}\n'));
-      mockRes.emit('data', Buffer.from('data: {"completed":true}\n'));
-      mockRes.emit('end');
+      const chunks: string[] = [];
+      for await (const chunk of result.caption as AsyncGenerator<string>) {
+        chunks.push(chunk);
+      }
 
-      // Get first chunk
-      const chunk = await (result.caption as AsyncGenerator<string>).next();
-      expect(chunk.value).toBe('test chunk');
-      expect(chunk.done).toBe(false);
-
-      // Get completion
-      const done = await (result.caption as AsyncGenerator<string>).next();
-      expect(done.done).toBe(true);
+      expect(chunks).toEqual(['test chunk']);
     });
 
     it('should throw an error on API failure', async () => {
@@ -199,11 +196,14 @@ describe('MoondreamClient', () => {
       );
     });
 
-    // TODO: Fix streaming unit tests. Integration tests verify this functionality works.
-    it.skip('should handle streaming query responses', async () => {
+    it('should handle streaming query responses', async () => {
       const mockReq = createMockRequest();
       const mockRes = new EventEmitter() as MockResponse;
       mockRes.statusCode = 200;
+      mockRes[Symbol.asyncIterator] = async function* () {
+        yield Buffer.from('data: {"chunk":"test answer"}\n');
+        yield Buffer.from('data: {"completed":true}\n');
+      };
       
       (https.request as jest.Mock).mockImplementation((url, options, callback) => {
         callback(mockRes);
@@ -218,24 +218,11 @@ describe('MoondreamClient', () => {
       const result = await client.query(request);
       expect(result.answer).toBeDefined();
 
-      // Create a promise that resolves when we get all chunks
       const chunks: string[] = [];
-      const streamDone = new Promise<void>((resolve) => {
-        (async () => {
-          for await (const chunk of result.answer as AsyncGenerator<string>) {
-            chunks.push(chunk);
-          }
-          resolve();
-        })();
-      });
+      for await (const chunk of result.answer as AsyncGenerator<string>) {
+        chunks.push(chunk);
+      }
 
-      // Emit chunks
-      mockRes.emit('data', Buffer.from('data: {"chunk":"test answer"}\n'));
-      mockRes.emit('data', Buffer.from('data: {"completed":true}\n'));
-      mockRes.emit('end');
-
-      // Wait for streaming to complete
-      await streamDone;
       expect(chunks).toEqual(['test answer']);
     });
   });
