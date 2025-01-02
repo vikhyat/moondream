@@ -1,2 +1,1 @@
-import { enableFetchMocks } from 'jest-fetch-mock';
-enableFetchMocks();
+// Jest setup file - currently empty as we don't need any global setup

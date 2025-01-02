@@ -1,5 +1,7 @@
 import { Buffer } from 'buffer';
 import sharp from 'sharp';
+import http from 'http';
+import https from 'https';
 import { version } from '../package.json';
 import {
   Base64EncodedImage,
@@ -79,41 +81,121 @@ export class vl {
     }
   }
 
-  private async* streamResponse(response: Response): AsyncGenerator<string, void, unknown> {
-    if (!response.body) {
-      throw new Error('Response body is null');
-    }
+  private makeRequest(path: string, body: any, stream: boolean = false): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const url = new URL(this.apiUrl + path);
+      const requestBody = JSON.stringify(body);
 
-    // Use the Web ReadableStream directly since fetch returns that
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+      const options = {
+        method: 'POST',
+        headers: {
+          'X-Moondream-Auth': this.apiKey,
+          'Content-Type': 'application/json',
+          'User-Agent': `moondream-node/${version}`,
+          'Content-Length': Buffer.byteLength(requestBody)
+        }
+      };
+
+      const client = url.protocol === 'https:' ? https : http;
+      const req = client.request(url, options, (res) => {
+        if (stream) {
+          resolve(res);
+          return;
+        }
+
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`HTTP error! status: ${res.statusCode}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(data));
+          } catch (error) {
+            reject(new Error(`Failed to parse JSON response: ${(error as Error).message}`));
+          }
+        });
+      });
+
+      req.on('error', (error) => {
+        reject(error);
+      });
+
+      req.write(requestBody);
+      req.end();
+    });
+  }
+
+  private async* streamResponse(response: any): AsyncGenerator<string, void, unknown> {
     let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    // Create a promise that resolves when we get data or end
+    const getNextChunk = () => new Promise<{ value: string | undefined; done: boolean }>((resolve, reject) => {
+      const onData = (chunk: Buffer) => {
+        try {
+          buffer += chunk.toString();
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.slice(6));
-            if ('chunk' in data) {
-              yield data.chunk;
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6));
+              if ('chunk' in data) {
+                response.removeListener('data', onData);
+                response.removeListener('end', onEnd);
+                response.removeListener('error', onError);
+                resolve({ value: data.chunk, done: false });
+                return;
+              }
+              if (data.completed) {
+                response.removeListener('data', onData);
+                response.removeListener('end', onEnd);
+                response.removeListener('error', onError);
+                resolve({ value: undefined, done: true });
+                return;
+              }
             }
-            if (data.completed) {
-              return;
-            }
-          } catch (error) {
-            throw new Error(
-              `Failed to parse JSON response from server: ${(error as Error).message}`
-            );
           }
+        } catch (error) {
+          response.removeListener('data', onData);
+          response.removeListener('end', onEnd);
+          response.removeListener('error', onError);
+          reject(new Error(`Failed to parse JSON response from server: ${(error as Error).message}`));
+        }
+      };
+
+      const onEnd = () => {
+        response.removeListener('data', onData);
+        response.removeListener('end', onEnd);
+        response.removeListener('error', onError);
+        resolve({ value: undefined, done: true });
+      };
+
+      const onError = (error: Error) => {
+        response.removeListener('data', onData);
+        response.removeListener('end', onEnd);
+        response.removeListener('error', onError);
+        reject(error);
+      };
+
+      response.on('data', onData);
+      response.on('end', onEnd);
+      response.on('error', onError);
+    });
+
+    try {
+      while (true) {
+        const result = await getNextChunk();
+        if (result.done) {
+          return;
+        }
+        if (result.value !== undefined) {
+          yield result.value;
         }
       }
+    } catch (error) {
+      throw new Error(`Failed to stream response: ${(error as Error).message}`);
     }
   }
 
@@ -122,30 +204,17 @@ export class vl {
   ): Promise<CaptionOutput> {
     const encodedImage = await this.encodeImage(request.image);
 
-    const response = await fetch(`${this.apiUrl}/caption`, {
-      method: 'POST',
-      headers: {
-        'X-Moondream-Auth': this.apiKey,
-        'Content-Type': 'application/json',
-        'User-Agent': `moondream-node/${version}`,
-      },
-      body: JSON.stringify({
-        image_url: encodedImage.imageUrl,
-        length: request.length,
-        stream: request.stream,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    const response = await this.makeRequest('/caption', {
+      image_url: encodedImage.imageUrl,
+      length: request.length,
+      stream: request.stream,
+    }, request.stream);
 
     if (request.stream) {
       return { caption: this.streamResponse(response) };
     }
 
-    const result = await response.json();
-    return { caption: result.caption };
+    return { caption: response.caption };
   }
 
   public async query(
@@ -153,31 +222,17 @@ export class vl {
   ): Promise<QueryOutput> {
     const encodedImage = await this.encodeImage(request.image);
 
-    const response = await fetch(`${this.apiUrl}/query`, {
-      method: 'POST',
-      headers: {
-        'X-Moondream-Auth': this.apiKey,
-        'Content-Type': 'application/json',
-        'User-Agent': `moondream-node/${version}`,
-      },
-      body: JSON.stringify({
-        image_url: encodedImage.imageUrl,
-        question: request.question,
-        stream: request.stream,
-        // TODO: Pass sampling settings
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    const response = await this.makeRequest('/query', {
+      image_url: encodedImage.imageUrl,
+      question: request.question,
+      stream: request.stream,
+    }, request.stream);
 
     if (request.stream) {
       return { answer: this.streamResponse(response) };
     }
 
-    const result = await response.json();
-    return { answer: result.answer };
+    return { answer: response.answer };
   }
 
   public async detect(
@@ -185,25 +240,12 @@ export class vl {
   ): Promise<DetectOutput> {
     const encodedImage = await this.encodeImage(request.image);
 
-    const response = await fetch(`${this.apiUrl}/detect`, {
-      method: 'POST',
-      headers: {
-        'X-Moondream-Auth': this.apiKey,
-        'Content-Type': 'application/json',
-        'User-Agent': `moondream-node/${version}`,
-      },
-      body: JSON.stringify({
-        image_url: encodedImage.imageUrl,
-        object: request.object,
-      }),
+    const response = await this.makeRequest('/detect', {
+      image_url: encodedImage.imageUrl,
+      object: request.object,
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    return { objects: result.objects };
+    return { objects: response.objects };
   }
 
   public async point(
@@ -211,24 +253,11 @@ export class vl {
   ): Promise<PointOutput> {
     const encodedImage = await this.encodeImage(request.image);
 
-    const response = await fetch(`${this.apiUrl}/point`, {
-      method: 'POST',
-      headers: {
-        'X-Moondream-Auth': this.apiKey,
-        'Content-Type': 'application/json',
-        'User-Agent': `moondream-node/${version}`,
-      },
-      body: JSON.stringify({
-        image_url: encodedImage.imageUrl,
-        object: request.object,
-      }),
+    const response = await this.makeRequest('/point', {
+      image_url: encodedImage.imageUrl,
+      object: request.object,
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    return { points: result.points };
+    return { points: response.points };
   }
 }

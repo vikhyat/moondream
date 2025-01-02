@@ -12,8 +12,7 @@ if (!apiKey) {
     throw new Error('MOONDREAM_API_KEY environment variable is required');
 }
 
-// Skip integration tests as they require API access and proper environment setup
-describe.skip('MoondreamClient Integration Tests', () => {
+describe('MoondreamClient Integration Tests', () => {
     let client: vl;
     let imageBuffer: Base64EncodedImage;
 
