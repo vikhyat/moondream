@@ -78,7 +78,9 @@ def test_streaming_query(model, test_image):
     assert len(answer) > 0
 
 
-@pytest.mark.skip(reason="API handles invalid caption lengths differently than local model")
+@pytest.mark.skip(
+    reason="API handles invalid caption lengths differently than local model"
+)
 def test_invalid_caption_length(model, test_image):
     with pytest.raises(ValueError, match="Model does not support caption length"):
         model.caption(test_image, length="invalid")
