@@ -12,8 +12,7 @@ if (!apiKey) {
     throw new Error('MOONDREAM_API_KEY environment variable is required');
 }
 
-// Skip integration tests as they require API access and proper environment setup
-describe.skip('MoondreamClient Integration Tests', () => {
+describe('MoondreamClient Integration Tests', () => {
     let client: vl;
     let imageBuffer: Base64EncodedImage;
 
@@ -24,7 +23,7 @@ describe.skip('MoondreamClient Integration Tests', () => {
     beforeAll(async () => {
         client = new vl(moondreamConfig);
         // Load test image and convert to base64
-        const rawBuffer = await fs.readFile(path.join(__dirname, '../../../assets/demo-1.jpg'));
+        const rawBuffer = await fs.readFile(path.join(__dirname, '../../../../assets/demo-1.jpg'));
         imageBuffer = {
             imageUrl: `data:image/jpeg;base64,${rawBuffer.toString('base64')}`
         };
