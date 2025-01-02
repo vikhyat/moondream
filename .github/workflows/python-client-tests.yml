@@ -1,10 +1,7 @@
 name: Python Client Tests
 
 on:
-  push:
-    paths:
-      - 'clients/python/**'
-      - '.github/workflows/python-client-tests.yml'
+  # Only run on PRs to avoid duplicate runs
   pull_request:
     paths:
       - 'clients/python/**'
@@ -42,7 +39,7 @@ jobs:
       working-directory: ./clients/python
       run: |
         python -m pip install --upgrade pip
-        poetry install
+        poetry install --with dev
     
     - name: Run tests
       working-directory: ./clients/python
