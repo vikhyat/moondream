@@ -39,9 +39,10 @@ jobs:
       working-directory: ./clients/python
       run: |
         python -m pip install --upgrade pip
-        poetry install --with dev
+        poetry install --all-extras
     
     - name: Run tests
       working-directory: ./clients/python
       run: |
+        poetry run pip install pytest pytest-asyncio
         poetry run pytest tests/test_local_inference.py -v
