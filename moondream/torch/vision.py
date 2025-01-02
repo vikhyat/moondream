@@ -1,89 +1,55 @@
-from typing import List, Tuple
-
 import torch
+import torch.nn.functional as F
+import numpy as np
+
 from einops import rearrange
 from PIL import Image
-from torch.nn import functional as F
-from torchvision.transforms.v2 import InterpolationMode
-from torchvision.transforms.v2.functional import normalize
-from torchvision.transforms.v2.functional import resize as tv_resize
-from torchvision.transforms.v2.functional import to_dtype, to_image
 
 from .layers import attn, layer_norm, linear, mlp
-from .weights import VisionModel, load_from_safetensors
+from .weights import VisionModel
+from .image_crops import overlap_crop_image, reconstruct_from_crops
 
+if torch.backends.mps.is_available():
+    # Non-divisible input sizes are not implemented on MPS device yet.
+    # https://github.com/pytorch/pytorch/issues/96056
+    def adaptive_avg_pool2d(input, output_size):
+        return F.adaptive_avg_pool2d(input.to("cpu"), output_size).to("mps")
 
-def im_resize(
-    image: Image.Image,
-    size: List[int],
-    interpolation: InterpolationMode = InterpolationMode.BICUBIC,
-) -> Image.Image:
-    """
-    The 'resize' function from torchvision has bad type signatures.
-    it accepts both PIL images and torch tensors,  but the type signature
-    only allows tensors.
-    """
-    return tv_resize(
-        image,  # type: ignore
-        size,
-        InterpolationMode.BICUBIC,
-    )
-
-
-def create_patches(
-    image: Image.Image, image_patch_size=378
-) -> Tuple[List[Image.Image], Tuple[int, int]]:
-    """
-    Split the given image into a variable number of patches depending upon its
-    resolution.
-    """
-    # Start off with the global patch.
-    patches = [im_resize(image, [image_patch_size, image_patch_size])]
-
-    # Find the closest resolution template.
-    res_templates = [(1, 2), (2, 1), (2, 2)]
-    im_width, im_height = image.size
-    max_dim = max(im_width, im_height)
-    if max_dim < image_patch_size * 1.4:
-        # If the image is already small, we just do a single patch that is a
-        # duplicate of the global patch. This creates a small amount of
-        # redundant computation now, but it is simpler and future-proofs us
-        # if/when we condition the vision encoder on the patch type.
-        res_template = (1, 1)
-        patches.append(patches[0])
-    else:
-        aspect_ratio = im_width / im_height
-        res_template = min(
-            res_templates, key=lambda size: abs((size[1] / size[0]) - aspect_ratio)
-        )
-        # TODO: Actually implement patching... just going to put in the global
-        # patch for now to make progress on other aspects.
-        patches.append(patches[0])
-
-    return patches, res_template
+else:
+    adaptive_avg_pool2d = F.adaptive_avg_pool2d
 
 
 def encode_image(image: Image.Image, weights: VisionModel) -> torch.Tensor:
-    patches, res_template = create_patches(image.convert("RGB"))
-    patches = torch.stack(
-        [
-            normalize(
-                to_dtype(to_image(patch), torch.float16, scale=True),
-                mean=[0.5, 0.5, 0.5],
-                std=[0.5, 0.5, 0.5],
-            )
-            for patch in patches
-        ]
+    np_image = np.array(image.convert("RGB"))
+    crops = overlap_crop_image(np_image, max_crops=12, overlap_margin=4)
+    all_crops = np.stack([crops["global_crop"], *crops["local_crops"]], axis=0)
+    all_crops = np.transpose(all_crops, (0, 3, 1, 2))
+    all_crops = (
+        torch.from_numpy(all_crops)
+        .to(device=weights.pos_emb.device, dtype=torch.float16)
+        .div_(255.0)
+        .sub_(0.5)
+        .div_(0.5)
     )
 
-    outputs = vision_encoder(patches, weights)
+    outputs = vision_encoder(all_crops, weights)
 
-    # TODO: Merge sub-image patch outputs properly... for now we'll just assume
-    # that the global patch is repeated.
-    assert outputs.shape[0] == 2, "Expected single image patch."
-    outputs = torch.cat([outputs[0], outputs[1]], dim=-1)
+    global_features = outputs[0]
+    local_features = outputs[1:].view(-1, 27, 27, 1152)
 
-    return mlp(outputs, weights.proj_mlp)
+    reconstructed = reconstruct_from_crops(
+        local_features,
+        crops["tiling"],
+        patch_size=1,
+        overlap_margin=4,
+    )
+
+    reconstructed = reconstructed.permute(2, 0, 1)
+    reconstructed = adaptive_avg_pool2d(reconstructed, output_size=(27, 27))
+    reconstructed = reconstructed.permute(1, 2, 0).view(729, 1152)
+    final_features = torch.cat([global_features, reconstructed], dim=-1)
+
+    return mlp(final_features, weights.proj_mlp)
 
 
 def vision_encoder(input_BCHW: torch.Tensor, w: VisionModel):

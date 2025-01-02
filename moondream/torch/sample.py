@@ -46,7 +46,6 @@ if __name__ == "__main__":
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found at {image_path}")
     image = Image.open(image_path)
-    image = image.resize((378, 378))
     image_tensor = encode_image(image, model.vision)
 
     # Encode text, and create inputs_embeds.
