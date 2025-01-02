@@ -16,6 +16,12 @@ tokenizers = "^0.20.1"
 [tool.poetry.scripts]
 moondream = "moondream.cli:main"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.1"
+requests = "^2.32.3"
+black = "^24.10.0"
+
 [tool.pyright]
 venvPath = "."
 venv = ".venv"

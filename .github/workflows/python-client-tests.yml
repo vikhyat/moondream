@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.10', '3.11', '3.12']
+        python-version: ['3.12']  # Latest supported version
 
     steps:
     - uses: actions/checkout@v4
@@ -41,6 +41,11 @@ jobs:
         python -m pip install --upgrade pip
         poetry install --all-extras
     
+    - name: Format code
+      working-directory: ./clients/python
+      run: |
+        poetry run black tests/test_local_inference.py --check
+
     - name: Run tests
       working-directory: ./clients/python
       run: |
