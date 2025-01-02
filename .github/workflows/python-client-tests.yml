@@ -48,6 +48,8 @@ jobs:
 
     - name: Run tests
       working-directory: ./clients/python
+      env:
+        MOONDREAM_API_KEY: ${{ secrets.MOONDREAM_API_KEY }}
       run: |
         poetry run pip install pytest pytest-asyncio
-        poetry run pytest tests/test_local_inference.py -v
+        poetry run pytest tests/test_*.py -v
