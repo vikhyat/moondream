@@ -97,17 +97,9 @@ class OnnxVL(VLM):
             }
         else:
             # Fall back to CPU if no GPU is available.
-            ort_memory_info = ort.OrtMemoryInfo(
-                "Cpu",
-                ort.OrtAllocatorType.ORT_ARENA_ALLOCATOR,
-                0,
-                ort.OrtMemType.DEFAULT,
-            )
-            ort.create_and_register_allocator(ort_memory_info, None)
             sess_options = ort.SessionOptions()
             sess_options.enable_cpu_mem_arena = False
-            sess_options.add_session_config_entry("session.use_env_allocators", "1")
-            ort_settings = {"sess_options": sess_options}
+            ort_settings = {"providers": ["CPUExecutionProvider"]}
 
         if model_path is None or not os.path.isfile(model_path):
             raise ValueError("Model path is invalid or file does not exist.")

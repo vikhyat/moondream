@@ -1,0 +1,55 @@
+name: Python Client Tests
+
+on:
+  # Only run on PRs to avoid duplicate runs
+  pull_request:
+    paths:
+      - 'clients/python/**'
+      - '.github/workflows/python-client-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+    
+    - name: Cache Poetry dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-${{ matrix.python-version }}-
+    
+    - name: Install dependencies
+      working-directory: ./clients/python
+      run: |
+        python -m pip install --upgrade pip
+        poetry install --all-extras
+    
+    - name: Format code
+      working-directory: ./clients/python
+      run: |
+        poetry run black tests/test_local_inference.py --check
+
+    - name: Run tests
+      working-directory: ./clients/python
+      env:
+        MOONDREAM_API_KEY: ${{ secrets.MOONDREAM_API_KEY }}
+      run: |
+        poetry run pip install pytest pytest-asyncio
+        poetry run pytest tests/test_*.py -v
