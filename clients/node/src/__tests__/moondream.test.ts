@@ -54,13 +54,18 @@ describe('MoondreamClient', () => {
     });
 
     it('should handle streaming responses', async () => {
-      const response = new Response(new ReadableStream({
+      const mockStream = new ReadableStream({
         async start(controller) {
           controller.enqueue(new TextEncoder().encode('data: {"chunk":"test chunk"}\n'));
           controller.enqueue(new TextEncoder().encode('data: {"completed":true}\n'));
           controller.close();
         }
-      }), { status: 200 });
+      });
+
+      const mockReader = mockStream.getReader();
+      const mockBody = { getReader: () => mockReader };
+      const response = new Response(undefined, { status: 200 });
+      Object.defineProperty(response, 'body', { value: mockBody });
 
       fetchMock.mockResolvedValueOnce(response);
 
@@ -118,13 +123,18 @@ describe('MoondreamClient', () => {
     });
 
     it('should handle streaming query responses', async () => {
-      const response = new Response(new ReadableStream({
+      const mockStream = new ReadableStream({
         async start(controller) {
           controller.enqueue(new TextEncoder().encode('data: {"chunk":"test answer"}\n'));
           controller.enqueue(new TextEncoder().encode('data: {"completed":true}\n'));
           controller.close();
         }
-      }), { status: 200 });
+      });
+
+      const mockReader = mockStream.getReader();
+      const mockBody = { getReader: () => mockReader };
+      const response = new Response(undefined, { status: 200 });
+      Object.defineProperty(response, 'body', { value: mockBody });
 
       fetchMock.mockResolvedValueOnce(response);
 
@@ -198,13 +208,18 @@ describe('MoondreamClient', () => {
 
   describe('streamResponse', () => {
     it('should handle streaming data chunks', async () => {
-      const response = new Response(new ReadableStream({
+      const mockStream = new ReadableStream({
         async start(controller) {
           controller.enqueue(new TextEncoder().encode('data: {"chunk":"test chunk"}\n'));
           controller.enqueue(new TextEncoder().encode('data: {"completed":true}\n'));
           controller.close();
         }
-      }));
+      });
+
+      const mockReader = mockStream.getReader();
+      const mockBody = { getReader: () => mockReader };
+      const response = new Response(undefined, { status: 200 });
+      Object.defineProperty(response, 'body', { value: mockBody });
 
       const generator = (client as any).streamResponse(response);
 
@@ -217,12 +232,17 @@ describe('MoondreamClient', () => {
     });
 
     it('should handle JSON parsing errors', async () => {
-      const response = new Response(new ReadableStream({
+      const mockStream = new ReadableStream({
         async start(controller) {
           controller.enqueue(new TextEncoder().encode('data: invalid-json\n'));
           controller.close();
         }
-      }));
+      });
+
+      const mockReader = mockStream.getReader();
+      const mockBody = { getReader: () => mockReader };
+      const response = new Response(undefined, { status: 200 });
+      Object.defineProperty(response, 'body', { value: mockBody });
 
       const generator = (client as any).streamResponse(response);
 
