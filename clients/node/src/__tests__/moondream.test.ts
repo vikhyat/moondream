@@ -60,8 +60,7 @@ describe('MoondreamClient', () => {
           controller.enqueue(new TextEncoder().encode('data: {"completed":true}\n'));
           controller.close();
         }
-      }));
-      response.ok = true;
+      }), { status: 200 });
 
       fetchMock.mockResolvedValueOnce(response);
 
@@ -125,8 +124,7 @@ describe('MoondreamClient', () => {
           controller.enqueue(new TextEncoder().encode('data: {"completed":true}\n'));
           controller.close();
         }
-      }));
-      response.ok = true;
+      }), { status: 200 });
 
       fetchMock.mockResolvedValueOnce(response);
 
