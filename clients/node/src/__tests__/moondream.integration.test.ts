@@ -23,7 +23,7 @@ describe('MoondreamClient Integration Tests', () => {
     beforeAll(async () => {
         client = new vl(moondreamConfig);
         // Load test image and convert to base64
-        const rawBuffer = await fs.readFile(path.join(__dirname, '../../../assets/demo-1.jpg'));
+        const rawBuffer = await fs.readFile(path.join(__dirname, '../../../../assets/demo-1.jpg'));
         imageBuffer = {
             imageUrl: `data:image/jpeg;base64,${rawBuffer.toString('base64')}`
         };
