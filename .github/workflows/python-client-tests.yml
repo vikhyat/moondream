@@ -8,8 +8,7 @@ on:
       - '.github/workflows/python-client-tests.yml'
 
 permissions:
-  contents: read  
-  secrets: read   
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
