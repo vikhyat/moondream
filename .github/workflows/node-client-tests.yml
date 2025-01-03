@@ -7,6 +7,8 @@ on:
       - 'clients/node/**'
       - '.github/workflows/node-client-tests.yml'
 
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
