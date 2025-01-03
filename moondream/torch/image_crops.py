@@ -1,9 +1,9 @@
 import math
 import numpy as np
 import torch
+import pyvips
 
 from typing import TypedDict
-from PIL import Image
 
 
 def select_tiling(
@@ -108,18 +108,26 @@ def overlap_crop_image(
         tiling[1] * crop_window_size + total_margin_pixels,
     )
 
-    # Convert to PIL for resizing
-    pil_image = Image.fromarray(image)
-    resized = pil_image.resize(
-        (target_size[1], target_size[0]), Image.Resampling.LANCZOS
-    )
-    image = np.array(resized)
+    # Convert to vips for resizing
+    vips_image = pyvips.Image.new_from_memory(image.tobytes(), 
+                                            image.shape[1], image.shape[0], 
+                                            image.shape[2], 'uchar')
+    
+    # Resize using vips
+    scale_x = target_size[1] / image.shape[1]
+    scale_y = target_size[0] / image.shape[0]
+    resized = vips_image.resize(scale_x, vscale=scale_y)
+    image = np.ndarray(buffer=resized.write_to_memory(),
+                      dtype=np.uint8,
+                      shape=[resized.height, resized.width, resized.bands])
 
     # Create global crop
-    global_pil = pil_image.resize(
-        (base_size[1], base_size[0]), Image.Resampling.LANCZOS
-    )  # PIL uses (width, height)
-    global_crop = np.array(global_pil)
+    scale_x = base_size[1] / vips_image.width
+    scale_y = base_size[0] / vips_image.height
+    global_vips = vips_image.resize(scale_x, vscale=scale_y)
+    global_crop = np.ndarray(buffer=global_vips.write_to_memory(),
+                          dtype=np.uint8,
+                          shape=[global_vips.height, global_vips.width, global_vips.bands])
 
     # Extract crops with overlap
     crops = []
