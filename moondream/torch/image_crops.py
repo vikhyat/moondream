@@ -109,29 +109,19 @@ def overlap_crop_image(
     )
 
     # Convert to vips for resizing
-    vips_image = pyvips.Image.new_from_memory(
-        image.tobytes(), image.shape[1], image.shape[0], image.shape[2], "uchar"
-    )
+    vips_image = pyvips.Image.new_from_array(image)
 
     # Resize using vips
     scale_x = target_size[1] / image.shape[1]
     scale_y = target_size[0] / image.shape[0]
     resized = vips_image.resize(scale_x, vscale=scale_y)
-    image = np.ndarray(
-        buffer=resized.write_to_memory(),
-        dtype=np.uint8,
-        shape=[resized.height, resized.width, resized.bands],
-    )
+    image = resized.numpy()
 
     # Create global crop
     scale_x = base_size[1] / vips_image.width
     scale_y = base_size[0] / vips_image.height
     global_vips = vips_image.resize(scale_x, vscale=scale_y)
-    global_crop = np.ndarray(
-        buffer=global_vips.write_to_memory(),
-        dtype=np.uint8,
-        shape=[global_vips.height, global_vips.width, global_vips.bands],
-    )
+    global_crop = global_vips.numpy()
 
     # Extract crops with overlap
     crops = []
