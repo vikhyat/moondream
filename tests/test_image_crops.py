@@ -12,9 +12,9 @@ def test_overlap_crop_basic():
     result = overlap_crop_image(test_image, overlap_margin=4, max_crops=12)
 
     # Check basic properties
-    assert result["global_crop"].shape == (378, 378, 3)
-    assert len(result["local_crops"]) > 0
-    assert all(crop.shape == (378, 378, 3) for crop in result["local_crops"])
+    assert result["crops"][0].shape == (378, 378, 3)
+    assert len(result["crops"]) > 1
+    assert all(crop.shape == (378, 378, 3) for crop in result["crops"])
     assert len(result["tiling"]) == 2
 
 
@@ -24,8 +24,8 @@ def test_overlap_crop_small_image():
     result = overlap_crop_image(test_image, overlap_margin=4, max_crops=12)
 
     # Should still produce valid output
-    assert result["global_crop"].shape == (378, 378, 3)
-    assert len(result["local_crops"]) == 1
+    assert result["crops"][0].shape == (378, 378, 3)
+    assert len(result["crops"]) == 2
     assert result["tiling"] == (1, 1)
 
 
@@ -37,7 +37,7 @@ def test_reconstruction():
 
     # Crop and reconstruct
     result = overlap_crop_image(test_image, overlap_margin=4, max_crops=12)
-    crops_tensor = [torch.from_numpy(crop) for crop in result["local_crops"]]
+    crops_tensor = [torch.from_numpy(crop) for crop in result["crops"][1:]]
     reconstructed = reconstruct_from_crops(
         crops_tensor, result["tiling"], overlap_margin=4
     )
@@ -48,7 +48,6 @@ def test_reconstruction():
     # The reconstructed image should be similar to the input
     # We can't expect exact equality due to resizing operations
     # but the white rectangle should still be visible in the middle
-    center_original = test_image[300:500, 200:400].mean()
     center_reconstructed = reconstructed_np[
         reconstructed_np.shape[0] // 2 - 100 : reconstructed_np.shape[0] // 2 + 100,
         reconstructed_np.shape[1] // 2 - 100 : reconstructed_np.shape[1] // 2 + 100,
