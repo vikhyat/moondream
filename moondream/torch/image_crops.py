@@ -43,8 +43,7 @@ def select_tiling(
 
 
 class OverlapCropOutput(TypedDict):
-    global_crop: np.ndarray
-    local_crops: list[np.ndarray]
+    crops: np.ndarray
     tiling: tuple[int, int]
 
 
@@ -79,8 +78,8 @@ def overlap_crop_image(
 
     Returns:
         OverlapCropOutput: Dictionary containing:
-            - global_crop: Single resized crop of full image
-            - crops: List of overlapping cropped regions
+            - crops: A numpy array containing the global crop of the full image (index 0)
+                followed by the overlapping cropped regions (indices 1+)
             - tiling: Tuple of (height,width) tile counts
     """
     original_h, original_w = image.shape[:2]
@@ -102,6 +101,12 @@ def overlap_crop_image(
         max_crops,
     )
 
+    # Pre-allocate crops.
+    n_crops = tiling[0] * tiling[1] + 1  # 1 = global crop
+    crops = np.zeros(
+        (n_crops, base_size[0], base_size[1], image.shape[2]), dtype=np.uint8
+    )
+
     # Resize image to fit tiling
     target_size = (
         tiling[0] * crop_window_size + total_margin_pixels,
@@ -110,8 +115,6 @@ def overlap_crop_image(
 
     # Convert to vips for resizing
     vips_image = pyvips.Image.new_from_array(image)
-
-    # Resize using vips
     scale_x = target_size[1] / image.shape[1]
     scale_y = target_size[0] / image.shape[0]
     resized = vips_image.resize(scale_x, vscale=scale_y)
@@ -121,10 +124,7 @@ def overlap_crop_image(
     scale_x = base_size[1] / vips_image.width
     scale_y = base_size[0] / vips_image.height
     global_vips = vips_image.resize(scale_x, vscale=scale_y)
-    global_crop = global_vips.numpy()
-
-    # Extract crops with overlap
-    crops = []
+    crops[0] = global_vips.numpy()
 
     for i in range(tiling[0]):
         for j in range(tiling[1]):
@@ -136,18 +136,12 @@ def overlap_crop_image(
             y_end = min(y0 + base_size[0], image.shape[0])
             x_end = min(x0 + base_size[1], image.shape[1])
 
-            crop = np.zeros(
-                (base_size[0], base_size[1], image.shape[2]), dtype=np.uint8
-            )
             crop_region = image[y0:y_end, x0:x_end]
-            crop[: crop_region.shape[0], : crop_region.shape[1]] = crop_region
-            crops.append(crop)
+            crops[
+                1 + i * tiling[1] + j, : crop_region.shape[0], : crop_region.shape[1]
+            ] = crop_region
 
-    return {
-        "global_crop": global_crop,
-        "local_crops": crops,
-        "tiling": tiling,
-    }
+    return {"crops": crops, "tiling": tiling}
 
 
 def reconstruct_from_crops(
