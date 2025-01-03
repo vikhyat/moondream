@@ -38,10 +38,7 @@ class MLPWeights:
 
 def mlp(x: torch.Tensor, w: MLPWeights) -> torch.Tensor:
     x = linear(x, w.fc1)
-    if w.act == "gelu_approx":
-        x = gelu_approx(x)
-    else:
-        raise NotImplementedError(f"Activation function {w.act} not implemented.")
+    x = gelu_approx(x)
     x = linear(x, w.fc2)
     return x
 
@@ -50,12 +47,11 @@ def mlp(x: torch.Tensor, w: MLPWeights) -> torch.Tensor:
 class AttentionWeights:
     qkv: LinearWeights
     proj: LinearWeights
-    n_heads: int
 
 
-def attn(x: torch.Tensor, w: AttentionWeights) -> torch.Tensor:
+def attn(x: torch.Tensor, w: AttentionWeights, n_heads: int) -> torch.Tensor:
     bsz, q_len, d_model = x.shape
-    n_heads, head_dim = w.n_heads, d_model // w.n_heads
+    head_dim = d_model // n_heads
 
     q, k, v = [
         t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
