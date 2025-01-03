@@ -19,6 +19,8 @@ class VisionConfig:
     enc_n_heads: int = 16
     crop_size: int = 378
     in_channels: int = 3
+    max_crops: int = 12
+    overlap_margin: int = 4
 
 
 @dataclass(frozen=True)
