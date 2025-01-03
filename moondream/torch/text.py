@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from .layers import layer_norm, linear, mlp
 from .rope import apply_rotary_emb
 from .weights import AttentionWeights, TextModel
+from .config import TextConfig
 
 
 def text_encoder(input_ids: torch.Tensor, w: TextModel):
@@ -35,10 +36,11 @@ def attn(
     w: AttentionWeights,
     freqs_cis: torch.Tensor,
     layer_kv_cache: torch.Tensor,
+    n_heads: int,
 ):
     bsz, q_len, d_model = x.shape
     pos = 0 if layer_kv_cache is None else layer_kv_cache.shape[3]
-    n_heads, head_dim = w.n_heads, d_model // w.n_heads
+    head_dim = d_model // n_heads
 
     q, k, v = [
         t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
@@ -46,8 +48,8 @@ def attn(
     ]
 
     position_ids = torch.arange(pos, pos + q_len, dtype=torch.long)
-    q = apply_rotary_emb(q, freqs_cis, position_ids, w.n_heads)
-    k = apply_rotary_emb(k, freqs_cis, position_ids, w.n_heads)
+    q = apply_rotary_emb(q, freqs_cis, position_ids, n_heads)
+    k = apply_rotary_emb(k, freqs_cis, position_ids, n_heads)
 
     k_, v_ = k, v
     if layer_kv_cache is not None:
@@ -70,13 +72,16 @@ def text_decoder(
     w: TextModel,
     kv_cache: torch.Tensor,
     freqs_cis: torch.Tensor,
+    config: TextConfig,
 ):
     hidden_BTC = inputs_embeds
     new_kv_cache = [torch.empty(0)] * len(w.blocks)
 
     for i, block in enumerate(w.blocks):
         l_in = layer_norm(hidden_BTC, block.ln)
-        l_attn, new_kv_cache[i] = attn(l_in, block.attn, freqs_cis, kv_cache[i])
+        l_attn, new_kv_cache[i] = attn(
+            l_in, block.attn, freqs_cis, kv_cache[i], n_heads=config.n_heads
+        )
         l_mlp = mlp(l_in, block.mlp)
         hidden_BTC = hidden_BTC + l_attn + l_mlp
 
