@@ -17,6 +17,7 @@ class VisionConfig:
     enc_n_layers: int = 27
     enc_ff_dim: int = 4304
     enc_n_heads: int = 16
+    proj_out_dim: int = 2048
     crop_size: int = 378
     in_channels: int = 3
     max_crops: int = 12
