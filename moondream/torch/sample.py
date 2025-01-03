@@ -8,7 +8,6 @@ from transformers import AutoTokenizer
 
 from .rope import precompute_freqs_cis
 from .text import lm_head, text_decoder, text_encoder
-from .vision import encode_image
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig
 
@@ -52,7 +51,7 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"Image not found at {image_path}")
     image = Image.open(image_path)
     with torch.no_grad():
-        image_tensor = encode_image(image, model.vision, config.vision)
+        image_tensor = model._encode_image(image)
 
     # Encode text, and create inputs_embeds.
     tokenizer = AutoTokenizer.from_pretrained("vikhyatk/moondream2")

@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
@@ -7,8 +8,7 @@ from einops import rearrange
 from PIL import Image
 
 from .layers import attn, layer_norm, linear, mlp
-from .weights import VisionModel
-from .image_crops import overlap_crop_image, reconstruct_from_crops
+from .image_crops import overlap_crop_image
 from .config import VisionConfig
 
 if torch.backends.mps.is_available():
@@ -20,9 +20,11 @@ if torch.backends.mps.is_available():
 else:
     adaptive_avg_pool2d = F.adaptive_avg_pool2d
 
+DeviceLike = Union[str, torch.device, int]
+
 
 def prepare_crops(
-    image: Image.Image, config: VisionConfig, device: Union[str, torch.device, int]
+    image: Image.Image, config: VisionConfig, device: DeviceLike
 ) -> Tuple[torch.Tensor, Tuple[int, int]]:
     np_image = np.array(image.convert("RGB"))
     overlap_crops = overlap_crop_image(
@@ -40,7 +42,7 @@ def prepare_crops(
     return all_crops, overlap_crops["tiling"]
 
 
-def vision_encoder(input_BCHW: torch.Tensor, w: VisionModel, config: VisionConfig):
+def vision_encoder(input_BCHW: torch.Tensor, w: nn.Module, config: VisionConfig):
     x = rearrange(
         input_BCHW,
         "b c (h p1) (w p2) -> b (h w) (c p1 p2)",
@@ -59,7 +61,9 @@ def vision_encoder(input_BCHW: torch.Tensor, w: VisionModel, config: VisionConfi
 
 
 def vision_projection(
-    global_features: torch.Tensor, reconstructed: torch.Tensor, w: VisionModel
+    global_features: torch.Tensor,
+    reconstructed: torch.Tensor,
+    w: nn.Module,
 ):
     reconstructed = reconstructed.permute(2, 0, 1)
     reconstructed = adaptive_avg_pool2d(reconstructed, output_size=(27, 27))
@@ -68,21 +72,59 @@ def vision_projection(
     return mlp(final_features, w.proj_mlp)
 
 
-def encode_image(
-    image: Image.Image, weights: VisionModel, config: VisionConfig
-) -> torch.Tensor:
-    # This is split into sub-functions to allow sections to be compiled without
-    # graph breaks, which is needed if we want to enable reduce-overhead mode.
-    # `vision_encoder` and `vision_projection` can be compiled if needed.
+def build_vision_model(config: VisionConfig, dtype: torch.dtype):
+    patch_dim = config.enc_patch_size * config.enc_patch_size * config.in_channels
+    grid_size = config.crop_size // config.enc_patch_size
+    num_patches = grid_size * grid_size
 
-    all_crops, tiling = prepare_crops(image, config, device=weights.pos_emb.device)
-
-    outputs = vision_encoder(all_crops, weights, config)
-
-    global_features = outputs[0]
-    local_features = outputs[1:].view(-1, 27, 27, 1152)
-    reconstructed = reconstruct_from_crops(
-        local_features, tiling, patch_size=1, overlap_margin=config.overlap_margin
+    vision = nn.ModuleDict(
+        {
+            "patch_emb": nn.Linear(patch_dim, config.enc_dim, dtype=dtype),
+            "blocks": nn.ModuleList(
+                [
+                    nn.ModuleDict(
+                        {
+                            "ln1": nn.LayerNorm(config.enc_dim, dtype=dtype),
+                            "attn": nn.ModuleDict(
+                                {
+                                    "qkv": nn.Linear(
+                                        config.enc_dim, 3 * config.enc_dim, dtype=dtype
+                                    ),
+                                    "proj": nn.Linear(
+                                        config.enc_dim, config.enc_dim, dtype=dtype
+                                    ),
+                                }
+                            ),
+                            "ln2": nn.LayerNorm(config.enc_dim, dtype=dtype),
+                            "mlp": nn.ModuleDict(
+                                {
+                                    "fc1": nn.Linear(
+                                        config.enc_dim, config.enc_ff_dim, dtype=dtype
+                                    ),
+                                    "fc2": nn.Linear(
+                                        config.enc_ff_dim, config.enc_dim, dtype=dtype
+                                    ),
+                                }
+                            ),
+                        }
+                    )
+                    for _ in range(config.enc_n_layers)
+                ]
+            ),
+            "post_ln": nn.LayerNorm(config.enc_dim, dtype=dtype),
+            "proj_mlp": nn.ModuleDict(
+                {
+                    "fc1": nn.Linear(
+                        config.enc_dim * 2, config.proj_out_dim * 4, dtype=dtype
+                    ),
+                    "fc2": nn.Linear(
+                        config.proj_out_dim * 4, config.proj_out_dim, dtype=dtype
+                    ),
+                }
+            ),
+        }
     )
-
-    return vision_projection(global_features, reconstructed, weights)
+    vision.pos_emb = nn.Parameter(
+        torch.zeros(1, num_patches, config.enc_dim, dtype=dtype)
+    )
+    return vision
