@@ -1,6 +1,8 @@
 accelerate==0.32.1
 huggingface-hub==0.24.0
 Pillow==10.4.0
+pyvips-binary==8.16.0
+pyvips==2.2.3
 torch==2.3.1
 torchvision==0.18.1
 transformers==4.44.0
