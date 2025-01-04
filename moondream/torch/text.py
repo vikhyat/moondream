@@ -12,31 +12,12 @@ def text_encoder(input_ids: torch.Tensor, w: nn.Module):
     return F.embedding(input_ids, w.wte)
 
 
-def attn_mask(pos, seq_len):
-    """
-    Create an attention mask that aligns with the bottom right of the
-    attention matrix. For example, if q_len = 2 and kv_len = 5, we want the
-    following:
-
-         1 1 1 1 0
-         1 1 1 1 1
-
-    and not this, which is what we get by default if we just set is_causal.
-
-         1 0 0 0 0
-         1 1 0 0 0
-    """
-    mask = torch.ones(seq_len, pos + seq_len, dtype=torch.bool)
-    mask[:, pos:] = torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool))
-    mask = mask.unsqueeze(0).unsqueeze(0)  # Add batch and head dimensions
-    return mask
-
-
 def attn(
     x: torch.Tensor,
     w: AttentionWeights,
     freqs_cis: torch.Tensor,
     layer_kv_cache: torch.Tensor,
+    attn_mask: torch.Tensor,
     n_heads: int,
     pos: int,
 ):
@@ -57,7 +38,7 @@ def attn(
         k = torch.cat([layer_kv_cache[0, :, :, :pos, :], k], dim=2)
         v = torch.cat([layer_kv_cache[1, :, :, :pos, :], v], dim=2)
 
-    out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask(pos, q_len)).to(
+    out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask).to(
         # This type conversion isn't needed when running in PyTorch directly, but the
         # ONNX export runs attention in float32 because the attention mask is cast to
         # float32.
@@ -78,10 +59,20 @@ def text_decoder(
     hidden_BTC = inputs_embeds
     new_kv_cache = [torch.empty(0)] * len(w.blocks)
 
+    attn_mask = w.attn_mask[
+        :, :, pos : pos + hidden_BTC.size(1), : pos + hidden_BTC.size(1)
+    ]
+
     for i, block in enumerate(w.blocks):
         l_in = layer_norm(hidden_BTC, block.ln)
         l_attn, new_kv_cache[i] = attn(
-            l_in, block.attn, w.freqs_cis, kv_cache[i], n_heads=config.n_heads, pos=pos
+            l_in,
+            block.attn,
+            freqs_cis=w.freqs_cis,
+            layer_kv_cache=kv_cache[i],
+            attn_mask=attn_mask,
+            n_heads=config.n_heads,
+            pos=pos,
         )
         l_mlp = mlp(l_in, block.mlp)
         hidden_BTC = hidden_BTC + l_attn + l_mlp
@@ -105,7 +96,7 @@ def prefill(
 ):
     # Updates kv_cache in-place
     hidden, kv_cache[:, :, :, :, pos : pos + inputs_embeds.size(1), :] = text_decoder(
-        inputs_embeds, w, kv_cache[:, :, :, :, :pos, :], pos, config
+        inputs_embeds, w, kv_cache, pos, config
     )
     return hidden
 
@@ -164,6 +155,14 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
     text.register_buffer(
         "freqs_cis",
         precompute_freqs_cis(config.dim // (2 * config.n_heads), config.max_context),
+        persistent=False,
+    )
+
+    text.register_buffer(
+        "attn_mask",
+        torch.tril(
+            torch.ones(1, 1, config.max_context, config.max_context, dtype=torch.bool)
+        ),
         persistent=False,
     )
 

@@ -24,10 +24,9 @@ if __name__ == "__main__":
     config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
+    model.compile()
 
-    dataset = datasets.load_dataset("moondream/chartqa", split="test").cast_column(
-        "image", datasets.Image(decode=True)
-    )
+    dataset = datasets.load_dataset("vikhyatk/chartqa", split="test")
 
     correct = 0
     total = 0

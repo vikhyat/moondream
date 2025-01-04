@@ -80,6 +80,18 @@ class MoondreamModel(nn.Module):
     def device(self):
         return self.vision.pos_emb.device
 
+    def compile(self):
+        self.ops["vision_encoder"] = torch.compile(
+            self.ops["vision_encoder"], fullgraph=True
+        )
+        self.ops["vision_projection"] = torch.compile(
+            self.ops["vision_projection"], fullgraph=True
+        )
+        self.ops["prefill"] = torch.compile(self.ops["prefill"], fullgraph=True)
+        self.ops["decode_one_token"] = torch.compile(
+            self.ops["decode_one_token"], fullgraph=True
+        )
+
     def _run_vision_encoder(self, image: Image.Image) -> torch.Tensor:
         all_crops, tiling = prepare_crops(image, self.config.vision, device=self.device)
         torch._dynamo.mark_dynamic(all_crops, 0)
@@ -88,6 +100,7 @@ class MoondreamModel(nn.Module):
 
         global_features = outputs[0]
         local_features = outputs[1:].view(-1, 27, 27, 1152)
+
         reconstructed = reconstruct_from_crops(
             local_features,
             tiling,
@@ -139,16 +152,16 @@ class MoondreamModel(nn.Module):
         question_tokens = torch.tensor(
             [
                 self.config.tokenizer.templates["query"]["prefix"]
-                + self.tokenizer.encode(f"\n\nQuestion: {question}\n\nAnswer:").ids
+                + self.tokenizer.encode(question).ids
                 + self.config.tokenizer.templates["query"]["suffix"]
             ],
             device=self.device,
         )
-        question_emb = text_encoder(question_tokens, self.text)
 
         # Prefill with the question.
         kv_cache = image.kv_cache.clone()
         with torch.no_grad():
+            question_emb = text_encoder(question_tokens, self.text)
             hidden = self.ops["prefill"](
                 question_emb, kv_cache, image.pos, self.text, self.config.text
             )
