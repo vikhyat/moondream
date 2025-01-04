@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -33,15 +34,47 @@ class RegionConfig:
     size_out_dim: int = 2048
 
 
-@dataclass
+@dataclass(frozen=True)
+class TokenizerConfig:
+    bos_id: int = 50256
+    eos_id: int = 50256
+    templates: Dict[str, Optional[Dict[str, List[int]]]] = field(
+        default_factory=lambda: {
+            "caption": {
+                "short": [198, 198, 16438, 8305, 25],
+                "normal": [198, 198, 24334, 1159, 25],
+            },
+            "query": {"prefix": [198, 198, 24361, 25], "suffix": [198, 198, 33706, 25]},
+            "detect": {"prefix": [198, 198, 47504, 25], "suffix": [628]},
+            "point": {"prefix": [198, 198, 12727, 25], "suffix": [628]},
+        }
+    )
+
+
+@dataclass(frozen=True)
 class MoondreamConfig:
     text: TextConfig = TextConfig()
     vision: VisionConfig = VisionConfig()
     region: RegionConfig = RegionConfig()
+    tokenizer: TokenizerConfig = TokenizerConfig()
 
     @classmethod
     def from_dict(cls, config_dict: dict):
         text_config = TextConfig(**config_dict.get("text", {}))
         vision_config = VisionConfig(**config_dict.get("vision", {}))
         region_config = RegionConfig(**config_dict.get("region", {}))
-        return cls(text=text_config, vision=vision_config, region=region_config)
+        tokenizer_config = TokenizerConfig(**config_dict.get("tokenizer", {}))
+        return cls(
+            text=text_config,
+            vision=vision_config,
+            region=region_config,
+            tokenizer=tokenizer_config,
+        )
+
+    def to_dict(self):
+        return {
+            "text": self.text.__dict__,
+            "vision": self.vision.__dict__,
+            "region": self.region.__dict__,
+            "tokenizer": self.tokenizer.__dict__,
+        }

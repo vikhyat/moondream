@@ -1,11 +1,21 @@
 import torch
 import torch.nn as nn
 
+from typing import Union
 from PIL import Image
+from dataclasses import dataclass
+from tokenizers import Tokenizer
 
 from .config import MoondreamConfig
-from .vision import vision_encoder, vision_projection, prepare_crops, build_vision_model
 from .image_crops import reconstruct_from_crops
+from .vision import vision_encoder, vision_projection, prepare_crops, build_vision_model
+from .text import build_text_model, prefill, text_encoder, lm_head, decode_one_token
+
+
+@dataclass(frozen=True)
+class EncodedImage:
+    pos: int
+    kv_cache: torch.Tensor
 
 
 class MoondreamModel(nn.Module):
@@ -13,58 +23,9 @@ class MoondreamModel(nn.Module):
         super().__init__()
         self.config = config
 
+        self.tokenizer = Tokenizer.from_pretrained("vikhyatk/moondream-next")
         self.vision = build_vision_model(config.vision, dtype)
-
-        # Text Model
-        self.text = nn.ModuleDict(
-            {
-                "blocks": nn.ModuleList(
-                    [
-                        nn.ModuleDict(
-                            {
-                                "ln": nn.LayerNorm(config.text.dim, dtype=dtype),
-                                "attn": nn.ModuleDict(
-                                    {
-                                        "qkv": nn.Linear(
-                                            config.text.dim,
-                                            3 * config.text.dim,
-                                            dtype=dtype,
-                                        ),
-                                        "proj": nn.Linear(
-                                            config.text.dim,
-                                            config.text.dim,
-                                            dtype=dtype,
-                                        ),
-                                    }
-                                ),
-                                "mlp": nn.ModuleDict(
-                                    {
-                                        "fc1": nn.Linear(
-                                            config.text.dim,
-                                            4 * config.text.dim,
-                                            dtype=dtype,
-                                        ),
-                                        "fc2": nn.Linear(
-                                            4 * config.text.dim,
-                                            config.text.dim,
-                                            dtype=dtype,
-                                        ),
-                                    }
-                                ),
-                            }
-                        )
-                        for _ in range(config.text.n_layers)
-                    ]
-                ),
-                "post_ln": nn.LayerNorm(config.text.dim, dtype=dtype),
-                "lm_head": nn.Linear(
-                    config.text.dim, config.text.vocab_size, dtype=dtype
-                ),
-            }
-        )
-        self.text.wte = nn.Parameter(
-            torch.empty(config.text.vocab_size, config.text.dim, dtype=dtype)
-        )
+        self.text = build_text_model(config.text, dtype)
 
         # Region Model
         self.region = nn.ModuleDict(
@@ -111,14 +72,17 @@ class MoondreamModel(nn.Module):
         self.ops = {
             "vision_encoder": vision_encoder,
             "vision_projection": vision_projection,
+            "prefill": prefill,
+            "decode_one_token": decode_one_token,
         }
 
     @property
     def device(self):
         return self.vision.pos_emb.device
 
-    def _encode_image(self, image: Image.Image) -> torch.Tensor:
+    def _run_vision_encoder(self, image: Image.Image) -> torch.Tensor:
         all_crops, tiling = prepare_crops(image, self.config.vision, device=self.device)
+        torch._dynamo.mark_dynamic(all_crops, 0)
 
         outputs = self.ops["vision_encoder"](all_crops, self.vision, self.config.vision)
 
@@ -134,3 +98,80 @@ class MoondreamModel(nn.Module):
         return self.ops["vision_projection"](
             global_features, reconstructed, self.vision
         )
+
+    def encode_image(self, image: Image.Image) -> EncodedImage:
+        # Run through text model in addition to the vision encoder, to minimize
+        # re-computation if multiple queries are performed on this image.
+        kv_cache = torch.zeros(
+            self.config.text.n_layers,
+            2,  # k, v
+            1,  # batch size
+            self.config.text.n_heads,
+            self.config.text.max_context,  # static cache
+            self.config.text.dim // self.config.text.n_heads,  # head dim
+            device=self.device,
+            dtype=torch.float16,
+        )
+        with torch.no_grad():
+            img_emb = self._run_vision_encoder(image)
+            bos_emb = text_encoder(
+                torch.tensor([[self.config.tokenizer.bos_id]], device=self.device),
+                self.text,
+            )
+            inputs_embeds = torch.cat([bos_emb, img_emb[None]], dim=1)
+            self.ops["prefill"](inputs_embeds, kv_cache, 0, self.text, self.config.text)
+        return EncodedImage(pos=inputs_embeds.size(1), kv_cache=kv_cache)
+
+    def query(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        question: str,
+        stream: bool = False,
+    ):
+        if isinstance(image, Image.Image):
+            image = self.encode_image(image)
+        elif not isinstance(image, EncodedImage):
+            raise ValueError("image must be a PIL Image or EncodedImage")
+
+        if self.config.tokenizer.templates["query"] is None:
+            raise NotImplementedError("query not supported for this model")
+
+        question_tokens = torch.tensor(
+            [
+                self.config.tokenizer.templates["query"]["prefix"]
+                + self.tokenizer.encode(f"\n\nQuestion: {question}\n\nAnswer:").ids
+                + self.config.tokenizer.templates["query"]["suffix"]
+            ],
+            device=self.device,
+        )
+        question_emb = text_encoder(question_tokens, self.text)
+
+        # Prefill with the question.
+        kv_cache = image.kv_cache.clone()
+        with torch.no_grad():
+            hidden = self.ops["prefill"](
+                question_emb, kv_cache, image.pos, self.text, self.config.text
+            )
+            logits = lm_head(hidden, self.text)
+            next_token = torch.argmax(logits, dim=-1)
+        pos = image.pos + question_emb.size(1)
+
+        # Decode logits one by one.
+        def generator(next_token, pos):
+            while (next_token_id := next_token.item()) != self.config.tokenizer.eos_id:
+                yield self.tokenizer.decode([next_token_id])
+
+                with torch.no_grad():
+                    logits, hidden, kv_cache_update = self.ops["decode_one_token"](
+                        next_token, kv_cache, pos, self.text, self.config.text
+                    )
+                    kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
+                        kv_cache_update
+                    )
+                    pos += 1
+                    next_token = torch.argmax(logits, dim=-1)
+
+        if stream:
+            return {"answer": generator(next_token, pos)}
+        else:
+            return {"answer": "".join(list(generator(next_token, pos)))}
