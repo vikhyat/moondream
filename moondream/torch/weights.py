@@ -1,12 +1,12 @@
+import safetensors
+import torch
+import torch.nn as nn
+
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Callable, List
 
-import safetensors
-import torch
-
 from .layers import AttentionWeights, LayerNormWeights, LinearWeights, MLPWeights
-from .moondream import MoondreamModel as MoondreamModule
 
 
 @dataclass
@@ -254,9 +254,7 @@ def load_from_pt(
     return load_model(lambda x: tensors[x], vision_blocks, text_blocks, **kwargs)
 
 
-def _load_weights(
-    get_tensor: Callable[[str], torch.Tensor], model: MoondreamModule
-) -> None:
+def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module) -> None:
     """Internal function to load weights using a tensor getter function."""
     model = model.to(dtype=torch.float16)
 
@@ -432,7 +430,7 @@ def _load_weights(
     )
 
 
-def load_weights_from_safetensors(weights_file: str, model: MoondreamModule) -> None:
+def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
     """Load weights from a safetensors file into a MoondreamModel instance."""
     with safetensors_open(weights_file) as get_tensor:
         # Wrap the get_tensor function to handle key normalization
@@ -440,7 +438,7 @@ def load_weights_from_safetensors(weights_file: str, model: MoondreamModule) -> 
         _load_weights(lambda x: get_tensor(name_map[x]).to(dtype=torch.float16), model)
 
 
-def load_weights_from_pt(weights_file: str, model: MoondreamModule) -> None:
+def load_weights_from_pt(weights_file: str, model: nn.Module) -> None:
     """Load weights from a PyTorch file into a MoondreamModel instance."""
     device = str(torch.empty(0).device)
     tensors = torch.load(weights_file, map_location=device, weights_only=True)
@@ -451,7 +449,7 @@ def load_weights_from_pt(weights_file: str, model: MoondreamModule) -> None:
     _load_weights(lambda x: tensors[x], model)
 
 
-def load_weights_into_model(weights_file: str, model: MoondreamModule) -> None:
+def load_weights_into_model(weights_file: str, model: nn.Module) -> None:
     """
     Load weights from either a safetensors or PyTorch file directly into a MoondreamModel instance.
 
