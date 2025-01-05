@@ -57,7 +57,9 @@ if __name__ == "__main__":
                 if args.debug:
                     for s in stats:
                         if stats[s][1] > 0:
-                            print(f"{s.capitalize()}: {stats[s][0]}/{stats[s][1]} = {stats[s][0] * 100.0 / stats[s][1]:.2f}%")
+                            print(
+                                f"{s.capitalize()}: {stats[s][0]}/{stats[s][1]} = {stats[s][0] * 100.0 / stats[s][1]:.2f}%"
+                            )
                     print("=========")
 
     print(
