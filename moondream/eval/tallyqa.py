@@ -26,7 +26,11 @@ if __name__ == "__main__":
     load_weights_into_model(args.model, model)
     model.compile()
 
-    dataset = datasets.load_dataset("vikhyatk/tallyqa-test", split="test")
+    dataset = datasets.load_dataset(
+        "vikhyatk/tallyqa-test",
+        split="test",
+        download_config=datasets.DownloadConfig(num_proc=16),
+    )
 
     total = 0
     total_simple = 0

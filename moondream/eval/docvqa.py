@@ -8,6 +8,7 @@ from ..torch.config import MoondreamConfig
 from ..torch.moondream import MoondreamModel
 from ..torch.weights import load_weights_into_model
 
+SUFFIX = " The answer should be a short text span taken verbatim from the document."
 
 def get_anls(s1, s2):
     s1 = s1.lower().strip()
@@ -42,7 +43,7 @@ if __name__ == "__main__":
         for qa in row["qa"]:
             question = qa["question"]
             answers = qa["answers"]
-            prompt = f"{question}\nAnswer briefly with a single word or phrase."
+            prompt = question + SUFFIX
 
             model_answer = model.query(encoded_image, prompt)["answer"]
             anls = max(get_anls(model_answer, gt) for gt in answers)

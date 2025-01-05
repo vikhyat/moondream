@@ -24,7 +24,6 @@ if __name__ == "__main__":
     config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
-    model.compile()
 
     dataset = datasets.load_dataset("vikhyatk/CountBenchQA", split="test")
 
