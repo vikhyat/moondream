@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from typing import Union
+from typing import Literal, Union
 from PIL import Image
 from dataclasses import dataclass
 from tokenizers import Tokenizer
@@ -113,7 +113,12 @@ class MoondreamModel(nn.Module):
             global_features, reconstructed, self.vision
         )
 
-    def encode_image(self, image: Image.Image) -> EncodedImage:
+    def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
+        if isinstance(image, EncodedImage):
+            return image
+        elif not isinstance(image, Image.Image):
+            raise ValueError("image must be a PIL Image or EncodedImage")
+
         # Run through text model in addition to the vision encoder, to minimize
         # re-computation if multiple queries are performed on this image.
         kv_cache = torch.zeros(
@@ -136,41 +141,25 @@ class MoondreamModel(nn.Module):
             self.ops["prefill"](inputs_embeds, kv_cache, 0, self.text, self.config.text)
         return EncodedImage(pos=inputs_embeds.size(1), kv_cache=kv_cache)
 
-    def query(
-        self,
-        image: Union[Image.Image, EncodedImage],
-        question: str,
-        stream: bool = False,
+    def _prefill_prompt(
+        self, kv_cache: torch.Tensor, prompt_tokens: torch.Tensor, pos: int
     ):
-        if isinstance(image, Image.Image):
-            image = self.encode_image(image)
-        elif not isinstance(image, EncodedImage):
-            raise ValueError("image must be a PIL Image or EncodedImage")
-
-        if self.config.tokenizer.templates["query"] is None:
-            raise NotImplementedError("query not supported for this model")
-
-        question_tokens = torch.tensor(
-            [
-                self.config.tokenizer.templates["query"]["prefix"]
-                + self.tokenizer.encode(question).ids
-                + self.config.tokenizer.templates["query"]["suffix"]
-            ],
-            device=self.device,
-        )
-
-        # Prefill with the question.
-        kv_cache = image.kv_cache.clone()
         with torch.no_grad():
-            question_emb = text_encoder(question_tokens, self.text)
+            prompt_emb = text_encoder(prompt_tokens, self.text)
             hidden = self.ops["prefill"](
-                question_emb, kv_cache, image.pos, self.text, self.config.text
+                prompt_emb, kv_cache, pos, self.text, self.config.text
             )
             logits = lm_head(hidden, self.text)
             next_token = torch.argmax(logits, dim=-1)
-        pos = image.pos + question_emb.size(1)
+        pos = pos + prompt_emb.size(1)
+        return logits, hidden, next_token, pos
 
-        # Decode logits one by one.
+    def _generate_text(
+        self, prompt_tokens: torch.Tensor, kv_cache: torch.Tensor, pos: int
+    ):
+        kv_cache = kv_cache.clone()
+        _, _, next_token, pos = self._prefill_prompt(kv_cache, prompt_tokens, pos)
+
         def generator(next_token, pos):
             while (
                 next_token_id := next_token.item()
@@ -187,7 +176,85 @@ class MoondreamModel(nn.Module):
                     pos += 1
                     next_token = torch.argmax(logits, dim=-1)
 
+        return generator(next_token, pos)
+
+    def query(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        question: str,
+        stream: bool = False,
+    ):
+        if self.config.tokenizer.templates["query"] is None:
+            raise NotImplementedError("Model does not support querying.")
+
+        image = self.encode_image(image)
+        prompt_tokens = torch.tensor(
+            [
+                self.config.tokenizer.templates["query"]["prefix"]
+                + self.tokenizer.encode(question).ids
+                + self.config.tokenizer.templates["query"]["suffix"]
+            ],
+            device=self.device,
+        )
+
+        def generator():
+            for token in self._generate_text(prompt_tokens, image.kv_cache, image.pos):
+                yield token
+
         if stream:
-            return {"answer": generator(next_token, pos)}
+            return {"answer": generator()}
         else:
-            return {"answer": "".join(list(generator(next_token, pos)))}
+            return {"answer": "".join(list(generator()))}
+
+    def caption(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        length: Literal["normal", "short"] = "normal",
+        stream: bool = False,
+    ):
+        if self.config.tokenizer.templates["caption"] is None:
+            raise NotImplementedError("Model does not support captioning.")
+        if length not in self.config.tokenizer.templates["caption"]:
+            raise ValueError(f"Model does not support caption length '{length}'.")
+
+        image = self.encode_image(image)
+        prompt_tokens = torch.tensor(
+            [self.config.tokenizer.templates["caption"][length]], device=self.device
+        )
+
+        def generator():
+            for token in self._generate_text(prompt_tokens, image.kv_cache, image.pos):
+                yield token
+
+        if stream:
+            return {"answer": generator()}
+        else:
+            return {"answer": "".join(list(generator()))}
+
+    def detect(self, image: Union[Image.Image, EncodedImage], object: str):
+        if self.config.tokenizer.templates["detect"] is None:
+            raise NotImplementedError("Model does not support object detection.")
+
+        image = self.encode_image(image)
+
+        prompt_tokens = torch.tensor(
+            [
+                self.config.tokenizer.templates["detect"]["prefix"]
+                + self.tokenizer.encode(object).ids
+                + self.config.tokenizer.templates["detect"]["suffix"]
+            ]
+        )
+
+        kv_cache = image.kv_cache.clone()
+        _, hidden, next_token, pos = self._prefill_prompt(
+            kv_cache, prompt_tokens, image.pos
+        )
+
+        objects = []
+
+        # while (
+        #     next_token_id := next_token.item()
+        # ) != self.config.tokenizer.eos_id and len(objects) < 50:
+        #     # Decode three tokens for the center coordinates and size.
+
+        return {"objects": objects}

@@ -41,6 +41,20 @@ if __name__ == "__main__":
 
     if not args.benchmark:
         encoded_image = model.encode_image(image)
+
+        print("Short caption")
+        for t in model.caption(encoded_image, "short", stream=True)["answer"]:
+            print(t, end="", flush=True)
+        print()
+        print()
+
+        print("Normal caption")
+        for t in model.caption(encoded_image, "normal", stream=True)["answer"]:
+            print(t, end="", flush=True)
+        print()
+        print()
+
+        print("Prompt:", args.prompt)
         for t in model.query(encoded_image, args.prompt, stream=True)["answer"]:
             print(t, end="", flush=True)
         print()
