@@ -3,12 +3,11 @@ import json
 import os
 import torch
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from tqdm import tqdm
 
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig
-from PIL import ImageDraw
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -65,6 +64,7 @@ if __name__ == "__main__":
         print(f"Detect: {obj}")
         objs = model.detect(encoded_image, obj)["objects"]
         print(f"Found {len(objs)}")
+        print()
         draw = ImageDraw.Draw(image)
         for obj in objs:
             x_min, y_min, x_max, y_max = (
@@ -75,6 +75,16 @@ if __name__ == "__main__":
             )
             draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
         image.save("detect.jpg")
+
+        obj = "ear"
+        print(f"Point: {obj}")
+        points = model.point(encoded_image, obj)["points"]
+        print(f"Found {len(points)}")
+        draw = ImageDraw.Draw(image)
+        for point in points:
+            x, y = point["x"] * image.width, point["y"] * image.height
+            draw.ellipse([x - 5, y - 5, x + 5, y + 5], fill="red")
+        image.save("point.jpg")
     else:
         model.compile()
 

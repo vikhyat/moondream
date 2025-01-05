@@ -10,6 +10,7 @@ from ..torch.weights import load_weights_into_model
 
 SUFFIX = " The answer should be a short text span taken verbatim from the document."
 
+
 def get_anls(s1, s2):
     s1 = s1.lower().strip()
     s2 = s2.lower().strip()

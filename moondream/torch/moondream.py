@@ -233,31 +233,21 @@ class MoondreamModel(nn.Module):
         else:
             return {"caption": "".join(list(generator()))}
 
-    def detect(self, image: Union[Image.Image, EncodedImage], object: str):
-        if self.config.tokenizer.templates["detect"] is None:
-            raise NotImplementedError("Model does not support object detection.")
-
-        image = self.encode_image(image)
-
-        prompt_tokens = torch.tensor(
-            [
-                self.config.tokenizer.templates["detect"]["prefix"]
-                + self.tokenizer.encode(object).ids
-                + self.config.tokenizer.templates["detect"]["suffix"]
-            ]
-        )
-
-        kv_cache = image.kv_cache.clone()
-        _, hidden, next_token, pos = self._prefill_prompt(
-            kv_cache, prompt_tokens, image.pos
-        )
-        hidden = hidden[:, -1:, :]
-
-        objects = []
+    def _generate_points(
+        self,
+        hidden: torch.Tensor,
+        kv_cache: torch.Tensor,
+        next_token: torch.Tensor,
+        pos: int,
+        include_size: bool = True,
+        max_points: int = 50,
+    ):
+        out = []
 
         with torch.no_grad():
             while (
-                next_token.item() != self.config.tokenizer.eos_id and len(objects) < 50
+                next_token.item() != self.config.tokenizer.eos_id
+                and len(out) < max_points
             ):
                 x_logits = decode_coordinate(hidden, self.region)
                 x_center = torch.argmax(x_logits, dim=-1) / x_logits.size(-1)
@@ -280,29 +270,32 @@ class MoondreamModel(nn.Module):
                 )
 
                 # Decode size
-                logits, hidden, kv_cache_update = self.ops["decode_one_token"](
-                    next_emb, kv_cache, pos, self.text, self.config.text
-                )
-                kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
-                    kv_cache_update
-                )
-                pos += 1
-                size_logits = decode_size(hidden, self.region)
-                w = torch.argmax(size_logits[0], dim=-1) / size_logits.size(-1)
-                h = torch.argmax(size_logits[1], dim=-1) / size_logits.size(-1)
-                next_emb = encode_size(
-                    torch.tensor([w, h], dtype=size_logits.dtype), self.region
-                )[None]
+                if include_size:
+                    logits, hidden, kv_cache_update = self.ops["decode_one_token"](
+                        next_emb, kv_cache, pos, self.text, self.config.text
+                    )
+                    kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
+                        kv_cache_update
+                    )
+                    pos += 1
+                    size_logits = decode_size(hidden, self.region)
+                    w = torch.argmax(size_logits[0], dim=-1) / size_logits.size(-1)
+                    h = torch.argmax(size_logits[1], dim=-1) / size_logits.size(-1)
+                    next_emb = encode_size(
+                        torch.tensor([w, h], dtype=size_logits.dtype), self.region
+                    )[None]
 
-                # Add object
-                objects.append(
-                    {
-                        "x_min": x_center.item() - w.item() / 2,
-                        "y_min": y_center.item() - h.item() / 2,
-                        "x_max": x_center.item() + w.item() / 2,
-                        "y_max": y_center.item() + h.item() / 2,
-                    }
-                )
+                    # Add object
+                    out.append(
+                        {
+                            "x_min": x_center.item() - w.item() / 2,
+                            "y_min": y_center.item() - h.item() / 2,
+                            "x_max": x_center.item() + w.item() / 2,
+                            "y_max": y_center.item() + h.item() / 2,
+                        }
+                    )
+                else:
+                    out.append({"x": x_center.item(), "y": y_center.item()})
 
                 # Decode next token (x-coordinate, or eos)
                 logits, hidden, kv_cache_update = self.ops["decode_one_token"](
@@ -314,4 +307,54 @@ class MoondreamModel(nn.Module):
                 pos += 1
                 next_token = torch.argmax(logits, dim=-1)
 
+        return out
+
+    def detect(self, image: Union[Image.Image, EncodedImage], object: str):
+        if self.config.tokenizer.templates["detect"] is None:
+            raise NotImplementedError("Model does not support object detection.")
+
+        image = self.encode_image(image)
+        prompt_tokens = torch.tensor(
+            [
+                self.config.tokenizer.templates["detect"]["prefix"]
+                + self.tokenizer.encode(object).ids
+                + self.config.tokenizer.templates["detect"]["suffix"]
+            ]
+        )
+
+        kv_cache = image.kv_cache.clone()
+        _, hidden, next_token, pos = self._prefill_prompt(
+            kv_cache, prompt_tokens, image.pos
+        )
+        hidden = hidden[:, -1:, :]
+
+        objects = self._generate_points(
+            hidden, kv_cache, next_token, pos, include_size=True, max_points=50
+        )
+
         return {"objects": objects}
+
+    def point(self, image: Union[Image.Image, EncodedImage], object: str):
+        if self.config.tokenizer.templates["point"] is None:
+            raise NotImplementedError("Model does not support pointing.")
+
+        image = self.encode_image(image)
+        prompt_tokens = torch.tensor(
+            [
+                self.config.tokenizer.templates["point"]["prefix"]
+                + self.tokenizer.encode(object).ids
+                + self.config.tokenizer.templates["point"]["suffix"]
+            ]
+        )
+
+        kv_cache = image.kv_cache.clone()
+        _, hidden, next_token, pos = self._prefill_prompt(
+            kv_cache, prompt_tokens, image.pos
+        )
+        hidden = hidden[:, -1:, :]
+
+        objects = self._generate_points(
+            hidden, kv_cache, next_token, pos, include_size=False, max_points=50
+        )
+
+        return {"points": objects}
