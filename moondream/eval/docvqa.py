@@ -31,7 +31,7 @@ if __name__ == "__main__":
     load_weights_into_model(args.model, model)
     model.compile()
 
-    docvqa_val = load_dataset("vikhyatk/docvqa", split="validation")
+    docvqa_val = load_dataset("vikhyatk/docvqa-val", split="validation")
 
     scores = []
     for row in tqdm(docvqa_val, disable=args.debug):

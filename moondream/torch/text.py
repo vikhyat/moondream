@@ -158,12 +158,10 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
         persistent=False,
     )
 
-    text.register_buffer(
-        "attn_mask",
-        torch.tril(
-            torch.ones(1, 1, config.max_context, config.max_context, dtype=torch.bool)
-        ),
-        persistent=False,
+    attn_mask = torch.tril(
+        torch.ones(1, 1, config.max_context, config.max_context, dtype=torch.bool)
     )
+    # attn_mask[..., :730, :730] = 1
+    text.register_buffer("attn_mask", attn_mask, persistent=False)
 
     return text
