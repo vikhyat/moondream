@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig
+from PIL import ImageDraw
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -42,22 +43,38 @@ if __name__ == "__main__":
     if not args.benchmark:
         encoded_image = model.encode_image(image)
 
-        print("Short caption")
-        for t in model.caption(encoded_image, "short", stream=True)["answer"]:
+        print("Caption: short")
+        for t in model.caption(encoded_image, "short", stream=True)["caption"]:
             print(t, end="", flush=True)
         print()
         print()
 
-        print("Normal caption")
-        for t in model.caption(encoded_image, "normal", stream=True)["answer"]:
+        print("Caption: normal")
+        for t in model.caption(encoded_image, "normal", stream=True)["caption"]:
             print(t, end="", flush=True)
         print()
         print()
 
-        print("Prompt:", args.prompt)
+        print("Query:", args.prompt)
         for t in model.query(encoded_image, args.prompt, stream=True)["answer"]:
             print(t, end="", flush=True)
         print()
+        print()
+
+        obj = "hand"
+        print(f"Detect: {obj}")
+        objs = model.detect(encoded_image, obj)["objects"]
+        print(f"Found {len(objs)}")
+        draw = ImageDraw.Draw(image)
+        for obj in objs:
+            x_min, y_min, x_max, y_max = (
+                obj["x_min"] * image.width,
+                obj["y_min"] * image.height,
+                obj["x_max"] * image.width,
+                obj["y_max"] * image.height,
+            )
+            draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
+        image.save("detect.jpg")
     else:
         model.compile()
 
