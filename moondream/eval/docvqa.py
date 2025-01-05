@@ -8,12 +8,14 @@ from ..torch.config import MoondreamConfig
 from ..torch.moondream import MoondreamModel
 from ..torch.weights import load_weights_into_model
 
+
 def get_anls(s1, s2):
     s1 = s1.lower().strip()
     s2 = s2.lower().strip()
     iou = 1 - editdistance.eval(s1, s2) / max(len(s1), len(s2))
     anls = iou if iou >= 0.5 else 0.0
     return anls
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
