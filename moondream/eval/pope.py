@@ -21,7 +21,7 @@ if __name__ == "__main__":
     config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
-    model.compile()
+    # model.compile()
 
     pope_dataset = load_dataset("vikhyatk/POPE", split="test")
 
@@ -39,7 +39,7 @@ if __name__ == "__main__":
                 question = qa["question"]
                 answer = qa["answer"]
                 prompt = f"{question}\nAnswer yes or no."
-                model_answer = model.query(encoded_image, prompt)["answer"]
+                model_answer = model.query(encoded_image, prompt)["answer"].strip()
 
                 if args.debug:
                     print(f"Split: {split}")

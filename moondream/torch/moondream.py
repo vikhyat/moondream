@@ -84,9 +84,10 @@ class MoondreamModel(nn.Module):
         self.ops["vision_encoder"] = torch.compile(
             self.ops["vision_encoder"], fullgraph=True
         )
-        self.ops["vision_projection"] = torch.compile(
-            self.ops["vision_projection"], fullgraph=True
-        )
+        # Need to figure out how to mark the 'reconstructed' input shape as dynamic
+        # self.ops["vision_projection"] = torch.compile(
+        #     self.ops["vision_projection"], fullgraph=True
+        # )
         self.ops["prefill"] = torch.compile(self.ops["prefill"], fullgraph=True)
         self.ops["decode_one_token"] = torch.compile(
             self.ops["decode_one_token"], fullgraph=True
@@ -171,7 +172,9 @@ class MoondreamModel(nn.Module):
 
         # Decode logits one by one.
         def generator(next_token, pos):
-            while (next_token_id := next_token.item()) != self.config.tokenizer.eos_id:
+            while (
+                next_token_id := next_token.item()
+            ) != self.config.tokenizer.eos_id and pos < self.config.text.max_context:
                 yield self.tokenizer.decode([next_token_id])
 
                 with torch.no_grad():

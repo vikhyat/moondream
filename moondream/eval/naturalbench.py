@@ -45,17 +45,17 @@ if __name__ == "__main__":
             row["Question_1"] + suffix,
         ]
         expected = [
-            row["Image_0_Question_0"],
-            row["Image_1_Question_0"],
-            row["Image_0_Question_1"],
-            row["Image_1_Question_1"],
+            row["Image_0_Question_0"].strip().lower(),
+            row["Image_1_Question_0"].strip().lower(),
+            row["Image_0_Question_1"].strip().lower(),
+            row["Image_0_Question_1"].strip().lower(),
         ]
 
         answers = []
         for img, prompt in zip(images, prompts):
             encoded_image = model.encode_image(img)
             answer = model.query(encoded_image, prompt)["answer"]
-            answers.append(answer)
+            answers.append(answer.strip().lower())
 
         if args.debug:
             for i, (q, a, e) in enumerate(zip(prompts, answers, expected)):

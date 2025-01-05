@@ -8,3 +8,7 @@ torchvision==0.18.1
 transformers==4.44.0
 einops==0.8.0
 gradio==4.38.1
+
+# Needed for running evals
+datasets==3.2.0
+editdistance==0.8.1
