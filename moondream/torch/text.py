@@ -102,14 +102,13 @@ def prefill(
 
 
 def decode_one_token(
-    last_token: torch.Tensor,
+    token_emb: torch.Tensor,
     kv_cache: torch.Tensor,
     pos: int,
     w: nn.Module,
     config: TextConfig,
 ):
-    token_emb = text_encoder(last_token[None], w)
-    hidden, kv_cache_update = text_decoder(token_emb, w, kv_cache, pos, config)
+    hidden, kv_cache_update = text_decoder(token_emb[None], w, kv_cache, pos, config)
     logits = lm_head(hidden, w)
     return logits, hidden, kv_cache_update
 
@@ -161,7 +160,7 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
     attn_mask = torch.tril(
         torch.ones(1, 1, config.max_context, config.max_context, dtype=torch.bool)
     )
-    # attn_mask[..., :730, :730] = 1
+    attn_mask[..., :730, :730] = 1
     text.register_buffer("attn_mask", attn_mask, persistent=False)
 
     return text

@@ -10,6 +10,7 @@ from .config import MoondreamConfig
 from .image_crops import reconstruct_from_crops
 from .vision import vision_encoder, vision_projection, prepare_crops, build_vision_model
 from .text import build_text_model, prefill, text_encoder, lm_head, decode_one_token
+from .region import decode_coordinate, encode_coordinate, decode_size, encode_size
 
 
 @dataclass(frozen=True)
@@ -167,8 +168,9 @@ class MoondreamModel(nn.Module):
                 yield self.tokenizer.decode([next_token_id])
 
                 with torch.no_grad():
-                    logits, hidden, kv_cache_update = self.ops["decode_one_token"](
-                        next_token, kv_cache, pos, self.text, self.config.text
+                    next_emb = text_encoder(next_token, self.text)
+                    logits, _, kv_cache_update = self.ops["decode_one_token"](
+                        next_emb, kv_cache, pos, self.text, self.config.text
                     )
                     kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
                         kv_cache_update
@@ -227,9 +229,9 @@ class MoondreamModel(nn.Module):
                 yield token
 
         if stream:
-            return {"answer": generator()}
+            return {"caption": generator()}
         else:
-            return {"answer": "".join(list(generator()))}
+            return {"caption": "".join(list(generator()))}
 
     def detect(self, image: Union[Image.Image, EncodedImage], object: str):
         if self.config.tokenizer.templates["detect"] is None:
@@ -249,12 +251,67 @@ class MoondreamModel(nn.Module):
         _, hidden, next_token, pos = self._prefill_prompt(
             kv_cache, prompt_tokens, image.pos
         )
+        hidden = hidden[:, -1:, :]
 
         objects = []
 
-        # while (
-        #     next_token_id := next_token.item()
-        # ) != self.config.tokenizer.eos_id and len(objects) < 50:
-        #     # Decode three tokens for the center coordinates and size.
+        with torch.no_grad():
+            while (
+                next_token.item() != self.config.tokenizer.eos_id and len(objects) < 50
+            ):
+                x_logits = decode_coordinate(hidden, self.region)
+                x_center = torch.argmax(x_logits, dim=-1) / x_logits.size(-1)
+                next_emb = encode_coordinate(
+                    x_center.to(dtype=x_logits.dtype), self.region
+                )
+
+                # Decode y-coordinate
+                _, hidden, kv_cache_update = self.ops["decode_one_token"](
+                    next_emb, kv_cache, pos, self.text, self.config.text
+                )
+                kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
+                    kv_cache_update
+                )
+                pos += 1
+                y_logits = decode_coordinate(hidden, self.region)
+                y_center = torch.argmax(y_logits, dim=-1) / y_logits.size(-1)
+                next_emb = encode_coordinate(
+                    y_center.to(dtype=y_logits.dtype), self.region
+                )
+
+                # Decode size
+                logits, hidden, kv_cache_update = self.ops["decode_one_token"](
+                    next_emb, kv_cache, pos, self.text, self.config.text
+                )
+                kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
+                    kv_cache_update
+                )
+                pos += 1
+                size_logits = decode_size(hidden, self.region)
+                w = torch.argmax(size_logits[0], dim=-1) / size_logits.size(-1)
+                h = torch.argmax(size_logits[1], dim=-1) / size_logits.size(-1)
+                next_emb = encode_size(
+                    torch.tensor([w, h], dtype=size_logits.dtype), self.region
+                )[None]
+
+                # Add object
+                objects.append(
+                    {
+                        "x_min": x_center.item() - w.item() / 2,
+                        "y_min": y_center.item() - h.item() / 2,
+                        "x_max": x_center.item() + w.item() / 2,
+                        "y_max": y_center.item() + h.item() / 2,
+                    }
+                )
+
+                # Decode next token (x-coordinate, or eos)
+                logits, hidden, kv_cache_update = self.ops["decode_one_token"](
+                    next_emb, kv_cache, pos, self.text, self.config.text
+                )
+                kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
+                    kv_cache_update
+                )
+                pos += 1
+                next_token = torch.argmax(logits, dim=-1)
 
         return {"objects": objects}
