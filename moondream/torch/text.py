@@ -160,7 +160,8 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
     attn_mask = torch.tril(
         torch.ones(1, 1, config.max_context, config.max_context, dtype=torch.bool)
     )
-    attn_mask[..., :730, :730] = 1
+    if config.prefix_attn != 0:
+        attn_mask[..., : config.prefix_attn, : config.prefix_attn] = 1
     text.register_buffer("attn_mask", attn_mask, persistent=False)
 
     return text

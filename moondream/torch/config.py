@@ -9,6 +9,7 @@ class TextConfig:
     vocab_size: int = 51200
     max_context: int = 2048
     n_heads: int = 32
+    prefix_attn: int = 730
 
 
 @dataclass(frozen=True)
