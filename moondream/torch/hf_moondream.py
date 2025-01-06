@@ -3,6 +3,11 @@ from transformers import PreTrainedModel, PretrainedConfig
 from .config import MoondreamConfig
 from .moondream import MoondreamModel
 
+# Files sometimes don't get loaded without these...
+from .image_crops import *
+from .vision import *
+from .text import *
+from .region import *
 
 class HfConfig(PretrainedConfig):
     _auto_class = "AutoConfig"
@@ -60,7 +65,7 @@ class HfMoondream(PreTrainedModel):
     def batch_answer(self, images, prompts, tokenizer=None, **kwargs):
         answers = []
         for image, prompt in zip(images, prompts):
-            answers.append(self.query(image, prompt).strip())
+            answers.append(self.query(image, prompt)["answer"].strip())
         return answers
 
     def _unsupported_exception(self):
