@@ -462,7 +462,6 @@ def load_weights_into_model(weights_file: str, model: nn.Module) -> None:
     else:
         load_weights_from_pt(weights_file, model)
 
-
-if __name__ == "__main__":
-    weights = load_from_safetensors("model.safetensors")
-    print(weights)
+    # Make all parameters contiguous
+    for param in model.parameters():
+        param.data = param.data.contiguous()
