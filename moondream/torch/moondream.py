@@ -24,7 +24,9 @@ class MoondreamModel(nn.Module):
         super().__init__()
         self.config = config
 
-        self.tokenizer = Tokenizer.from_pretrained("vikhyatk/moondream-next")
+        self.tokenizer = Tokenizer.from_pretrained(
+            "vikhyatk/moondream2", revision="2024-08-26"
+        )
         self.vision = build_vision_model(config.vision, dtype)
         self.text = build_text_model(config.text, dtype)
 
@@ -282,7 +284,10 @@ class MoondreamModel(nn.Module):
                     w = torch.argmax(size_logits[0], dim=-1) / size_logits.size(-1)
                     h = torch.argmax(size_logits[1], dim=-1) / size_logits.size(-1)
                     next_emb = encode_size(
-                        torch.tensor([w, h], dtype=size_logits.dtype), self.region
+                        torch.tensor(
+                            [w, h], device=self.device, dtype=size_logits.dtype
+                        ),
+                        self.region,
                     )[None]
 
                     # Add object
@@ -319,7 +324,8 @@ class MoondreamModel(nn.Module):
                 self.config.tokenizer.templates["detect"]["prefix"]
                 + self.tokenizer.encode(object).ids
                 + self.config.tokenizer.templates["detect"]["suffix"]
-            ]
+            ],
+            device=self.device,
         )
 
         kv_cache = image.kv_cache.clone()
@@ -344,7 +350,8 @@ class MoondreamModel(nn.Module):
                 self.config.tokenizer.templates["point"]["prefix"]
                 + self.tokenizer.encode(object).ids
                 + self.config.tokenizer.templates["point"]["suffix"]
-            ]
+            ],
+            device=self.device,
         )
 
         kv_cache = image.kv_cache.clone()
