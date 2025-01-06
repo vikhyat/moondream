@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from typing import Literal, Union
+from typing import Literal, Tuple, Union
 from PIL import Image
 from dataclasses import dataclass
 from tokenizers import Tokenizer
@@ -365,3 +365,48 @@ class MoondreamModel(nn.Module):
         )
 
         return {"points": objects}
+
+    def detect_gaze(
+        self, image: Union[Image.Image, EncodedImage], source: Tuple[float, float]
+    ):
+        with torch.no_grad():
+            image = self.encode_image(image)
+            before_emb = text_encoder(
+                torch.tensor(
+                    [self.tokenizer.encode("\n\nPoint:").ids], device=self.device
+                ),
+                self.text,
+            )
+            after_emb = text_encoder(
+                torch.tensor(
+                    [self.tokenizer.encode(" gaze\n\n").ids], device=self.device
+                ),
+                self.text,
+            )
+            x_emb = encode_coordinate(
+                torch.tensor([[[source[0]]]], device=self.device, dtype=torch.float16),
+                self.region,
+            )
+            y_emb = encode_coordinate(
+                torch.tensor([[[source[1]]]], device=self.device, dtype=torch.float16),
+                self.region,
+            )
+
+            prompt_emb = torch.cat([before_emb, x_emb, y_emb, after_emb], dim=1)
+
+            kv_cache = image.kv_cache.clone()
+            hidden = self.ops["prefill"](
+                prompt_emb, kv_cache, image.pos, self.text, self.config.text
+            )
+            logits = lm_head(hidden, self.text)
+            next_token = torch.argmax(logits, dim=-1)
+            pos = image.pos + prompt_emb.size(1)
+            hidden = hidden[:, -1:, :]
+
+            if next_token.item() == self.config.tokenizer.eos_id:
+                return None
+
+            gaze = self._generate_points(
+                hidden, kv_cache, next_token, pos, include_size=False, max_points=1
+            )
+            return gaze[0]
