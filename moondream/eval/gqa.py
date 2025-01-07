@@ -53,7 +53,7 @@ def evaluate_gqa_answer(prediction: str, ground_truth: str) -> bool:
     return pred == truth
 
 
-PREFIX = "Look at the image carefully and answer the question. Answer in a word or short phrase only. "
+PREFIX = "Consider both visual features and relationships, and think carefully before providing the final answer. "
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
