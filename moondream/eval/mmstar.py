@@ -49,7 +49,7 @@ if __name__ == "__main__":
             correct += 1
             category_stats[category]["correct"] += 1
         elif args.debug:
-            print(f"Index: {row['image_path']}")
+            print(f"Index: {row['index']}")
             print(f"Question: {row['question']}")
             print(f"Answer: {answer}")
             print(f"Model Answer: {model_answer}")
