@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
+import random
 
-from typing import Literal, Tuple, Union
+from typing import Literal, Tuple, Union, Dict, Any, Optional
 from PIL import Image
 from dataclasses import dataclass
 from tokenizers import Tokenizer
@@ -11,6 +12,7 @@ from .image_crops import reconstruct_from_crops
 from .vision import vision_encoder, vision_projection, prepare_crops, build_vision_model
 from .text import build_text_model, prefill, text_encoder, lm_head, decode_one_token
 from .region import decode_coordinate, encode_coordinate, decode_size, encode_size
+from .utils import remove_outlier_points
 
 
 @dataclass(frozen=True)
@@ -366,11 +368,13 @@ class MoondreamModel(nn.Module):
 
         return {"points": objects}
 
-    def detect_gaze(
-        self, image: Union[Image.Image, EncodedImage], source: Tuple[float, float]
+    def _detect_gaze(
+        self,
+        image: EncodedImage,
+        source: Tuple[float, float],
+        force_detect: bool = False,
     ):
         with torch.no_grad():
-            image = self.encode_image(image)
             before_emb = text_encoder(
                 torch.tensor(
                     [self.tokenizer.encode("\n\nPoint:").ids], device=self.device
@@ -403,6 +407,9 @@ class MoondreamModel(nn.Module):
             pos = image.pos + prompt_emb.size(1)
             hidden = hidden[:, -1:, :]
 
+            if force_detect:
+                next_token = torch.tensor([[0]], device=self.device)
+
             if next_token.item() == self.config.tokenizer.eos_id:
                 return None
 
@@ -410,3 +417,94 @@ class MoondreamModel(nn.Module):
                 hidden, kv_cache, next_token, pos, include_size=False, max_points=1
             )
             return gaze[0]
+
+    def detect_gaze(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        eye: Optional[Tuple[float, float]] = None,
+        face: Optional[Dict[str, float]] = None,
+        unstable_settings: Dict[str, Any] = {},
+    ):
+        if "force_detect" in unstable_settings:
+            force_detect = unstable_settings["force_detect"]
+        else:
+            force_detect = False
+
+        if "prioritize_accuracy" in unstable_settings:
+            prioritize_accuracy = unstable_settings["prioritize_accuracy"]
+        else:
+            prioritize_accuracy = False
+
+        if not prioritize_accuracy:
+            if eye is None:
+                raise ValueError("eye must be provided when prioritize_accuracy=False")
+            image = self.encode_image(image)
+            return {"gaze": self._detect_gaze(image, eye, force_detect=force_detect)}
+        else:
+            if (
+                not isinstance(image, Image.Image)
+                and "flip_enc_img" not in unstable_settings
+            ):
+                raise ValueError(
+                    "image must be a PIL Image when prioritize_accuracy=True, "
+                    "or flip_enc_img must be provided"
+                )
+            if face is None:
+                raise ValueError("face must be provided when prioritize_accuracy=True")
+
+            encoded_image = self.encode_image(image)
+            if (
+                isinstance(image, Image.Image)
+                and "flip_enc_img" not in unstable_settings
+            ):
+                flipped_pil = image.copy()
+                flipped_pil = flipped_pil.transpose(method=Image.FLIP_LEFT_RIGHT)
+                encoded_flipped_image = self.encode_image(flipped_pil)
+            else:
+                encoded_flipped_image = unstable_settings["flip_enc_img"]
+
+            N = 10
+
+            detections = [
+                self._detect_gaze(
+                    encoded_image,
+                    (
+                        random.uniform(face["x_min"], face["x_max"]),
+                        random.uniform(face["y_min"], face["y_max"]),
+                    ),
+                    force_detect=force_detect,
+                )
+                for _ in range(N)
+            ]
+            detections = [
+                (gaze["x"], gaze["y"]) for gaze in detections if gaze is not None
+            ]
+            flipped_detections = [
+                self._detect_gaze(
+                    encoded_flipped_image,
+                    (
+                        1 - random.uniform(face["x_min"], face["x_max"]),
+                        random.uniform(face["y_min"], face["y_max"]),
+                    ),
+                    force_detect=force_detect,
+                )
+                for _ in range(N)
+            ]
+            detections.extend(
+                [
+                    (1 - gaze["x"], gaze["y"])
+                    for gaze in flipped_detections
+                    if gaze is not None
+                ]
+            )
+
+            if len(detections) < N:
+                return {"gaze": None}
+
+            detections = remove_outlier_points(detections)
+            mean_gaze = (
+                sum(gaze[0] for gaze in detections) / len(detections),
+                sum(gaze[1] for gaze in detections) / len(detections),
+            )
+
+            return {"gaze": {"x": mean_gaze[0], "y": mean_gaze[1]}}

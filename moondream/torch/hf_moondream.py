@@ -8,6 +8,7 @@ from .image_crops import *
 from .vision import *
 from .text import *
 from .region import *
+from .utils import *
 
 class HfConfig(PretrainedConfig):
     _auto_class = "AutoConfig"
@@ -45,6 +46,10 @@ class HfMoondream(PreTrainedModel):
     @property
     def point(self):
         return self.model.point
+
+    @property
+    def detect_gaze(self):
+        return self.model.detect_gaze
 
     def answer_question(
         self,
