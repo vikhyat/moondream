@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import random
 
-from typing import Literal, Tuple, Union, Dict, Any, Optional
+from typing import Literal, Tuple, TypedDict, Union, Dict, Any, Optional
 from PIL import Image
 from dataclasses import dataclass
 from tokenizers import Tokenizer
@@ -13,6 +13,15 @@ from .vision import vision_encoder, vision_projection, prepare_crops, build_visi
 from .text import build_text_model, prefill, text_encoder, lm_head, decode_one_token
 from .region import decode_coordinate, encode_coordinate, decode_size, encode_size
 from .utils import remove_outlier_points
+
+
+SamplingSettings = TypedDict(
+    "SamplingSettings",
+    {"max_tokens": int},
+    total=False,
+)
+
+DEFAULT_MAX_TOKENS = 512
 
 
 @dataclass(frozen=True)
@@ -160,15 +169,21 @@ class MoondreamModel(nn.Module):
         return logits, hidden, next_token, pos
 
     def _generate_text(
-        self, prompt_tokens: torch.Tensor, kv_cache: torch.Tensor, pos: int
+        self,
+        prompt_tokens: torch.Tensor,
+        kv_cache: torch.Tensor,
+        pos: int,
+        max_tokens: int,
     ):
         kv_cache = kv_cache.clone()
         _, _, next_token, pos = self._prefill_prompt(kv_cache, prompt_tokens, pos)
 
         def generator(next_token, pos):
+            generated_tokens = 0
+
             while (
                 next_token_id := next_token.item()
-            ) != self.config.tokenizer.eos_id and pos < self.config.text.max_context:
+            ) != self.config.tokenizer.eos_id and generated_tokens < max_tokens:
                 yield self.tokenizer.decode([next_token_id])
 
                 with torch.no_grad():
@@ -181,6 +196,7 @@ class MoondreamModel(nn.Module):
                     )
                     pos += 1
                     next_token = torch.argmax(logits, dim=-1)
+                    generated_tokens += 1
 
         return generator(next_token, pos)
 
@@ -189,6 +205,7 @@ class MoondreamModel(nn.Module):
         image: Union[Image.Image, EncodedImage],
         question: str,
         stream: bool = False,
+        settings: Optional[SamplingSettings] = None,
     ):
         if self.config.tokenizer.templates["query"] is None:
             raise NotImplementedError("Model does not support querying.")
@@ -203,8 +220,12 @@ class MoondreamModel(nn.Module):
             device=self.device,
         )
 
+        max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
+
         def generator():
-            for token in self._generate_text(prompt_tokens, image.kv_cache, image.pos):
+            for token in self._generate_text(
+                prompt_tokens, image.kv_cache, image.pos, max_tokens
+            ):
                 yield token
 
         if stream:
@@ -217,6 +238,7 @@ class MoondreamModel(nn.Module):
         image: Union[Image.Image, EncodedImage],
         length: Literal["normal", "short"] = "normal",
         stream: bool = False,
+        settings: Optional[SamplingSettings] = None,
     ):
         if self.config.tokenizer.templates["caption"] is None:
             raise NotImplementedError("Model does not support captioning.")
@@ -228,8 +250,12 @@ class MoondreamModel(nn.Module):
             [self.config.tokenizer.templates["caption"][length]], device=self.device
         )
 
+        max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
+
         def generator():
-            for token in self._generate_text(prompt_tokens, image.kv_cache, image.pos):
+            for token in self._generate_text(
+                prompt_tokens, image.kv_cache, image.pos, max_tokens
+            ):
                 yield token
 
         if stream:
@@ -316,7 +342,12 @@ class MoondreamModel(nn.Module):
 
         return out
 
-    def detect(self, image: Union[Image.Image, EncodedImage], object: str):
+    def detect(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        settings: Optional[SamplingSettings] = None,
+    ):
         if self.config.tokenizer.templates["detect"] is None:
             raise NotImplementedError("Model does not support object detection.")
 
@@ -342,7 +373,12 @@ class MoondreamModel(nn.Module):
 
         return {"objects": objects}
 
-    def point(self, image: Union[Image.Image, EncodedImage], object: str):
+    def point(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        settings: Optional[SamplingSettings] = None,
+    ):
         if self.config.tokenizer.templates["point"] is None:
             raise NotImplementedError("Model does not support pointing.")
 
