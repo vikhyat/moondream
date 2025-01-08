@@ -38,7 +38,7 @@ if __name__ == "__main__":
         encoded_image = model.encode_image(image)
         question = PREFIX_TEXTVQA + row["question"]
         model_answer = model.query(encoded_image, question)["answer"]
-        
+
         score = scorer.compute_score(model_answer, row["answers"])
         total_score += score
         total_samples += 1

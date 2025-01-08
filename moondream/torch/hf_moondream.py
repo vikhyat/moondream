@@ -10,6 +10,7 @@ from .text import *
 from .region import *
 from .utils import *
 
+
 class HfConfig(PretrainedConfig):
     _auto_class = "AutoConfig"
     model_type = "moondream1"
