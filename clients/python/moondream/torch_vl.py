@@ -1,21 +1,12 @@
 from typing import Literal, Optional, Union
 
-from PIL import Image
 import torch
+from PIL import Image
 
-from .torch.moondream import MoondreamModel, MoondreamConfig
+from .torch.moondream import MoondreamConfig, MoondreamModel
 from .torch.weights import load_weights_into_model
-from .types import (
-    VLM,
-    Base64EncodedImage,
-    CaptionOutput,
-    DetectOutput,
-    EncodedImage,
-    PointOutput,
-    QueryOutput,
-    SamplingSettings,
-)
-
+from .types import (VLM, Base64EncodedImage, CaptionOutput, DetectOutput,
+                    EncodedImage, PointOutput, QueryOutput, SamplingSettings)
 from .version import __version__
 
 
