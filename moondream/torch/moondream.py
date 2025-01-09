@@ -225,7 +225,6 @@ class MoondreamModel(nn.Module):
         if settings:
             max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
-
         def generator():
             for token in self._generate_text(
                 prompt_tokens, image.kv_cache, image.pos, max_tokens

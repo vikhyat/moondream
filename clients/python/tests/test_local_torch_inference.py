@@ -1,36 +1,56 @@
-import moondream as md
+import os
+import pytest
 from PIL import Image
+import moondream as md
+
+MODEL_PATH = os.path.join(
+    os.path.dirname(__file__), "test_data", "moondream-01-08-2025.safetensors"
+)
+TEST_IMAGE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+    "assets",
+    "demo-1.jpg",
+)
 
 
-def test_torch_model():
-    # Initialize with local model
-    vl = md.vl(
-        model="/Users/caleb/Projects/moondream/moondream-playground-inf/src/ai-models/05/moondream-01-08-2025.safetensors"
-    )
-
-    # Load an image
-    image = Image.open("/Users/caleb/Projects/moondream/moondream/assets/demo-1.jpg")
-
-    # Test caption
-    print("\nTesting caption:")
-    result = vl.caption(image, length="normal")
-    print(f"Caption: {result['caption']}")
-
-    # Test query
-    print("\nTesting query:")
-    result = vl.query(image, "What is in this image?")
-    print(f"Answer: {result['answer']}")
-
-    # Test detect
-    print("\nTesting detect:")
-    result = vl.detect(image, "person")
-    print(f"Found {len(result['objects'])} instances")
-
-    # Test point
-    print("\nTesting point:")
-    result = vl.point(image, "face")
-    print(f"Found {len(result['points'])} points")
+@pytest.fixture
+def model():
+    return md.vl(model=MODEL_PATH)
 
 
-if __name__ == "__main__":
-    test_torch_model()
+@pytest.fixture
+def test_image():
+    return Image.open(TEST_IMAGE_PATH)
+
+
+def test_image_captioning(model, test_image):
+    # Test normal length caption
+    result = model.caption(test_image, length="normal")
+    assert "caption" in result
+    assert isinstance(result["caption"], str)
+    assert len(result["caption"]) > 0
+
+    # Test short length caption
+    result = model.caption(test_image, length="short")
+    assert "caption" in result
+    assert isinstance(result["caption"], str)
+    assert len(result["caption"]) > 0
+
+
+def test_query(model, test_image):
+    result = model.query(test_image, "What is in this image?")
+    assert "answer" in result
+    assert isinstance(result["answer"], str)
+    assert len(result["answer"]) > 0
+
+
+def test_detect(model, test_image):
+    result = model.detect(test_image, "person")
+    assert "objects" in result
+    assert isinstance(result["objects"], list)
+
+
+def test_point(model, test_image):
+    result = model.point(test_image, "face")
+    assert "points" in result
+    assert isinstance(result["points"], list)
