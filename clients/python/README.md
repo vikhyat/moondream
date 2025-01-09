@@ -17,7 +17,7 @@ local inference and cloud-based API access.
 Install the package from PyPI:
 
 ```bash
-pip install moondream==0.0.5
+pip install moondream==0.0.6
 ```
 
 ## Quick Start
@@ -159,6 +159,12 @@ All methods return typed dictionaries:
 - Local inference currently only supports CPU execution
 - CUDA (GPU) and MPS (Apple Silicon) support coming soon
 - For optimal performance with GPU/MPS, use the PyTorch implementation for now
+
+## Development Notes
+
+- Copy the torch implementation from the root moondream repo into the `torch` directory
+- Run `poetry install --extras "gpu"` to install the GPU dependencies
+- Run `poetry install --extras "cpu"` to install the CPU dependencies
 
 ## Links
 

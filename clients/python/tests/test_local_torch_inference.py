@@ -3,9 +3,7 @@ import pytest
 from PIL import Image
 import moondream as md
 
-MODEL_PATH = os.path.join(
-    os.path.dirname(__file__), "test_data", "moondream-01-08-2025.safetensors"
-)
+MODEL_PATH = "/Users/caleb/Projects/moondream/moondream-playground-inf/src/ai-models/05/moondream-01-08-2025.safetensors"
 TEST_IMAGE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
     "assets",
