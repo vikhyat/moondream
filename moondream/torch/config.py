@@ -24,7 +24,7 @@ class VisionConfig:
     in_channels: int = 3
     max_crops: int = 12
     overlap_margin: int = 4
-    hid_dim: int = 8192
+    proj_inner_dim: int = 8192
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ class RegionConfig:
     coord_out_dim: int = 1024
     size_feat_dim: int = 512
     size_out_dim: int = 2048
-    hid_dim: int = 8192
+    inner_dim: int = 8192
 
 
 @dataclass(frozen=True)

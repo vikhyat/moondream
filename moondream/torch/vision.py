@@ -117,8 +117,12 @@ def build_vision_model(config: VisionConfig, dtype: torch.dtype):
             "post_ln": nn.LayerNorm(config.enc_dim, dtype=dtype),
             "proj_mlp": nn.ModuleDict(
                 {
-                    "fc1": nn.Linear(config.enc_dim * 2, config.hid_dim, dtype=dtype),
-                    "fc2": nn.Linear(config.hid_dim, config.proj_out_dim, dtype=dtype),
+                    "fc1": nn.Linear(
+                        config.enc_dim * 2, config.proj_inner_dim, dtype=dtype
+                    ),
+                    "fc2": nn.Linear(
+                        config.proj_inner_dim, config.proj_out_dim, dtype=dtype
+                    ),
                 }
             ),
         }

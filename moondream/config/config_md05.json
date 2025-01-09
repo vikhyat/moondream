@@ -18,7 +18,7 @@
         "in_channels": 3,
         "max_crops": 12,
         "overlap_margin": 4,
-        "hid_dim": 8192
+        "proj_inner_dim": 8192
     },
     "region": {
         "dim": 1024,
@@ -26,7 +26,7 @@
         "coord_out_dim": 1024,
         "size_feat_dim": 512,
         "size_out_dim": 2048,
-        "hid_dim": 8192
+        "inner_dim": 8192
     },
     "tokenizer": {
         "bos_id": 50256,

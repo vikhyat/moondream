@@ -81,10 +81,10 @@ class MoondreamModel(nn.Module):
                 "coord_decoder": nn.ModuleDict(
                     {
                         "fc1": nn.Linear(
-                            config.region.dim, config.region.hid_dim, dtype=dtype
+                            config.region.dim, config.region.inner_dim, dtype=dtype
                         ),
                         "fc2": nn.Linear(
-                            config.region.hid_dim,
+                            config.region.inner_dim,
                             config.region.coord_out_dim,
                             dtype=dtype,
                         ),
@@ -96,10 +96,10 @@ class MoondreamModel(nn.Module):
                 "size_decoder": nn.ModuleDict(
                     {
                         "fc1": nn.Linear(
-                            config.region.dim, config.region.hid_dim, dtype=dtype
+                            config.region.dim, config.region.inner_dim, dtype=dtype
                         ),
                         "fc2": nn.Linear(
-                            config.region.hid_dim,
+                            config.region.inner_dim,
                             config.region.size_out_dim,
                             dtype=dtype,
                         ),
