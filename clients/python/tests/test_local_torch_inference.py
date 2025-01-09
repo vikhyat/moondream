@@ -51,6 +51,7 @@ def test_image_captioning(model, test_image):
     assert len(caption) > 0
     assert num_chunks > 1
 
+
 def test_query(model, test_image):
     result = model.query(test_image, "What is in this image?")
     assert "answer" in result

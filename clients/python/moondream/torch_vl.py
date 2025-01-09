@@ -49,7 +49,7 @@ class TorchVL(VLM):
 
         if not self.model:
             raise ValueError("No local model loaded")
-            
+
         # When using local model, ensure image is on the same device as model
         image = image.to(self.device) if hasattr(image, "to") else image
         return self.model.encode_image(image)
@@ -63,11 +63,9 @@ class TorchVL(VLM):
     ) -> CaptionOutput:
         if not self.model:
             raise ValueError("No local model loaded")
-            
+
         encoded_image = (
-            self.model.encode_image(image)
-            if isinstance(image, Image.Image)
-            else image
+            self.model.encode_image(image) if isinstance(image, Image.Image) else image
         )
         return self.model.caption(
             encoded_image, length=length, stream=stream, settings=settings
@@ -82,11 +80,9 @@ class TorchVL(VLM):
     ) -> QueryOutput:
         if not self.model:
             raise ValueError("No local model loaded")
-            
+
         encoded_image = (
-            self.model.encode_image(image)
-            if isinstance(image, Image.Image)
-            else image
+            self.model.encode_image(image) if isinstance(image, Image.Image) else image
         )
         return self.model.query(
             encoded_image, question, stream=stream, settings=settings
@@ -99,11 +95,9 @@ class TorchVL(VLM):
     ) -> DetectOutput:
         if not self.model:
             raise ValueError("No local model loaded")
-            
+
         encoded_image = (
-            self.model.encode_image(image)
-            if isinstance(image, Image.Image)
-            else image
+            self.model.encode_image(image) if isinstance(image, Image.Image) else image
         )
         return self.model.detect(encoded_image, object)
 
@@ -114,10 +108,8 @@ class TorchVL(VLM):
     ) -> PointOutput:
         if not self.model:
             raise ValueError("No local model loaded")
-            
+
         encoded_image = (
-            self.model.encode_image(image)
-            if isinstance(image, Image.Image)
-            else image
+            self.model.encode_image(image) if isinstance(image, Image.Image) else image
         )
         return self.model.point(encoded_image, object)
