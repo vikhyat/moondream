@@ -40,8 +40,6 @@ jobs:
     - name: Install dependencies
       working-directory: ./clients/python
       run: |
-        python -m pip install --upgrade pip
-        py
         poetry install --all-extras
     
     - name: Format code
