@@ -226,7 +226,7 @@ class MoondreamModel(nn.Module):
                         kv_cache_update
                     )
                     pos += 1
-                    next_token = _min_p_sampler(logits)
+                    next_token = torch.argmax(logits, dim=-1)
                     generated_tokens += 1
 
         return generator(next_token, pos)
