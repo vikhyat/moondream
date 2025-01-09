@@ -1,32 +1,32 @@
+[build-system]
+requires = [ "poetry-core",]
+build-backend = "poetry.core.masonry.api"
+
 [tool.poetry]
-name = "moondream"
-version = "0.0.5"
+version = "0.0.2"
 description = "Python client library for moondream"
-authors = ["vik <vik@moondream.ai>"]
+authors = [ "vik <vik@moondream.ai>",]
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.10"
-pillow = "^10.4.0"
-onnxruntime = "^1.19.2"
-numpy = "^2.1.2"
-onnx = "^1.17.0"
-tokenizers = "^0.20.1"
-
-[tool.poetry.scripts]
-moondream = "moondream.cli:main"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.4"
-pytest-asyncio = "^0.25.1"
-requests = "^2.32.3"
-black = "^24.10.0"
+name = "moondream"
+[[tool.poetry.packages]]
+include = "moondream"
+from = "."
 
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
 reportMissingParameterType = false
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry.dependencies]
+python = "^3.10"
+pillow = "^10.4.0"
+numpy = "^2.1.2"
+tokenizers = "^0.20.1"
+torch = "^2.2.0"
+safetensors = "^0.4.2"
+einops = "^0.7.0"
+pyvips = "^2.2.1"
+onnxruntime = "^1.19.2"
+
+[tool.poetry.scripts]
+moondream = "moondream.cli:main"

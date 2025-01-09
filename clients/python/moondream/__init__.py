@@ -2,6 +2,7 @@ from typing import Optional
 
 from .cloud_vl import CloudVL
 from .onnx_vl import OnnxVL
+from .torch_vl import TorchVL
 from .types import VLM
 
 DEFAULT_API_URL = "https://api.moondream.ai/v1"
@@ -12,9 +13,13 @@ def vl(
     model: Optional[str] = None,
     api_key: Optional[str] = None,
     api_url: Optional[str] = None,
+    torch_model: Optional[bool] = False,
 ) -> VLM:
     if model:
-        return OnnxVL.from_path(model)
+        if torch_model:
+            return TorchVL(model=model)
+        else:
+            return OnnxVL.from_path(model)
 
     if api_key:
         if not api_url:
