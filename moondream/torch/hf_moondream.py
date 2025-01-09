@@ -81,8 +81,15 @@ class HfMoondream(PreTrainedModel):
             "to 'revision=2024-08-26'."
         )
 
-    def generate(self, *args, **kwargs):
-        self._unsupported_exception()
+    def generate(self, image_embeds, prompt, tokenizer, max_new_tokens=128, **kwargs):
+        """
+        Function definition remains unchanged for backwards compatibility.
+        Be aware that tokenizer, max_new_takens, and kwargs are ignored.
+        """
+        answer = self.model.query(image=image_embeds, question=prompt, stream=False)[
+            "answer"
+        ]
+        return [answer]
 
     def get_input_embeddings(self):
         return super().get_input_embeddings()
