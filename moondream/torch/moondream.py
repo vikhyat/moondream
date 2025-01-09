@@ -221,7 +221,6 @@ class MoondreamModel(nn.Module):
         )
 
         max_tokens = DEFAULT_MAX_TOKENS
-
         if settings:
             max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
@@ -254,7 +253,6 @@ class MoondreamModel(nn.Module):
         )
 
         max_tokens = DEFAULT_MAX_TOKENS
-
         if settings:
             max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
