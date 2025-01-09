@@ -30,6 +30,37 @@ class EncodedImage:
     kv_cache: torch.Tensor
 
 
+def _min_p_sampler(
+    logits: torch.Tensor,
+    min_p: float = 0.1,
+    filter_value: float = 0,
+    min_tokens_to_keep: int = 1,
+    temp=0.5,
+) -> torch.Tensor:
+    """
+    Min-p sampler adapted from https://github.com/oobabooga/text-generation-webui/blob/3146124ec01f02c8fb1650a6517cf1b60b537aaf/modules/sampler_hijack.py#L16C17-L16C17
+    https://arxiv.org/pdf/2407.01082
+    """
+    logits = logits / temp
+    probs = torch.softmax(logits, dim=-1)
+    top_probs, _ = probs.max(dim=-1, keepdim=True)
+    scaled_min_p = min_p * top_probs
+    tokens_to_remove = probs < scaled_min_p
+    sorted_indices = torch.argsort(logits, descending=True, dim=-1)
+    sorted_indices_to_remove = torch.gather(
+        tokens_to_remove, dim=-1, index=sorted_indices
+    )
+    if min_tokens_to_keep > 1:
+        sorted_indices_to_remove[..., :min_tokens_to_keep] = False
+
+    indices_to_remove = sorted_indices_to_remove.scatter(
+        1, sorted_indices, sorted_indices_to_remove
+    )
+    logits = logits.masked_fill(indices_to_remove, filter_value)
+    token = torch.multinomial(logits, num_samples=1)
+    return token.squeeze(0)
+
+
 class MoondreamModel(nn.Module):
     def __init__(self, config: MoondreamConfig, dtype=torch.float16):
         super().__init__()
@@ -195,7 +226,7 @@ class MoondreamModel(nn.Module):
                         kv_cache_update
                     )
                     pos += 1
-                    next_token = torch.argmax(logits, dim=-1)
+                    next_token = _min_p_sampler(logits)
                     generated_tokens += 1
 
         return generator(next_token, pos)
