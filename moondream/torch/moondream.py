@@ -81,10 +81,10 @@ class MoondreamModel(nn.Module):
                 "coord_decoder": nn.ModuleDict(
                     {
                         "fc1": nn.Linear(
-                            config.region.dim, config.region.dim * 4, dtype=dtype
+                            config.region.dim, config.region.hid_dim, dtype=dtype
                         ),
                         "fc2": nn.Linear(
-                            config.region.dim * 4,
+                            config.region.hid_dim,
                             config.region.coord_out_dim,
                             dtype=dtype,
                         ),
@@ -96,10 +96,10 @@ class MoondreamModel(nn.Module):
                 "size_decoder": nn.ModuleDict(
                     {
                         "fc1": nn.Linear(
-                            config.region.dim, config.region.dim * 4, dtype=dtype
+                            config.region.dim, config.region.hid_dim, dtype=dtype
                         ),
                         "fc2": nn.Linear(
-                            config.region.dim * 4,
+                            config.region.hid_dim,
                             config.region.size_out_dim,
                             dtype=dtype,
                         ),
@@ -145,7 +145,12 @@ class MoondreamModel(nn.Module):
         outputs = self.ops["vision_encoder"](all_crops, self.vision, self.config.vision)
 
         global_features = outputs[0]
-        local_features = outputs[1:].view(-1, 27, 27, 1152)
+        local_features = outputs[1:].view(
+            -1,
+            self.config.vision.enc_n_layers,
+            self.config.vision.enc_n_layers,
+            self.config.vision.enc_dim,
+        )
 
         reconstructed = reconstruct_from_crops(
             local_features,
@@ -155,7 +160,7 @@ class MoondreamModel(nn.Module):
         )
 
         return self.ops["vision_projection"](
-            global_features, reconstructed, self.vision
+            global_features, reconstructed, self.vision, self.config.vision
         )
 
     def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:

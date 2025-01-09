@@ -14,7 +14,7 @@ if __name__ == "__main__":
     parser.add_argument("--image", "-i", type=str, required=True)
     parser.add_argument("--prompt", "-p", type=str, required=True)
     parser.add_argument("--model", "-m", type=str, required=True)
-    parser.add_argument("--config", "-c", type=str, default="{}")
+    parser.add_argument("--config", "-c", type=str, default=None)
     parser.add_argument("--max-tokens", "-t", type=int, default=200)
     parser.add_argument("--sampler", "-s", type=str, default="greedy")
     parser.add_argument("--benchmark", "-b", action="store_true")
@@ -26,10 +26,14 @@ if __name__ == "__main__":
         torch.set_default_device("mps")
 
     # Load config.
-    config = json.loads(args.config)
 
     # Load model.
-    config = MoondreamConfig()
+    if args.config is not None:
+        with open(args.config, "r") as f:
+            config = json.load(f)
+        config = MoondreamConfig.from_dict(config)
+    else:
+        config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
 
