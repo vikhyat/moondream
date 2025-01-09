@@ -1,7 +1,3 @@
-import base64
-import json
-import urllib.request
-from io import BytesIO
 from typing import Literal, Optional, Union
 
 from PIL import Image
@@ -44,10 +40,6 @@ class TorchVL(VLM):
                 self.device = "cpu"
             self.model.to(self.device)
 
-    def _use_local_model(self):
-        """Helper to check if we should use local torch model"""
-        return self.model is not None
-
     def encode_image(
         self, image: Union[Image.Image, EncodedImage]
     ) -> Base64EncodedImage:
@@ -55,46 +47,12 @@ class TorchVL(VLM):
             assert type(image) == Base64EncodedImage
             return image
 
-        if self._use_local_model():
-            # When using local model, ensure image is on the same device as model
-            image = image.to(self.device) if hasattr(image, "to") else image
-            return self.model.encode_image(image)
-
-        try:
-            width, height = image.size
-            max_size = 768
-            scale = max_size / max(width, height)
-            if scale < 1:
-                new_size = (int(width * scale), int(height * scale))
-                image = image.resize(new_size, Image.Resampling.LANCZOS)
-
-            if image.mode != "RGB":
-                image = image.convert("RGB")
-            buffered = BytesIO()
-            image.save(buffered, format="JPEG", quality=95)
-            img_str = base64.b64encode(buffered.getvalue()).decode()
-            return Base64EncodedImage(image_url=f"data:image/jpeg;base64,{img_str}")
-        except Exception as e:
-            raise ValueError("Failed to convert image to JPEG.") from e
-
-    def _stream_response(self, req):
-        """Helper function to stream response chunks from the API."""
-        with urllib.request.urlopen(req) as response:
-            for line in response:
-                if not line:
-                    continue
-                line = line.decode("utf-8")
-                if line.startswith("data: "):
-                    try:
-                        data = json.loads(line[6:])
-                        if "chunk" in data:
-                            yield data["chunk"]
-                        if data.get("completed"):
-                            break
-                    except json.JSONDecodeError as e:
-                        raise ValueError(
-                            "Failed to parse JSON response from server."
-                        ) from e
+        if not self.model:
+            raise ValueError("No local model loaded")
+            
+        # When using local model, ensure image is on the same device as model
+        image = image.to(self.device) if hasattr(image, "to") else image
+        return self.model.encode_image(image)
 
     def caption(
         self,
@@ -103,46 +61,17 @@ class TorchVL(VLM):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
-        if self._use_local_model():
-            encoded_image = (
-                self.model.encode_image(image)
-                if isinstance(image, Image.Image)
-                else image
-            )
-            return self.model.caption(
-                encoded_image, length=length, stream=stream, settings=settings
-            )
-
-        encoded_image = self.encode_image(image)
-        payload = {
-            "image_url": encoded_image.image_url,
-            "length": length,
-            "stream": stream,
-        }
-
-        data = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": f"moondream-python/{__version__}",
-        }
-        if self.api_key:
-            headers["X-Moondream-Auth"] = self.api_key
-        req = urllib.request.Request(
-            f"{self.api_url}/caption",
-            data=data,
-            headers=headers,
+        if not self.model:
+            raise ValueError("No local model loaded")
+            
+        encoded_image = (
+            self.model.encode_image(image)
+            if isinstance(image, Image.Image)
+            else image
         )
-
-        def generator():
-            for chunk in self._stream_response(req):
-                yield chunk
-
-        if stream:
-            return {"caption": generator()}
-
-        with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            return {"caption": result["caption"]}
+        return self.model.caption(
+            encoded_image, length=length, stream=stream, settings=settings
+        )
 
     def query(
         self,
@@ -151,106 +80,44 @@ class TorchVL(VLM):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> QueryOutput:
-        if self._use_local_model():
-            encoded_image = (
-                self.model.encode_image(image)
-                if isinstance(image, Image.Image)
-                else image
-            )
-            return self.model.query(
-                encoded_image, question, stream=stream, settings=settings
-            )
-
-        encoded_image = self.encode_image(image)
-        payload = {
-            "image_url": encoded_image.image_url,
-            "question": question,
-            "stream": stream,
-            # TODO: Pass sampling settings like max_tokens to the API.
-        }
-
-        data = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": f"moondream-python/{__version__}",
-        }
-        if self.api_key:
-            headers["X-Moondream-Auth"] = self.api_key
-        req = urllib.request.Request(
-            f"{self.api_url}/query",
-            data=data,
-            headers=headers,
+        if not self.model:
+            raise ValueError("No local model loaded")
+            
+        encoded_image = (
+            self.model.encode_image(image)
+            if isinstance(image, Image.Image)
+            else image
         )
-
-        if stream:
-            return {"answer": self._stream_response(req)}
-
-        with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            return {"answer": result["answer"]}
+        return self.model.query(
+            encoded_image, question, stream=stream, settings=settings
+        )
 
     def detect(
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
     ) -> DetectOutput:
-        if self._use_local_model():
-            encoded_image = (
-                self.model.encode_image(image)
-                if isinstance(image, Image.Image)
-                else image
-            )
-            return self.model.detect(encoded_image, object)
-
-        encoded_image = self.encode_image(image)
-        payload = {"image_url": encoded_image.image_url, "object": object}
-
-        data = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": f"moondream-python/{__version__}",
-        }
-        if self.api_key:
-            headers["X-Moondream-Auth"] = self.api_key
-        req = urllib.request.Request(
-            f"{self.api_url}/detect",
-            data=data,
-            headers=headers,
+        if not self.model:
+            raise ValueError("No local model loaded")
+            
+        encoded_image = (
+            self.model.encode_image(image)
+            if isinstance(image, Image.Image)
+            else image
         )
-
-        with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            return {"objects": result["objects"]}
+        return self.model.detect(encoded_image, object)
 
     def point(
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
     ) -> PointOutput:
-        if self._use_local_model():
-            encoded_image = (
-                self.model.encode_image(image)
-                if isinstance(image, Image.Image)
-                else image
-            )
-            return self.model.point(encoded_image, object)
-
-        encoded_image = self.encode_image(image)
-        payload = {"image_url": encoded_image.image_url, "object": object}
-
-        data = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": f"moondream-python/{__version__}",
-        }
-        if self.api_key:
-            headers["X-Moondream-Auth"] = self.api_key
-        req = urllib.request.Request(
-            f"{self.api_url}/point",
-            data=data,
-            headers=headers,
+        if not self.model:
+            raise ValueError("No local model loaded")
+            
+        encoded_image = (
+            self.model.encode_image(image)
+            if isinstance(image, Image.Image)
+            else image
         )
-
-        with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            return {"points": result["points"]}
+        return self.model.point(encoded_image, object)
