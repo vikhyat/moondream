@@ -38,7 +38,10 @@ if __name__ == "__main__":
     docvqa_val = load_dataset("vikhyatk/docvqa-val", split="validation")
 
     scores = []
+    c = 0
     for row in tqdm(docvqa_val, disable=args.debug):
+        if c == 250:
+            break
         image = row["image"]
         encoded_image = model.encode_image(image)
         for qa in row["qa"]:
@@ -57,5 +60,6 @@ if __name__ == "__main__":
                 print(f"ANLS: {anls}")
                 print(f"Current Average ANLS: {sum(scores) / len(scores):.4f}")
                 print("---------")
+        c+=1
 
     print("ANLS:", sum(scores) / len(scores))
