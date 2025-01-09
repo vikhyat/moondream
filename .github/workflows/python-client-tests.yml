@@ -46,6 +46,7 @@ jobs:
     - name: Format code
       working-directory: ./clients/python
       run: |
+        poetry run pip install black
         poetry run black tests/test_local_inference.py --check
 
     - name: Run tests
