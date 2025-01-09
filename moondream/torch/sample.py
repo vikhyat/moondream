@@ -45,7 +45,6 @@ if __name__ == "__main__":
 
     if not args.benchmark:
         encoded_image = model.encode_image(image)
-
         print("Caption: short")
         for t in model.caption(encoded_image, "short", stream=True)["caption"]:
             print(t, end="", flush=True)

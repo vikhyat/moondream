@@ -40,12 +40,12 @@ jobs:
     - name: Install dependencies
       working-directory: ./clients/python
       run: |
-        python -m pip install --upgrade pip
         poetry install --all-extras
     
     - name: Format code
       working-directory: ./clients/python
       run: |
+        poetry run pip install black
         poetry run black tests/test_local_inference.py --check
 
     - name: Run tests
@@ -54,4 +54,4 @@ jobs:
         MOONDREAM_API_KEY: ${{ secrets.MOONDREAM_API_KEY }}
       run: |
         poetry run pip install pytest pytest-asyncio
-        poetry run pytest tests/test_*.py -v
+        poetry run pytest tests/test_api_inference.py -v

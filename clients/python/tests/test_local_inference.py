@@ -109,6 +109,7 @@ def test_invalid_caption_length(model, test_image):
 
 def test_invalid_model_path():
     with pytest.raises(
-        ValueError, match="Model path is invalid or file does not exist"
+        ValueError,
+        match="Unsupported model filetype. Please use a .safetensors for GPU use or .mf for CPU use.",
     ):
         md.vl(model="invalid/path/to/model.bin")
