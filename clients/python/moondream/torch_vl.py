@@ -54,10 +54,10 @@ class TorchVL(VLM):
         if isinstance(image, EncodedImage):
             assert type(image) == Base64EncodedImage
             return image
-            
+
         if self._use_local_model():
             # When using local model, ensure image is on the same device as model
-            image = image.to(self.device) if hasattr(image, 'to') else image
+            image = image.to(self.device) if hasattr(image, "to") else image
             return self.model.encode_image(image)
 
         try:
@@ -104,9 +104,15 @@ class TorchVL(VLM):
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
         if self._use_local_model():
-            encoded_image = self.model.encode_image(image) if isinstance(image, Image.Image) else image
-            return self.model.caption(encoded_image, length=length, stream=stream, settings=settings)
-            
+            encoded_image = (
+                self.model.encode_image(image)
+                if isinstance(image, Image.Image)
+                else image
+            )
+            return self.model.caption(
+                encoded_image, length=length, stream=stream, settings=settings
+            )
+
         encoded_image = self.encode_image(image)
         payload = {
             "image_url": encoded_image.image_url,
@@ -146,9 +152,15 @@ class TorchVL(VLM):
         settings: Optional[SamplingSettings] = None,
     ) -> QueryOutput:
         if self._use_local_model():
-            encoded_image = self.model.encode_image(image) if isinstance(image, Image.Image) else image
-            return self.model.query(encoded_image, question, stream=stream, settings=settings)
-            
+            encoded_image = (
+                self.model.encode_image(image)
+                if isinstance(image, Image.Image)
+                else image
+            )
+            return self.model.query(
+                encoded_image, question, stream=stream, settings=settings
+            )
+
         encoded_image = self.encode_image(image)
         payload = {
             "image_url": encoded_image.image_url,
@@ -183,9 +195,13 @@ class TorchVL(VLM):
         object: str,
     ) -> DetectOutput:
         if self._use_local_model():
-            encoded_image = self.model.encode_image(image) if isinstance(image, Image.Image) else image
+            encoded_image = (
+                self.model.encode_image(image)
+                if isinstance(image, Image.Image)
+                else image
+            )
             return self.model.detect(encoded_image, object)
-            
+
         encoded_image = self.encode_image(image)
         payload = {"image_url": encoded_image.image_url, "object": object}
 
@@ -212,9 +228,13 @@ class TorchVL(VLM):
         object: str,
     ) -> PointOutput:
         if self._use_local_model():
-            encoded_image = self.model.encode_image(image) if isinstance(image, Image.Image) else image
+            encoded_image = (
+                self.model.encode_image(image)
+                if isinstance(image, Image.Image)
+                else image
+            )
             return self.model.point(encoded_image, object)
-            
+
         encoded_image = self.encode_image(image)
         payload = {"image_url": encoded_image.image_url, "object": object}
 

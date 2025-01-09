@@ -3,11 +3,11 @@ requires = [ "poetry-core",]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
+name = "moondream"
 version = "0.0.2"
 description = "Python client library for moondream"
 authors = [ "vik <vik@moondream.ai>",]
 readme = "README.md"
-name = "moondream"
 [[tool.poetry.packages]]
 include = "moondream"
 from = "."
@@ -21,12 +21,10 @@ reportMissingParameterType = false
 python = "^3.10"
 pillow = "^10.4.0"
 numpy = "^2.1.2"
-tokenizers = "^0.20.1"
-torch = "^2.2.0"
-safetensors = "^0.4.2"
-einops = "^0.7.0"
-pyvips = "^2.2.1"
-onnxruntime = "^1.19.2"
+
+[tool.poetry.extras]
+cpu = [ "onnxruntime-1.19.2", "tokenizers-0.20.1",]
+gpu = [ "torch-2.5.0", "safetensors-0.4.2", "einops-0.7.0", "pyvips-binary-8.16.0", "pyvips-2.2.1", "tokenizers-0.20.1",]
 
 [tool.poetry.scripts]
 moondream = "moondream.cli:main"
