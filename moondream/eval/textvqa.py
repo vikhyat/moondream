@@ -34,8 +34,6 @@ if __name__ == "__main__":
     total_samples = 0
 
     for row in tqdm(dataset, disable=args.debug):
-        if total_samples == 1000:
-            break
         image = row["image"]
         encoded_image = model.encode_image(image)
         question = PREFIX_TEXTVQA + row["question"]

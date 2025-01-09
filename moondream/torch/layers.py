@@ -17,7 +17,7 @@ class LinearWeights:
 
 @torch.compile
 def fast_int8_lin(x, w, scale, bias):
-    mm = F.linear(x, w)
+    mm = F.linear(x.to(torch.float16), w.to(torch.float16))
     mm = mm * scale
     mm = mm + bias
     return mm
@@ -36,7 +36,7 @@ def quantize_x(x: torch.Tensor) -> torch.Tensor:
 def linear(x: torch.Tensor, w: LinearWeights) -> torch.Tensor:
     if hasattr(w, "w_scale") is not None:
         x_quant, x_scale = quantize_x(x)
-        fast_int8_lin(x, w.weight, x_scale, w.bias)
+        fast_int8_lin(x_quant.to(torch.int8), w.weight.to(torch.int8), x_scale, w.bias)
     return F.linear(x, w.weight, w.bias)
 
 

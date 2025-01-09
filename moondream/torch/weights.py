@@ -109,14 +109,8 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module, q
     """Internal function to load weights using a tensor getter function."""
     model = model.to(dtype=torch.float16)
 
-    # Vision Model
-    # model.vision["patch_emb"].weight.data.copy_(
-    #     get_tensor("vision_encoder.encoder.model.visual.patch_embed.linear.weight")
-    # )
     load_param(get_tensor, model.vision["patch_emb"], "vision_encoder.encoder.model.visual.patch_embed.linear", quantize, True)
-    # model.vision["patch_emb"].bias.data.copy_(
-    #     get_tensor("vision_encoder.encoder.model.visual.patch_embed.linear.bias")
-    # )
+
     model.vision.pos_emb.data.copy_(
         get_tensor("vision_encoder.encoder.model.visual.pos_embed")
     )
@@ -138,37 +132,12 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module, q
             get_tensor(f"{prefix}.norm2.bias")
         )
 
-        # Attention
-        # model.vision["blocks"][i]["attn"]["qkv"].weight.data.copy_(
-        #     get_tensor(f"{prefix}.attn.qkv.weight")
-        # )
-        # model.vision["blocks"][i]["attn"]["qkv"].bias.data.copy_(
-        #     get_tensor(f"{prefix}.attn.qkv.bias")
-        # )
         load_param(get_tensor, model.vision["blocks"][i]["attn"]["qkv"], f"{prefix}.attn.qkv", quantize, True)
 
-        # model.vision["blocks"][i]["attn"]["proj"].weight.data.copy_(
-        #     get_tensor(f"{prefix}.attn.proj.weight")
-        # )
-        # model.vision["blocks"][i]["attn"]["proj"].bias.data.copy_(
-        #     get_tensor(f"{prefix}.attn.proj.bias")
-        # )
         load_param(get_tensor, model.vision["blocks"][i]["attn"]["proj"], f"{prefix}.attn.proj", quantize, True)
 
-        # MLP
-        # model.vision["blocks"][i]["mlp"]["fc1"].weight.data.copy_(
-        #     get_tensor(f"{prefix}.mlp.fc1.weight")
-        # )
-        # model.vision["blocks"][i]["mlp"]["fc1"].bias.data.copy_(
-        #     get_tensor(f"{prefix}.mlp.fc1.bias")
-        # )
         load_param(get_tensor, model.vision["blocks"][i]["mlp"]["fc1"], f"{prefix}.mlp.fc1", quantize, True)
-        # model.vision["blocks"][i]["mlp"]["fc2"].weight.data.copy_(
-        #     get_tensor(f"{prefix}.mlp.fc2.weight")
-        # )
-        # model.vision["blocks"][i]["mlp"]["fc2"].bias.data.copy_(
-        #     get_tensor(f"{prefix}.mlp.fc2.bias")
-        # )
+
         load_param(get_tensor, model.vision["blocks"][i]["mlp"]["fc2"], f"{prefix}.mlp.fc2", quantize, True)
 
     model.vision["post_ln"].weight.data.copy_(
@@ -178,12 +147,6 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module, q
         get_tensor("vision_encoder.encoder.model.visual.norm.bias")
     )
 
-    # model.vision["proj_mlp"]["fc1"].weight.data.copy_(
-    #     get_tensor("vision_encoder.projection.mlp.fc1.weight")
-    # )
-    # model.vision["proj_mlp"]["fc1"].bias.data.copy_(
-    #     get_tensor("vision_encoder.projection.mlp.fc1.bias")
-    # )
     load_param(get_tensor, model.vision["proj_mlp"]["fc1"], "vision_encoder.projection.mlp.fc1", quantize, True)
 
     model.vision["proj_mlp"]["fc2"].weight.data.copy_(
@@ -206,98 +169,38 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module, q
         )
         model.text["blocks"][i]["ln"].bias.data.copy_(get_tensor(f"{prefix}.ln.bias"))
 
-        # Attention
-        # model.text["blocks"][i]["attn"]["qkv"].weight.data.copy_(
-        #     get_tensor(f"{prefix}.mixer.Wqkv.weight")
-        # )
-        # model.text["blocks"][i]["attn"]["qkv"].bias.data.copy_(
-        #     get_tensor(f"{prefix}.mixer.Wqkv.bias")
-        # )
         load_param(get_tensor, model.text["blocks"][i]["attn"]["qkv"], f"{prefix}.mixer.Wqkv", quantize, True)
-        # model.text["blocks"][i]["attn"]["proj"].weight.data.copy_(
-        #     get_tensor(f"{prefix}.mixer.out_proj.weight")
-        # )
-        # model.text["blocks"][i]["attn"]["proj"].bias.data.copy_(
-        #     get_tensor(f"{prefix}.mixer.out_proj.bias")
-        # )
+
         load_param(get_tensor, model.text["blocks"][i]["attn"]["proj"], f"{prefix}.mixer.out_proj", quantize, True)
 
-        # MLP
-        # model.text["blocks"][i]["mlp"]["fc1"].weight.data.copy_(
-        #     get_tensor(f"{prefix}.mlp.fc1.weight")
-        # )
-        # model.text["blocks"][i]["mlp"]["fc1"].bias.data.copy_(
-        #     get_tensor(f"{prefix}.mlp.fc1.bias")
-        # )
         load_param(get_tensor, model.text["blocks"][i]["mlp"]["fc1"], f"{prefix}.mlp.fc1", quantize, True)
-        # model.text["blocks"][i]["mlp"]["fc2"].weight.data.copy_(
-        #     get_tensor(f"{prefix}.mlp.fc2.weight")
-        # )
-        # model.text["blocks"][i]["mlp"]["fc2"].bias.data.copy_(
-        #     get_tensor(f"{prefix}.mlp.fc2.bias")
-        # )
+
         load_param(get_tensor, model.text["blocks"][i]["mlp"]["fc2"], f"{prefix}.mlp.fc2", quantize, True)
 
     model.text["post_ln"].weight.data.copy_(get_tensor("text_model.lm_head.ln.weight"))
     model.text["post_ln"].bias.data.copy_(get_tensor("text_model.lm_head.ln.bias"))
 
-    # model.text["lm_head"].weight.data.copy_(
-    #     get_tensor("text_model.lm_head.linear.weight")
-    # )
-    # model.text["lm_head"].bias.data.copy_(get_tensor("text_model.lm_head.linear.bias"))
     load_param(get_tensor, model.text["lm_head"], "text_model.lm_head.linear", quantize, True)
 
     # Region Model
     model.region.coord_features.data.copy_(
         get_tensor("region_model.coordinate_features.weight").T
     )
-    # model.region["coord_encoder"].weight.data.copy_(
-    #     get_tensor("region_model.coordinate_encoder.weight")
-    # )
-    # model.region["coord_encoder"].bias.data.copy_(
-    #     get_tensor("region_model.coordinate_encoder.bias")
-    # )
+
     load_param(get_tensor, model.region["coord_encoder"], "region_model.coordinate_encoder", quantize, True)
 
-    # model.region["coord_decoder"]["fc1"].weight.data.copy_(
-    #     get_tensor("region_model.coordinate_decoder.fc1.weight")
-    # )
-    # model.region["coord_decoder"]["fc1"].bias.data.copy_(
-    #     get_tensor("region_model.coordinate_decoder.fc1.bias")
-    # )
     load_param(get_tensor, model.region["coord_decoder"]["fc1"], "region_model.coordinate_decoder.fc1", quantize, True)
-    # model.region["coord_decoder"]["fc2"].weight.data.copy_(
-    #     get_tensor("region_model.coordinate_decoder.fc2.weight")
-    # )
-    # model.region["coord_decoder"]["fc2"].bias.data.copy_(
-    #     get_tensor("region_model.coordinate_decoder.fc2.bias")
-    # )
+
     load_param(get_tensor, model.region["coord_decoder"]["fc2"], "region_model.coordinate_decoder.fc2", quantize, True)
 
     model.region.size_features.data.copy_(
         get_tensor("region_model.size_features.weight").T
     )
-    # model.region["size_encoder"].weight.data.copy_(
-    #     get_tensor("region_model.size_encoder.weight")
-    # )
-    # model.region["size_encoder"].bias.data.copy_(
-    #     get_tensor("region_model.size_encoder.bias")
-    # )
+
     load_param(get_tensor, model.region["size_encoder"], "region_model.size_encoder", quantize, True)
 
-    # model.region["size_decoder"]["fc1"].weight.data.copy_(
-    #     get_tensor("region_model.size_decoder.fc1.weight")
-    # )
-    # model.region["size_decoder"]["fc1"].bias.data.copy_(
-    #     get_tensor("region_model.size_decoder.fc1.bias")
-    # )
     load_param(get_tensor, model.region["size_decoder"]["fc1"], "region_model.size_decoder.fc1", quantize, True)
-    # model.region["size_decoder"]["fc2"].weight.data.copy_(
-    #     get_tensor("region_model.size_decoder.fc2.weight")
-    # )
-    # model.region["size_decoder"]["fc2"].bias.data.copy_(
-    #     get_tensor("region_model.size_decoder.fc2.bias")
-    # )
+
     load_param(get_tensor, model.region["size_decoder"]["fc2"], "region_model.size_decoder.fc2", quantize, True)
 
 
