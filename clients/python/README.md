@@ -30,7 +30,7 @@ To install the GPU dependencies for local inference, run:
 
 ```bash
 # Copy the torch implementation from the root moondream repo into the moondream/torch directory
-cp -r torch clients/python/moondream/torch
+cp -r moondream/torch clients/python/moondream/torch
 
 # Install the GPU dependencies
 pip install moondream[gpu]
