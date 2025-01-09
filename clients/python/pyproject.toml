@@ -21,6 +21,12 @@ reportMissingParameterType = false
 python = "^3.10"
 pillow = "^10.4.0"
 numpy = "^2.1.2"
+torch = "^2.5.0"
+safetensors = "^0.4.2"
+einops = "^0.7.0"
+pyvips-binary = "^8.16.0"
+pyvips = "^2.2.1"
+tokenizers = "^0.20.1"
 
 [tool.poetry.extras]
 cpu = [ "onnxruntime-1.19.2", "tokenizers-0.20.1",]

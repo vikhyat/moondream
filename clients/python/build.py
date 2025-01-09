@@ -57,6 +57,14 @@ def copy_torch_implementation(src_dir: Path, dst_dir: Path):
     if not init_file.exists():
         init_file.touch()
 
+    # Add warning header to all Python files
+    warning_header = """# WARNING: This is an auto-generated file. Do not edit directly.
+# Any changes made to this file will be overwritten.
+"""
+    for py_file in dst_dir.rglob("*.py"):
+        content = py_file.read_text()
+        py_file.write_text(warning_header + content)
+
 
 def build(variant=None):
     config = copy.deepcopy(BASE_CONFIG)
