@@ -20,6 +20,18 @@ Install the package from PyPI:
 pip install moondream==0.0.6
 ```
 
+To install the CPU dependencies for local inference, run:
+
+```bash
+pip install moondream[cpu]
+```
+
+To install the GPU dependencies for local inference, run:
+
+```bash
+pip install moondream[gpu]
+```
+
 ## Quick Start
 
 ### Using Cloud API
