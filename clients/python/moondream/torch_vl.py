@@ -22,22 +22,20 @@ class TorchVL(VLM):
     def __init__(
         self,
         *,
-        model: Optional[str] = None,
+        model: str,
     ):
-        self.model = None
-        if model:
-            config = MoondreamConfig()
-            self.model = MoondreamModel(config)
-            load_weights_into_model(model, self.model)
-            self.model.eval()
-            # Move model to the appropriate device
-            if torch.cuda.is_available():
-                self.device = "cuda"
-            elif torch.backends.mps.is_available():
-                self.device = "mps"
-            else:
-                self.device = "cpu"
-            self.model.to(self.device)
+        config = MoondreamConfig()
+        self.model = MoondreamModel(config)
+        load_weights_into_model(model, self.model)
+        self.model.eval()
+        # Move model to the appropriate device
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
+        self.model.to(self.device)
 
     def encode_image(
         self, image: Union[Image.Image, EncodedImage]
@@ -49,8 +47,6 @@ class TorchVL(VLM):
         if not self.model:
             raise ValueError("No local model loaded")
 
-        # When using local model, ensure image is on the same device as model
-        image = image.to(self.device) if hasattr(image, "to") else image
         return self.model.encode_image(image)
 
     def caption(
