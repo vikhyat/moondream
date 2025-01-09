@@ -1,0 +1,89 @@
+{
+    "text": {
+        "dim": 1024,
+        "n_layers": 24,
+        "vocab_size": 51200,
+        "max_context": 2048,
+        "n_heads": 16,
+        "prefix_attn": 730
+    },
+    "vision": {
+        "enc_dim": 720,
+        "enc_patch_size": 14,
+        "enc_n_layers": 27,
+        "enc_ff_dim": 2690,
+        "enc_n_heads": 10,
+        "proj_out_dim": 1024,
+        "crop_size": 378,
+        "in_channels": 3,
+        "max_crops": 12,
+        "overlap_margin": 4,
+        "proj_inner_dim": 8192
+    },
+    "region": {
+        "dim": 1024,
+        "coord_feat_dim": 256,
+        "coord_out_dim": 1024,
+        "size_feat_dim": 512,
+        "size_out_dim": 2048,
+        "inner_dim": 8192
+    },
+    "tokenizer": {
+        "bos_id": 50256,
+        "eos_id": 50256,
+        "templates": {
+            "caption": {
+                "short": [
+                    198,
+                    198,
+                    16438,
+                    8305,
+                    25
+                ],
+                "normal": [
+                    198,
+                    198,
+                    24334,
+                    1159,
+                    25
+                ]
+            },
+            "query": {
+                "prefix": [
+                    198,
+                    198,
+                    24361,
+                    25
+                ],
+                "suffix": [
+                    198,
+                    198,
+                    33706,
+                    25
+                ]
+            },
+            "detect": {
+                "prefix": [
+                    198,
+                    198,
+                    47504,
+                    25
+                ],
+                "suffix": [
+                    628
+                ]
+            },
+            "point": {
+                "prefix": [
+                    198,
+                    198,
+                    12727,
+                    25
+                ],
+                "suffix": [
+                    628
+                ]
+            }
+        }
+    }
+}

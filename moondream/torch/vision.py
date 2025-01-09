@@ -64,10 +64,13 @@ def vision_projection(
     global_features: torch.Tensor,
     reconstructed: torch.Tensor,
     w: nn.Module,
+    config: VisionConfig,
 ):
     reconstructed = reconstructed.permute(2, 0, 1)
-    reconstructed = adaptive_avg_pool2d(reconstructed, output_size=(27, 27))
-    reconstructed = reconstructed.permute(1, 2, 0).view(729, 1152)
+    reconstructed = adaptive_avg_pool2d(
+        reconstructed, output_size=(config.enc_n_layers, config.enc_n_layers)
+    )
+    reconstructed = reconstructed.permute(1, 2, 0).view(729, config.enc_dim)
     final_features = torch.cat([global_features, reconstructed], dim=-1)
     return mlp(final_features, w.proj_mlp)
 
@@ -115,10 +118,10 @@ def build_vision_model(config: VisionConfig, dtype: torch.dtype):
             "proj_mlp": nn.ModuleDict(
                 {
                     "fc1": nn.Linear(
-                        config.enc_dim * 2, config.proj_out_dim * 4, dtype=dtype
+                        config.enc_dim * 2, config.proj_inner_dim, dtype=dtype
                     ),
                     "fc2": nn.Linear(
-                        config.proj_out_dim * 4, config.proj_out_dim, dtype=dtype
+                        config.proj_inner_dim, config.proj_out_dim, dtype=dtype
                     ),
                 }
             ),
