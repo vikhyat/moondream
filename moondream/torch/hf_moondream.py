@@ -11,6 +11,16 @@ from .region import *
 from .utils import *
 
 
+def extract_question(text):
+    prefix = "<image>\n\nQuestion: "
+    suffix = "\n\nAnswer:"
+    
+    if text.startswith(prefix) and text.endswith(suffix):
+        return text[len(prefix) : -len(suffix)]
+    else:
+        return None
+
+
 class HfConfig(PretrainedConfig):
     _auto_class = "AutoConfig"
     model_type = "moondream1"
@@ -86,9 +96,24 @@ class HfMoondream(PreTrainedModel):
         Function definition remains unchanged for backwards compatibility.
         Be aware that tokenizer, max_new_takens, and kwargs are ignored.
         """
-        answer = self.model.query(image=image_embeds, question=prompt, stream=False)[
-            "answer"
-        ]
+        prompt_extracted = extract_question(prompt)
+        if prompt_extracted is not None:
+            answer = self.model.query(image=image_embeds, question=prompt_extracted, stream=False)[
+                "answer"
+            ]
+        else:
+            image_embeds = self.encode_image(image_embeds)
+            prompt_tokens = torch.tensor(
+                [self.model.tokenizer.encode(prompt).ids],
+                device=self.device,
+            )
+            def generator():
+                for token in self.model._generate_text(
+                    prompt_tokens, image_embeds.kv_cache, image_embeds.pos, max_new_tokens
+                ):
+                    yield token
+            answer = "".join(list(generator()))
+            
         return [answer]
 
     def get_input_embeddings(self):
