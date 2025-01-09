@@ -251,7 +251,9 @@ class MoondreamModel(nn.Module):
             device=self.device,
         )
 
-        max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
+        max_tokens = DEFAULT_MAX_TOKENS
+        if settings:
+            max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
         def generator():
             for token in self._generate_text(
@@ -281,7 +283,9 @@ class MoondreamModel(nn.Module):
             [self.config.tokenizer.templates["caption"][length]], device=self.device
         )
 
-        max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
+        max_tokens = DEFAULT_MAX_TOKENS
+        if settings:
+            max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
         def generator():
             for token in self._generate_text(
