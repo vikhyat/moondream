@@ -5,7 +5,6 @@ from torch.nn import functional as F
 
 from .layers import layer_norm, linear, mlp
 from .rope import apply_rotary_emb, precompute_freqs_cis
-from .weights import AttentionWeights
 from .config import TextConfig
 
 
@@ -15,7 +14,7 @@ def text_encoder(input_ids: torch.Tensor, w: nn.Module):
 
 def attn(
     x: torch.Tensor,
-    w: AttentionWeights,
+    w: nn.Module,
     freqs_cis: torch.Tensor,
     layer_kv_cache: torch.Tensor,
     attn_mask: torch.Tensor,
