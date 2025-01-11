@@ -13,8 +13,6 @@ from transformers import AutoModelForCausalLM
 from tqdm import tqdm
 import os
 import glob
-import json
-import datetime
 from typing import List, Dict, Tuple, Optional
 from contextlib import contextmanager
 
