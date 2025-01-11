@@ -1,6 +1,6 @@
 # Gaze Detection Video Processor
 
-> **⚠️ IMPORTANT:** This project currently uses Moondream 2 (2025-01-09 release) via the Hugging Face Transformers library. We will migrate to the official Moondream client
+> **⚠️ IMPORTANT:** This project currently uses Moondream 2B (2025-01-09 release) via the Hugging Face Transformers library. We will migrate to the official Moondream client
 > libraries once they become available for this version.
 
 ## Table of Contents
@@ -22,13 +22,13 @@
 
 ## Overview
 
-This project uses the Moondream 2 model to detect faces and their gaze directions in videos. It processes videos frame by frame, visualizing face detections and gaze directions.
+This project uses the Moondream 2B model to detect faces and their gaze directions in videos. It processes videos frame by frame, visualizing face detections and gaze directions.
 
 ## Sample Output
 
 |              Input Video              |              Processed Output               |
 | :-----------------------------------: | :-----------------------------------------: |
-| ![Input Video](/gif-input-sample.gif) | ![Processed Output](/gif-output-sample.gif) |
+| ![Input Video](https://github.com/parsakhaz/gaze-detection-video/blob/master/gif-input-sample.gif?raw=true) | ![Processed Output](https://github.com/parsakhaz/gaze-detection-video/blob/master/gif-output-sample.gif?raw=true) |
 
 ## Features
 
