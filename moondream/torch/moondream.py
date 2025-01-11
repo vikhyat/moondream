@@ -114,6 +114,16 @@ class MoondreamModel(nn.Module):
             torch.empty(config.region.size_feat_dim // 2, 2, dtype=dtype).T
         )
 
+        attn_mask = torch.tril(
+            torch.ones(
+                1, 1, config.text.max_context, config.text.max_context, dtype=torch.bool
+            )
+        )
+        patch_w = config.vision.crop_size // config.vision.enc_patch_size
+        prefix_attn_len = 1 + patch_w**2
+        attn_mask[..., :prefix_attn_len, :prefix_attn_len] = 1
+        self.register_buffer("attn_mask", attn_mask, persistent=False)
+
         self.ops = {
             "vision_encoder": vision_encoder,
             "vision_projection": vision_projection,
@@ -188,7 +198,12 @@ class MoondreamModel(nn.Module):
                 self.text,
             )
             inputs_embeds = torch.cat([bos_emb, img_emb[None]], dim=1)
-            self.ops["prefill"](inputs_embeds, kv_cache, 0, self.text, self.config.text)
+            attn_mask = self.attn_mask[
+                :, :, 0 : inputs_embeds.size(1), : inputs_embeds.size(1)
+            ]
+            self.ops["prefill"](
+                inputs_embeds, kv_cache, attn_mask, 0, self.text, self.config.text
+            )
         return EncodedImage(pos=inputs_embeds.size(1), kv_cache=kv_cache)
 
     def _prefill_prompt(
@@ -196,8 +211,11 @@ class MoondreamModel(nn.Module):
     ):
         with torch.no_grad():
             prompt_emb = text_encoder(prompt_tokens, self.text)
+            attn_mask = self.attn_mask[
+                :, :, pos : pos + prompt_emb.size(1), : pos + prompt_emb.size(1)
+            ]
             hidden = self.ops["prefill"](
-                prompt_emb, kv_cache, pos, self.text, self.config.text
+                prompt_emb, kv_cache, attn_mask, pos, self.text, self.config.text
             )
             logits = lm_head(hidden, self.text)
             next_token = torch.argmax(logits, dim=-1)
@@ -224,8 +242,11 @@ class MoondreamModel(nn.Module):
 
                 with torch.no_grad():
                     next_emb = text_encoder(next_token, self.text)
+                    attn_mask = torch.ones(
+                        1, 1, pos + 1, device=self.device, dtype=torch.bool
+                    )
                     logits, _, kv_cache_update = self.ops["decode_one_token"](
-                        next_emb, kv_cache, pos, self.text, self.config.text
+                        next_emb, kv_cache, attn_mask, pos, self.text, self.config.text
                     )
                     kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
                         kv_cache_update
@@ -326,8 +347,11 @@ class MoondreamModel(nn.Module):
                 )
 
                 # Decode y-coordinate
+                attn_mask = torch.ones(
+                    1, 1, pos + 1, device=self.device, dtype=torch.bool
+                )
                 _, hidden, kv_cache_update = self.ops["decode_one_token"](
-                    next_emb, kv_cache, pos, self.text, self.config.text
+                    next_emb, kv_cache, attn_mask, pos, self.text, self.config.text
                 )
                 kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
                     kv_cache_update
@@ -341,8 +365,11 @@ class MoondreamModel(nn.Module):
 
                 # Decode size
                 if include_size:
+                    attn_mask = torch.ones(
+                        1, 1, pos + 1, device=self.device, dtype=torch.bool
+                    )
                     logits, hidden, kv_cache_update = self.ops["decode_one_token"](
-                        next_emb, kv_cache, pos, self.text, self.config.text
+                        next_emb, kv_cache, attn_mask, pos, self.text, self.config.text
                     )
                     kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
                         kv_cache_update
@@ -371,8 +398,11 @@ class MoondreamModel(nn.Module):
                     out.append({"x": x_center.item(), "y": y_center.item()})
 
                 # Decode next token (x-coordinate, or eos)
+                attn_mask = torch.ones(
+                    1, 1, pos + 1, device=self.device, dtype=torch.bool
+                )
                 logits, hidden, kv_cache_update = self.ops["decode_one_token"](
-                    next_emb, kv_cache, pos, self.text, self.config.text
+                    next_emb, kv_cache, attn_mask, pos, self.text, self.config.text
                 )
                 kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
                     kv_cache_update

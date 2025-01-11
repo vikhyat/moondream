@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+
 from torch.nn import functional as F
 
 from .layers import layer_norm, linear, mlp
@@ -53,15 +54,12 @@ def text_decoder(
     inputs_embeds: torch.Tensor,
     w: nn.Module,
     kv_cache: torch.Tensor,
+    attn_mask: torch.Tensor,
     pos: int,
     config: TextConfig,
 ):
     hidden_BTC = inputs_embeds
     new_kv_cache = [torch.empty(0)] * len(w.blocks)
-
-    attn_mask = w.attn_mask[
-        :, :, pos : pos + hidden_BTC.size(1), : pos + hidden_BTC.size(1)
-    ]
 
     for i, block in enumerate(w.blocks):
         l_in = layer_norm(hidden_BTC, block.ln)
@@ -90,13 +88,14 @@ def lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
 def prefill(
     inputs_embeds: torch.Tensor,
     kv_cache: torch.Tensor,
+    attn_mask: torch.Tensor,
     pos: int,
     w: nn.Module,
     config: TextConfig,
 ):
     # Updates kv_cache in-place
     hidden, kv_cache[:, :, :, :, pos : pos + inputs_embeds.size(1), :] = text_decoder(
-        inputs_embeds, w, kv_cache, pos, config
+        inputs_embeds, w, kv_cache, attn_mask, pos, config
     )
     return hidden
 
@@ -104,11 +103,14 @@ def prefill(
 def decode_one_token(
     token_emb: torch.Tensor,
     kv_cache: torch.Tensor,
+    attn_mask: torch.Tensor,
     pos: int,
     w: nn.Module,
     config: TextConfig,
 ):
-    hidden, kv_cache_update = text_decoder(token_emb[None], w, kv_cache, pos, config)
+    hidden, kv_cache_update = text_decoder(
+        token_emb[None], w, kv_cache, attn_mask, pos, config
+    )
     logits = lm_head(hidden, w)
     return logits, hidden, kv_cache_update
 
@@ -156,12 +158,5 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
         precompute_freqs_cis(config.dim // (2 * config.n_heads), config.max_context),
         persistent=False,
     )
-
-    attn_mask = torch.tril(
-        torch.ones(1, 1, config.max_context, config.max_context, dtype=torch.bool)
-    )
-    if config.prefix_attn != 0:
-        attn_mask[..., : config.prefix_attn, : config.prefix_attn] = 1
-    text.register_buffer("attn_mask", attn_mask, persistent=False)
 
     return text
