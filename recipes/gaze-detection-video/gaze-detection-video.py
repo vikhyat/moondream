@@ -18,20 +18,21 @@ import datetime
 from typing import List, Dict, Tuple, Optional
 from contextlib import contextmanager
 
+
 def initialize_model() -> Optional[AutoModelForCausalLM]:
     """Initialize the Moondream 2 model with error handling."""
     try:
         print("\nInitializing Moondream 2 model...")
         model_id = "vikhyatk/moondream2"
         revision = "2025-01-09"  # Specify revision for stability
-        
+
         if torch.cuda.is_available():
             print(f"GPU detected: {torch.cuda.get_device_name(0)}")
             device = "cuda"
         else:
             print("No GPU detected, using CPU")
             device = "cpu"
-        
+
         print("Loading model from HuggingFace...")
         model = AutoModelForCausalLM.from_pretrained(
             model_id,
@@ -39,9 +40,9 @@ def initialize_model() -> Optional[AutoModelForCausalLM]:
             trust_remote_code=True,
             torch_dtype=torch.float16 if device == "cuda" else torch.float32,
             low_cpu_mem_usage=True,
-            device_map={"": device} if device == "cuda" else None
+            device_map={"": device} if device == "cuda" else None,
         )
-        
+
         if device == "cpu":
             model = model.to(device)
         model.eval()
@@ -52,8 +53,11 @@ def initialize_model() -> Optional[AutoModelForCausalLM]:
         print(f"\nError initializing model: {e}")
         return None
 
+
 @contextmanager
-def video_handler(input_path: str, output_path: str) -> Tuple[cv2.VideoCapture, cv2.VideoWriter]:
+def video_handler(
+    input_path: str, output_path: str
+) -> Tuple[cv2.VideoCapture, cv2.VideoWriter]:
     """Context manager for handling video capture and writer."""
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
@@ -63,17 +67,18 @@ def video_handler(input_path: str, output_path: str) -> Tuple[cv2.VideoCapture, 
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    
+
     # Create video writer
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-    
+
     try:
         yield cap, out
     finally:
         cap.release()
         out.release()
         cv2.destroyAllWindows()
+
 
 def fig2rgb_array(fig: plt.Figure) -> np.ndarray:
     """Convert matplotlib figure to RGB array"""
@@ -84,7 +89,10 @@ def fig2rgb_array(fig: plt.Figure) -> np.ndarray:
     rgb_array = img_array[:, :, :3]  # Drop alpha channel
     return rgb_array
 
-def visualize_frame(frame: np.ndarray, faces: List[Dict], model: AutoModelForCausalLM, pil_image: Image) -> np.ndarray:
+
+def visualize_frame(
+    frame: np.ndarray, faces: List[Dict], model: AutoModelForCausalLM, pil_image: Image
+) -> np.ndarray:
     """Visualize a single frame using matplotlib"""
     try:
         # Create figure without margins
@@ -132,7 +140,12 @@ def visualize_frame(frame: np.ndarray, faces: List[Dict], model: AutoModelForCau
                     print(f"Error detecting gaze: {e}")
                     continue
 
-                if gaze is not None and isinstance(gaze, dict) and "x" in gaze and "y" in gaze:
+                if (
+                    gaze is not None
+                    and isinstance(gaze, dict)
+                    and "x" in gaze
+                    and "y" in gaze
+                ):
                     gaze_x = int(float(gaze["x"]) * frame.shape[1])
                     gaze_y = int(float(gaze["y"]) * frame.shape[0])
                     face_center_x = x_min + width // 2
@@ -182,10 +195,13 @@ def visualize_frame(frame: np.ndarray, faces: List[Dict], model: AutoModelForCau
 
     except Exception as e:
         print(f"Error in visualize_frame: {e}")
-        plt.close('all')
+        plt.close("all")
         return frame
 
-def process_video(input_path: str, output_path: str, model: AutoModelForCausalLM) -> None:
+
+def process_video(
+    input_path: str, output_path: str, model: AutoModelForCausalLM
+) -> None:
     """Process video file and create new video with gaze visualization"""
     with video_handler(input_path, output_path) as (cap, out):
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -193,7 +209,9 @@ def process_video(input_path: str, output_path: str, model: AutoModelForCausalLM
         print(f"Processing video: {total_frames} frames at {fps} FPS")
 
         # Process frames
-        with tqdm(total=total_frames, desc=f"Processing {os.path.basename(input_path)}") as pbar:
+        with tqdm(
+            total=total_frames, desc=f"Processing {os.path.basename(input_path)}"
+        ) as pbar:
             while True:
                 ret, frame = cap.read()
                 if not ret:
@@ -205,37 +223,49 @@ def process_video(input_path: str, output_path: str, model: AutoModelForCausalLM
 
                     # Detect faces
                     detection_result = model.detect(pil_image, "face")
-                    
+
                     # Handle different possible return formats
-                    if isinstance(detection_result, dict) and "objects" in detection_result:
+                    if (
+                        isinstance(detection_result, dict)
+                        and "objects" in detection_result
+                    ):
                         faces = detection_result["objects"]
                     elif isinstance(detection_result, list):
                         faces = detection_result
                     else:
-                        print(f"Unexpected detection result format: {type(detection_result)}")
+                        print(
+                            f"Unexpected detection result format: {type(detection_result)}"
+                        )
                         faces = []
 
                     # Ensure each face has the required coordinates
-                    faces = [face for face in faces if all(k in face for k in ["x_min", "y_min", "x_max", "y_max"])]
+                    faces = [
+                        face
+                        for face in faces
+                        if all(k in face for k in ["x_min", "y_min", "x_max", "y_max"])
+                    ]
 
                     if not faces:
                         processed_frame = frame
                     else:
                         # Visualize frame with matplotlib
-                        processed_frame = visualize_frame(frame, faces, model, pil_image)
+                        processed_frame = visualize_frame(
+                            frame, faces, model, pil_image
+                        )
 
                     # Write frame
                     out.write(processed_frame)
                     pbar.update(1)
 
                     # Force matplotlib to clean up
-                    plt.close('all')
-                    
+                    plt.close("all")
+
                 except Exception as e:
                     print(f"Error processing frame: {e}")
                     out.write(frame)  # Write original frame on error
                     pbar.update(1)
-                    plt.close('all')  # Clean up even on error
+                    plt.close("all")  # Clean up even on error
+
 
 if __name__ == "__main__":
     # Ensure input and output directories exist
@@ -245,10 +275,10 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
 
     # Find all video files in input directory
-    video_extensions = ['.mp4', '.avi', '.mov', '.mkv']
+    video_extensions = [".mp4", ".avi", ".mov", ".mkv"]
     input_videos = []
     for ext in video_extensions:
-        input_videos.extend(glob.glob(os.path.join(input_dir, f'*{ext}')))
+        input_videos.extend(glob.glob(os.path.join(input_dir, f"*{ext}")))
 
     if not input_videos:
         print("No video files found in input directory")
@@ -263,7 +293,7 @@ if __name__ == "__main__":
     # Process each video file
     for input_video in input_videos:
         base_name = os.path.basename(input_video)
-        output_video = os.path.join(output_dir, f'processed_{base_name}')
+        output_video = os.path.join(output_dir, f"processed_{base_name}")
         try:
             process_video(input_video, output_video, model)
         except Exception as e:
