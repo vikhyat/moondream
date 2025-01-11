@@ -45,24 +45,29 @@ if __name__ == "__main__":
 
     if not args.benchmark:
         encoded_image = model.encode_image(image)
+
+        # Short caption
         print("Caption: short")
         for t in model.caption(encoded_image, "short", stream=True)["caption"]:
             print(t, end="", flush=True)
         print()
         print()
 
+        # Regular caption
         print("Caption: normal")
         for t in model.caption(encoded_image, "normal", stream=True)["caption"]:
             print(t, end="", flush=True)
         print()
         print()
 
+        # Query
         print("Query:", args.prompt)
         for t in model.query(encoded_image, args.prompt, stream=True)["answer"]:
             print(t, end="", flush=True)
         print()
         print()
 
+        # Detect
         obj = "hand"
         print(f"Detect: {obj}")
         objs = model.detect(encoded_image, obj)["objects"]
@@ -79,6 +84,7 @@ if __name__ == "__main__":
             draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
         image.save("detect.jpg")
 
+        # Point
         obj = "ear"
         print(f"Point: {obj}")
         points = model.point(encoded_image, obj)["points"]
@@ -88,6 +94,9 @@ if __name__ == "__main__":
             x, y = point["x"] * image.width, point["y"] * image.height
             draw.ellipse([x - 5, y - 5, x + 5, y + 5], fill="red")
         image.save("point.jpg")
+
+        # Detect gaze
+        model.detect_gaze(encoded_image, (0.5, 0.5))
     else:
         model.compile()
 

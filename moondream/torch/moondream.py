@@ -145,7 +145,7 @@ class MoondreamModel(nn.Module):
         # )
         self.ops["prefill"] = torch.compile(self.ops["prefill"], fullgraph=True)
         self.ops["decode_one_token"] = torch.compile(
-            self.ops["decode_one_token"], fullgraph=True
+            self.ops["decode_one_token"], fullgraph=True, mode="reduce-overhead"
         )
 
     def _run_vision_encoder(self, image: Image.Image) -> torch.Tensor:
@@ -505,8 +505,15 @@ class MoondreamModel(nn.Module):
             prompt_emb = torch.cat([before_emb, x_emb, y_emb, after_emb], dim=1)
 
             kv_cache = image.kv_cache.clone()
+            attn_mask = torch.ones(
+                1,
+                1,
+                image.pos + prompt_emb.size(1),
+                device=self.device,
+                dtype=torch.bool,
+            )
             hidden = self.ops["prefill"](
-                prompt_emb, kv_cache, image.pos, self.text, self.config.text
+                prompt_emb, kv_cache, attn_mask, image.pos, self.text, self.config.text
             )
             logits = lm_head(hidden, self.text)
             next_token = torch.argmax(logits, dim=-1)
