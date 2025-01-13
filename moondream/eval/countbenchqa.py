@@ -10,6 +10,40 @@ from ..torch.weights import load_weights_into_model
 
 PREFIX = "Look at the image carefully and count the objects. Answer with just a number, without any additional text. "
 
+
+def eval_countbenchqa(model, debug=False):
+    dataset = datasets.load_dataset("vikhyatk/CountBenchQA", split="test")
+
+    correct = 0
+    total = 0
+
+    for row in tqdm(dataset, disable=debug):
+        image = row["image"]
+        encoded_image = model.encode_image(image)
+
+        question = PREFIX + row["question"]
+        answer = str(row["number"])
+        model_answer = model.query(encoded_image, question)["answer"]
+
+        total += 1
+        if model_answer.strip().lower() == answer.strip().lower():
+            correct += 1
+        elif debug:
+            print(f"Question: {row['question']}")
+            print(f"Answer: {answer}")
+            print(f"Model Answer: {model_answer}")
+        if debug:
+            print(f"Correct: {correct}, Total: {total}")
+            print(f"Accuracy: {correct * 100 / total:.2f}")
+            print("---------")
+
+    return {
+        "acc": correct * 100 / total,
+        "correct_count": correct,
+        "total_count": total,
+    }
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
@@ -25,30 +59,7 @@ if __name__ == "__main__":
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
 
-    dataset = datasets.load_dataset("vikhyatk/CountBenchQA", split="test")
+    result = eval_countbenchqa(model, args.debug)
 
-    correct = 0
-    total = 0
-
-    for row in tqdm(dataset, disable=args.debug):
-        image = row["image"]
-        encoded_image = model.encode_image(image)
-
-        question = PREFIX + row["question"]
-        answer = str(row["number"])
-        model_answer = model.query(encoded_image, question)["answer"]
-
-        total += 1
-        if model_answer.strip().lower() == answer.strip().lower():
-            correct += 1
-        elif args.debug:
-            print(f"Question: {row['question']}")
-            print(f"Answer: {answer}")
-            print(f"Model Answer: {model_answer}")
-        if args.debug:
-            print(f"Correct: {correct}, Total: {total}")
-            print(f"Accuracy: {correct * 100 / total:.2f}")
-            print("---------")
-
-    print(f"Correct: {correct}, Total: {total}")
-    print(f"Accuracy: {correct * 100 / total:.2f}")
+    print(f"Accuracy: {result['acc']:.2f}")
+    print(f"Correct: {result['correct_count']}, Total: {result['total_count']}")
