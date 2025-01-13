@@ -19,22 +19,7 @@ def get_anls(s1, s2):
     return anls
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True)
-    parser.add_argument("--debug", action="store_true")
-    args = parser.parse_args()
-
-    if torch.cuda.is_available():
-        torch.set_default_device("cuda")
-    elif torch.backends.mps.is_available():
-        torch.set_default_device("mps")
-
-    config = MoondreamConfig()
-    model = MoondreamModel(config)
-    load_weights_into_model(args.model, model)
-    model.compile()
-
+def eval_docvqa(model, debug=False):
     docvqa_val = load_dataset("vikhyatk/docvqa-val", split="validation")
 
     scores = []
@@ -58,4 +43,27 @@ if __name__ == "__main__":
                 print(f"Current Average ANLS: {sum(scores) / len(scores):.4f}")
                 print("---------")
 
-    print("ANLS:", sum(scores) / len(scores))
+    return {
+        "anls": sum(scores) / len(scores),
+    }
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--debug", action="store_true")
+    args = parser.parse_args()
+
+    if torch.cuda.is_available():
+        torch.set_default_device("cuda")
+    elif torch.backends.mps.is_available():
+        torch.set_default_device("mps")
+
+    config = MoondreamConfig()
+    model = MoondreamModel(config)
+    load_weights_into_model(args.model, model)
+    model.compile()
+
+    result = eval_docvqa(model, args.debug)
+
+    print(f"ANLS: {result['anls']:.4f}")

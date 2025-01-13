@@ -8,6 +8,39 @@ from ..torch.config import MoondreamConfig
 from ..torch.moondream import MoondreamModel
 from ..torch.weights import load_weights_into_model
 
+
+def eval_realworldqa(model, debug=False):
+    dataset = datasets.load_dataset("lmms-lab/RealWorldQA", split="test")
+
+    correct = 0
+    total = 0
+
+    for row in tqdm(dataset, disable=debug):
+        image = row["image"]
+        question = row["question"]
+        answer = row["answer"]
+        model_answer = model.query(image, question)["answer"]
+
+        total += 1
+        if model_answer.strip().lower() == answer.strip().lower():
+            correct += 1
+        elif debug:
+            print(f"Image: {row['image_path']}")
+            print(f"Question: {question}")
+            print(f"Answer: {answer}")
+            print(f"Model Answer: {model_answer}")
+        if debug:
+            print(f"Correct: {correct}, Total: {total}")
+            print(f"Accuracy: {correct * 100 / total:.2f}")
+            print("---------")
+
+    return {
+        "acc": correct * 100 / total,
+        "correct_count": correct,
+        "total_count": total,
+    }
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
@@ -24,29 +57,7 @@ if __name__ == "__main__":
     load_weights_into_model(args.model, model)
     model.compile()
 
-    dataset = datasets.load_dataset("lmms-lab/RealWorldQA", split="test")
+    result = eval_realworldqa(model, args.debug)
 
-    correct = 0
-    total = 0
-
-    for row in tqdm(dataset, disable=args.debug):
-        image = row["image"]
-        question = row["question"]
-        answer = row["answer"]
-        model_answer = model.query(image, question)["answer"]
-
-        total += 1
-        if model_answer.strip().lower() == answer.strip().lower():
-            correct += 1
-        elif args.debug:
-            print(f"Image: {row['image_path']}")
-            print(f"Question: {question}")
-            print(f"Answer: {answer}")
-            print(f"Model Answer: {model_answer}")
-        if args.debug:
-            print(f"Correct: {correct}, Total: {total}")
-            print(f"Accuracy: {correct * 100 / total:.2f}")
-            print("---------")
-
-    print(f"Correct: {correct}, Total: {total}")
-    print(f"Accuracy: {correct * 100 / total:.2f}")
+    print(f"Accuracy: {result['acc']:.2f}")
+    print(f"Correct: {result['correct_count']} / {result['total_count']}")

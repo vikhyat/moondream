@@ -1,4 +1,3 @@
-import argparse
 from datasets import load_dataset
 from tqdm import tqdm
 import torch
@@ -7,22 +6,8 @@ from ..torch.config import MoondreamConfig
 from ..torch.moondream import MoondreamModel
 from ..torch.weights import load_weights_into_model
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True)
-    parser.add_argument("--debug", action="store_true")
-    args = parser.parse_args()
 
-    if torch.cuda.is_available():
-        torch.set_default_device("cuda")
-    elif torch.backends.mps.is_available():
-        torch.set_default_device("mps")
-
-    config = MoondreamConfig()
-    model = MoondreamModel(config)
-    load_weights_into_model(args.model, model)
-    model.compile()
-
+def eval_naturalbench(model, debug=False):
     # Yes, the benchmark test set is stored in the 'train' split...
     dataset = load_dataset("BaiqiL/NaturalBench", split="train")
 
@@ -31,7 +16,7 @@ if __name__ == "__main__":
     i_acc = []
     g_acc = []
 
-    for row in tqdm(dataset, disable=args.debug):
+    for row in tqdm(dataset, disable=debug):
         if row["Question_Type"] == "yes_no":
             suffix = " Answer yes or no."
         else:
@@ -57,7 +42,7 @@ if __name__ == "__main__":
             answer = model.query(encoded_image, prompt)["answer"]
             answers.append(answer.strip().lower())
 
-        if args.debug:
+        if debug:
             for i, (q, a, e) in enumerate(zip(prompts, answers, expected)):
                 print(f"Q{i}: {q}")
                 print(f"Model: {a}")
@@ -83,14 +68,42 @@ if __name__ == "__main__":
             and answers[3] == expected[3]
         )
 
-        if args.debug:
+        if debug:
             print(f"Current Overall Accuracy: {sum(acc) / len(acc):.4f}")
             print(f"Current Image Accuracy: {sum(i_acc) / len(i_acc):.4f}")
             print(f"Current Question Accuracy: {sum(q_acc) / len(q_acc):.4f}")
             print(f"Current Group Accuracy: {sum(g_acc) / len(g_acc):.4f}")
             print("=========")
 
-    print("Overall Accuracy:", sum(acc) / len(acc))
-    print("Image Accuracy:", sum(i_acc) / len(i_acc))
-    print("Question Accuracy:", sum(q_acc) / len(q_acc))
-    print("Group Accuracy:", sum(g_acc) / len(g_acc))
+    return {
+        "overall_acc": sum(acc) / len(acc),
+        "image_acc": sum(i_acc) / len(i_acc),
+        "question_acc": sum(q_acc) / len(q_acc),
+        "group_acc": sum(g_acc) / len(g_acc),
+    }
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--debug", action="store_true")
+    args = parser.parse_args()
+
+    if torch.cuda.is_available():
+        torch.set_default_device("cuda")
+    elif torch.backends.mps.is_available():
+        torch.set_default_device("mps")
+
+    config = MoondreamConfig()
+    model = MoondreamModel(config)
+    load_weights_into_model(args.model, model)
+    model.compile()
+
+    results = eval_naturalbench(model, debug=args.debug)
+
+    print(f"Overall Accuracy: {results['overall_acc']:.4f}")
+    print(f"Image Accuracy: {results['image_acc']:.4f}")
+    print(f"Question Accuracy: {results['question_acc']:.4f}")
+    print(f"Group Accuracy: {results['group_acc']:.4f}")
