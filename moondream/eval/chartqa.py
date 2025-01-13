@@ -10,6 +10,49 @@ from ..torch.weights import load_weights_into_model
 
 PREFIX = "Analyze the chart carefully, consider both visual features and data values, and provide a precise answer without any additional explanation or formatting. "
 
+
+def eval_chartqa(model, debug=False):
+    dataset = datasets.load_dataset("vikhyatk/chartqa", split="test")
+
+    correct = 0
+    total = 0
+    human_correct = 0
+    human_total = 0
+
+    for row in tqdm(dataset, disable=debug):
+        image = row["image"]
+        encoded_image = model.encode_image(image)
+
+        for qa in row["qa"]:
+            question = PREFIX + qa["question"]
+            answer = qa["answer"]
+            model_answer = model.query(encoded_image, question)["answer"]
+
+            total += 1
+            if qa["source"] == "human":
+                human_total += 1
+            if model_answer.strip().lower() == answer.strip().lower():
+                correct += 1
+                if qa["source"] == "human":
+                    human_correct += 1
+            elif debug:
+                print(f"Question: {qa['question']}")
+                print(f"Answer: {answer}")
+                print(f"Model Answer: {model_answer}")
+            if debug:
+                print(
+                    f"Correct: {correct}, Total: {total}, Human Correct: {human_correct}, Human Total: {human_total}"
+                )
+                print(f"Human Accuracy: {human_correct * 100 / human_total:.2f}")
+                print(f"Total Accuracy: {correct * 100 / total:.2f}")
+                print("---------")
+
+    return {
+        "human_acc": human_correct * 100 / human_total,
+        "total_acc": correct * 100 / total,
+    }
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
@@ -26,43 +69,6 @@ if __name__ == "__main__":
     load_weights_into_model(args.model, model)
     model.compile()
 
-    dataset = datasets.load_dataset("vikhyatk/chartqa", split="test")
-
-    correct = 0
-    total = 0
-    human_correct = 0
-    human_total = 0
-
-    for row in tqdm(dataset, disable=args.debug):
-        image = row["image"]
-        encoded_image = model.encode_image(image)
-
-        for qa in row["qa"]:
-            question = PREFIX + qa["question"]
-            answer = qa["answer"]
-            model_answer = model.query(encoded_image, question)["answer"]
-
-            total += 1
-            if qa["source"] == "human":
-                human_total += 1
-            if model_answer.strip().lower() == answer.strip().lower():
-                correct += 1
-                if qa["source"] == "human":
-                    human_correct += 1
-            elif args.debug:
-                print(f"Question: {qa['question']}")
-                print(f"Answer: {answer}")
-                print(f"Model Answer: {model_answer}")
-            if args.debug:
-                print(
-                    f"Correct: {correct}, Total: {total}, Human Correct: {human_correct}, Human Total: {human_total}"
-                )
-                print(f"Human Accuracy: {human_correct * 100 / human_total:.2f}")
-                print(f"Total Accuracy: {correct * 100 / total:.2f}")
-                print("---------")
-
-    print(
-        f"Correct: {correct}, Total: {total}, Human Correct: {human_correct}, Human Total: {human_total}"
-    )
-    print(f"Human Accuracy: {human_correct * 100 / human_total:.2f}")
-    print(f"Total Accuracy: {correct * 100 / total:.2f}")
+    results = eval_chartqa(model, args.debug)
+    print(f"Human Accuracy: {results['human_acc']:.2f}")
+    print(f"Total Accuracy: {results['total_acc']:.2f}")

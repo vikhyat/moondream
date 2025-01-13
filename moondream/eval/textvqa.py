@@ -11,6 +11,36 @@ from .utils import VQAScorer
 
 PREFIX_TEXTVQA = "Read the text in the image and provide a brief lowercase answer. Respond 'unanswerable' only if there is no plausible answer. "
 
+
+def eval_textvqa(model, debug=False):
+    dataset = datasets.load_dataset("vikhyatk/textvqa_val", split="validation")
+
+    scorer = VQAScorer()
+
+    total_score = 0
+    total_samples = 0
+
+    for row in tqdm(dataset, disable=debug):
+        image = row["image"]
+        encoded_image = model.encode_image(image)
+        question = PREFIX_TEXTVQA + row["question"]
+        model_answer = model.query(encoded_image, question)["answer"]
+
+        score = scorer.compute_score(model_answer, row["answers"])
+        total_score += score
+        total_samples += 1
+
+        if debug:
+            print(f"Question: {row['question']}")
+            print(f"Ground Truth Answers: {row['answers']}")
+            print(f"Model Answer: {model_answer}")
+            print(f"Score: {score}")
+            print(f"Running Average Score: {total_score * 100 / total_samples:.2f}")
+            print("---------")
+
+    return {"score": total_score * 100 / total_samples}
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
@@ -27,29 +57,6 @@ if __name__ == "__main__":
     load_weights_into_model(args.model, model)
     model.compile()
 
-    dataset = datasets.load_dataset("vikhyatk/textvqa_val", split="validation")
-    scorer = VQAScorer()
+    result = eval_textvqa(model, args.debug)
 
-    total_score = 0
-    total_samples = 0
-
-    for row in tqdm(dataset, disable=args.debug):
-        image = row["image"]
-        encoded_image = model.encode_image(image)
-        question = PREFIX_TEXTVQA + row["question"]
-        model_answer = model.query(encoded_image, question)["answer"]
-
-        score = scorer.compute_score(model_answer, row["answers"])
-        total_score += score
-        total_samples += 1
-
-        if args.debug:
-            print(f"Question: {row['question']}")
-            print(f"Ground Truth Answers: {row['answers']}")
-            print(f"Model Answer: {model_answer}")
-            print(f"Score: {score}")
-            print(f"Running Average Score: {total_score * 100 / total_samples:.2f}")
-            print("---------")
-
-    final_score = total_score * 100 / total_samples
-    print(f"TextVQA Score: {final_score:.2f}")
+    print(f"Score: {result['score']}")
