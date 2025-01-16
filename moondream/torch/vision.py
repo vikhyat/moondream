@@ -41,7 +41,7 @@ def prepare_crops(
     return all_crops, overlap_crops["tiling"]
 
 
-def rearrange_einops_to_torch(x, patch_size):
+def create_patches(x, patch_size):
     # Original shape: [B, C, H, W]
     B, C, H, W = x.shape
     P1 = P2 = patch_size
@@ -62,7 +62,7 @@ def rearrange_einops_to_torch(x, patch_size):
 
 
 def vision_encoder(input_BCHW: torch.Tensor, w: nn.Module, config: VisionConfig):
-    x = rearrange_einops_to_torch(input_BCHW, config.enc_patch_size)
+    x = create_patches(input_BCHW, config.enc_patch_size)
 
     x = linear(x, w.patch_emb)
     x = x + w.pos_emb
