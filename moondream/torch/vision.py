@@ -61,6 +61,7 @@ def rearrange_einops_to_torch(x, patch_size):
 
     return x
 
+
 def vision_encoder(input_BCHW: torch.Tensor, w: nn.Module, config: VisionConfig):
     x = rearrange_einops_to_torch(input_BCHW, config.enc_patch_size)
 
