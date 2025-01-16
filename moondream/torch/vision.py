@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import numpy as np
 
 from typing import Union, Tuple
-from einops import rearrange
 from PIL import Image
 
 from .layers import attn, layer_norm, linear, mlp
@@ -42,13 +41,28 @@ def prepare_crops(
     return all_crops, overlap_crops["tiling"]
 
 
+def create_patches(x, patch_size):
+    # Original shape: [B, C, H, W]
+    B, C, H, W = x.shape
+    P1 = P2 = patch_size
+
+    # Step 1: Split H and W dimensions into patches
+    # [B, C, H/P1, P1, W/P2, P2]
+    x = x.reshape(B, C, H // P1, P1, W // P2, P2)
+
+    # Step 2: Rearrange dimensions to match target shape
+    # [B, H/P1, W/P2, C, P1, P2]
+    x = x.permute(0, 2, 4, 1, 3, 5)
+
+    # Step 3: Combine dimensions to get final shape
+    # [B, (H/P1)*(W/P2), C*P1*P2]
+    x = x.reshape(B, (H // P1) * (W // P2), C * P1 * P2)
+
+    return x
+
+
 def vision_encoder(input_BCHW: torch.Tensor, w: nn.Module, config: VisionConfig):
-    x = rearrange(
-        input_BCHW,
-        "b c (h p1) (w p2) -> b (h w) (c p1 p2)",
-        p1=config.enc_patch_size,
-        p2=config.enc_patch_size,
-    )  # B3HW -> B(HxW)(3xP1xP2), aka BTC
+    x = create_patches(input_BCHW, config.enc_patch_size)
 
     x = linear(x, w.patch_emb)
     x = x + w.pos_emb

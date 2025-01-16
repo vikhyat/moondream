@@ -6,7 +6,6 @@ pyvips==2.2.3
 torch==2.3.1
 torchvision==0.18.1
 transformers==4.44.0
-einops==0.8.0
 gradio==4.38.1
 
 # Needed for running evals
