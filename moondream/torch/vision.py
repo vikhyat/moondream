@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import numpy as np
 
 from typing import Union, Tuple
-from einops import rearrange
 from PIL import Image
 
 from .layers import attn, layer_norm, linear, mlp
