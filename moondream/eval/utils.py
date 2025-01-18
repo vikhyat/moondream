@@ -169,13 +169,15 @@ class VQAScorer:
             "?",
             "!",
         ]
+        self.commaStrip = re.compile("(\d)(,)(\d)")  # noqa: W605
+        self.periodStrip = re.compile("(?!<=\d)(\.)(?!\d)")  # noqa: W605
 
-    def processPunctuation(self, inText: str) -> str:
-        """Exactly matching the VQAEval processPunctuation method"""
+    def process_punctuation(self, inText: str) -> str:
         outText = inText
+
         for p in self.punct:
             if (p + " " in inText or " " + p in inText) or (
-                re.search(self.commaStrip, inText) != None
+                re.search(self.commaStrip, inText) is not None
             ):
                 outText = outText.replace(p, "")
             else:
@@ -183,21 +185,44 @@ class VQAScorer:
         outText = self.periodStrip.sub("", outText, re.UNICODE)
         return outText
 
-    def processDigitArticle(self, inText: str) -> str:
-        """Exactly matching the VQAEval processDigitArticle method"""
+    def process_digit_article(self, inText: str) -> str:
         outText = []
         tempText = inText.lower().split()
         for word in tempText:
             word = self.manualMap.setdefault(word, word)
             if word not in self.articles:
                 outText.append(word)
-
         for wordId, word in enumerate(outText):
             if word in self.contractions:
                 outText[wordId] = self.contractions[word]
-
         outText = " ".join(outText)
         return outText
+
+    def process_answer(self, answer):
+        answer = answer.replace("\n", " ")
+        answer = answer.replace("\t", " ")
+        answer = answer.strip()
+        answer = self.process_punctuation(answer)
+        answer = self.process_digit_article(answer)
+        return answer
+
+    def process_line(
+        self, candidate_answer: str, ground_truth_answers: List[str]
+    ) -> float:
+        gt_answers = [self.process_answer(x) for x in gt_answers]
+        prediction = self.process_answer(prediction)
+        matches = []
+        for current_idx, gtAnsDatum in enumerate(gt_answers):
+            otherGTAns = [
+                item
+                for ret_gt_idx, item in enumerate(gt_answers)
+                if ret_gt_idx != current_idx
+            ]
+            matchingAns = [item for item in otherGTAns if item == prediction]
+            acc = min(1, float(len(matchingAns)) / 3)
+            matches.append(acc)
+
+        return sum(matches) / len(matches)
 
     def compute_score(
         self, candidate_answer: str, ground_truth_answers: List[str]
@@ -207,9 +232,7 @@ class VQAScorer:
         exactly matching the VQAEval scoring logic
         """
         # Process candidate answer
-        candidate = candidate_answer.replace("\n", " ")
-        candidate = candidate.replace("\t", " ")
-        candidate = candidate.strip()
+        candidate = self.process_answer(candidate_answer)
 
         # Process ground truth answers
         processed_gts = []
@@ -221,10 +244,10 @@ class VQAScorer:
 
         # If there are multiple different answers, apply additional processing
         if len(set(processed_gts)) > 1:
-            candidate = self.processPunctuation(candidate)
-            candidate = self.processDigitArticle(candidate)
+            candidate = self.process_punctuation(candidate)
+            candidate = self.process_digit_article(candidate)
             processed_gts = [
-                self.processPunctuation(self.processDigitArticle(gt))
+                self.process_punctuation(self.process_digit_article(gt))
                 for gt in processed_gts
             ]
 
@@ -233,21 +256,3 @@ class VQAScorer:
         score = min(1.0, float(len(matching_answers)) / 3.0)
 
         return score
-
-    def find_best_answer(
-        self, candidate_answers: List[str], ground_truth_answers: List[str]
-    ) -> Tuple[str, float]:
-        """
-        Find the candidate answer that gets the highest VQA score.
-        Returns (best_answer, score)
-        """
-        best_score = -1
-        best_answer = None
-
-        for candidate in candidate_answers:
-            score = self.compute_score(candidate, ground_truth_answers)
-            if score > best_score:
-                best_score = score
-                best_answer = candidate
-
-        return best_answer, best_score
