@@ -3,6 +3,7 @@ import datasets
 import torch
 
 from tqdm import tqdm
+import json
 
 from ..torch.config import MoondreamConfig
 from ..torch.moondream import MoondreamModel
@@ -74,8 +75,8 @@ def eval_chartqa(model, debug=False):
 
             # Attempt to parse both answers into lists, otherwise
             try:
-                answer_list = eval(answer)
-                model_answer_list = eval(model_answer)
+                answer_list = json.loads(answer)
+                model_answer_list = json.loads(model_answer)
                 if not (
                     isinstance(answer_list, list)
                     and isinstance(model_answer_list, list)
