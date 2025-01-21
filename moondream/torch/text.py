@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from torch.nn import functional as F
+from transformers.models.owlvit.convert_owlvit_original_flax_to_hf import attn_params
 
 from .layers import layer_norm, linear, mlp
 from .rope import apply_rotary_emb, precompute_freqs_cis
@@ -48,6 +49,32 @@ def attn(
     out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
     out = linear(out, w.proj)
     return out, torch.stack([k_, v_])
+
+
+def _attn(
+    x: torch.Tensor,
+    w: torch.Tensor,
+    freqs_cis: torch.Tensor,
+    attn_mask: torch.Tensor,
+    n_heads: int,
+):
+    bsz, q_len, d_model = x.shape
+    head_dim = d_model // n_heads
+    pos = 0
+
+    q, k, v = [
+        t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
+        for t in w.qkv(x).chunk(3, dim=-1)
+    ]
+
+    position_ids = torch.arange(pos, pos + q_len, dtype=torch.long)
+    q = apply_rotary_emb(q, freqs_cis, position_ids, n_heads)
+    k = apply_rotary_emb(k, freqs_cis, position_ids, n_heads)
+
+    out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
+    out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
+    out = linear(out, w.proj)
+    return out
 
 
 def text_decoder(
@@ -98,6 +125,41 @@ def prefill(
         inputs_embeds, w, kv_cache, attn_mask, pos, config
     )
     return hidden
+
+
+def loss(
+    inputs_embeds: torch.Tensor, w: nn.Module, labels: torch.Tensor, config: TextConfig
+):
+    hidden_BTC = inputs_embeds
+
+    bsz, q_len, d_model = inputs_embeds.shape
+    attn_mask = torch.zeros(q_len, q_len)
+    attn_mask[:730, :730] = 1
+    for i in range(730, q_len):
+        attn_mask[i, : i + 1] = 1
+
+    for i, block in enumerate(w.blocks):
+        l_in = layer_norm(hidden_BTC, block.ln)
+        l_attn = _attn(
+            x=l_in,
+            w=block.attn,
+            freqs_cis=w.freq_cis,
+            attn_mask=attn_mask,
+            n_heads=config.n_heads,
+        )
+        l_mlp = mlp(l_in, block.mlp)
+        hidden_BTC = hidden_BTC + l_attn + l_mlp
+    lm_logits = lm_head(hidden_BTC, w)
+
+    loss = None
+    if labels is not None:
+        shifted_logits = lm_logits[..., :-1, :].contiguous()
+        shifted_labels = labels[..., 1:].contiguous()
+        loss = nn.CrossEntropyLoss()(
+            shifted_logits.view(-1, shifted_logits.size(-1)),
+            shifted_labels.view(-1),
+        )
+    return loss
 
 
 def decode_one_token(
