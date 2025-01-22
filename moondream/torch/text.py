@@ -158,7 +158,9 @@ def loss(
 
     loss = None
     if labels is not None:
-        shifted_logits = lm_logits[..., 729:-1, :].contiguous()
+        _, _, l_len = labels.shape
+        shift_index = (q_len - l_len )- 1
+        shifted_logits = lm_logits[..., shift_index:-1, :].contiguous()
         shifted_labels = labels.contiguous()
         loss = nn.CrossEntropyLoss()(
             shifted_logits.view(-1, shifted_logits.size(-1)),
