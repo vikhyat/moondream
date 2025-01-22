@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 
 from torch.nn import functional as F
-from transformers.models.owlvit.convert_owlvit_original_flax_to_hf import attn_params
 
 from .layers import layer_norm, linear, mlp
 from .rope import apply_rotary_emb, precompute_freqs_cis
@@ -111,6 +110,11 @@ def lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     logits = linear(hidden_BC, w.lm_head)
     return logits
 
+def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
+    hidden_BTC = layer_norm(hidden_BTC, w.post_ln)
+    logits = linear(hidden_BTC, w.lm_head)
+    return logits
+
 
 def prefill(
     inputs_embeds: torch.Tensor,
@@ -137,24 +141,25 @@ def loss(
     attn_mask[:730, :730] = 1
     for i in range(730, q_len):
         attn_mask[i, : i + 1] = 1
+    attn_mask = attn_mask.to(dtype=torch.bool)
 
     for i, block in enumerate(w.blocks):
         l_in = layer_norm(hidden_BTC, block.ln)
         l_attn = _attn(
             x=l_in,
             w=block.attn,
-            freqs_cis=w.freq_cis,
+            freqs_cis=w.freqs_cis,
             attn_mask=attn_mask,
             n_heads=config.n_heads,
         )
         l_mlp = mlp(l_in, block.mlp)
         hidden_BTC = hidden_BTC + l_attn + l_mlp
-    lm_logits = lm_head(hidden_BTC, w)
+    lm_logits = _lm_head(hidden_BTC, w)
 
     loss = None
     if labels is not None:
-        shifted_logits = lm_logits[..., :-1, :].contiguous()
-        shifted_labels = labels[..., 1:].contiguous()
+        shifted_logits = lm_logits[..., 729:-1, :].contiguous()
+        shifted_labels = labels.contiguous()
         loss = nn.CrossEntropyLoss()(
             shifted_logits.view(-1, shifted_logits.size(-1)),
             shifted_labels.view(-1),
