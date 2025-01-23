@@ -17,7 +17,7 @@ from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig, text_encoder
 from .text import loss as t_loss
 
-MODEL_PATH =  "/home/user/moondream/moondream/data/model.pt"
+MODEL_PATH =  ""
 ANSWER_EOS = "<|endoftext|>"
 LR = 1e-4
 EPOCHS = 1
