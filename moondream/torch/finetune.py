@@ -11,17 +11,17 @@ from PIL import Image, ImageDraw
 from tqdm import tqdm
 from datasets import load_dataset
 from bitsandbytes.optim import AdamW
+import wandb
 
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig, text_encoder
 from .text import loss as t_loss
 
-MODEL_PATH =  "/workspace/moondream/moondream/data/model.pt"
-IMAGE_PATH = "/workspace/moondream/moondream/data/500_ftqd.jpg"
+MODEL_PATH =  "/home/user/moondream/moondream/data/model.pt"
 ANSWER_EOS = "<|endoftext|>"
 LR = 1e-4
 EPOCHS = 1
-GRAD_ACCUM_STEPS = 20
+GRAD_ACCUM_STEPS = 64
 
 
 def lr_schedule(step, max_steps):
@@ -41,11 +41,12 @@ class CaptchaDataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.data[idx]
+        description = sample["description"]
         return {
             "image": sample["image"],
             "qa": {
                     "question": "\n\nQuestion: Describe this image.\n\nAnswer:",
-                    "answer": f"{sample["description"]}{ANSWER_EOS}",
+                    "answer": f"{description}{ANSWER_EOS}",
                 }
         }
     
@@ -55,6 +56,16 @@ def main():
         torch.set_default_device("cuda")
     elif torch.backends.mps.is_available():
         torch.set_default_device("mps")
+        
+    wandb.init(
+        project="moondream-ft",
+        config={
+            "EPOCHS": EPOCHS,
+            "BATCH_SIZE": 1,
+            "GRAD_ACCUM_STEPS": GRAD_ACCUM_STEPS,
+            "LR": LR,
+        }
+    )
     
     config = MoondreamConfig()
     model = MoondreamModel(config)
@@ -113,6 +124,11 @@ def main():
                     param_group['lr'] = lr
                 pbar.set_postfix({"step" : i//GRAD_ACCUM_STEPS, "loss" : loss.item()})
                 pbar.update(1)
+                wandb.log({
+                    "loss/train": loss.item(),
+                    "lr": optimizer.param_groups[0]['lr']
+                })
+    wandb.finish()
     
     
    
