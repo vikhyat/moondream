@@ -15,7 +15,7 @@ def eval_realworldqa(model, debug=False):
     correct = 0
     total = 0
 
-    for row in tqdm(dataset, disable=debug):
+    for row in tqdm(dataset, disable=debug, desc="RealWorldQA"):
         image = row["image"]
         question = row["question"]
         answer = row["answer"]

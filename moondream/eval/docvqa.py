@@ -23,7 +23,7 @@ def eval_docvqa(model, debug=False):
     docvqa_val = load_dataset("vikhyatk/docvqa-val", split="validation")
 
     scores = []
-    for row in tqdm(docvqa_val, disable=args.debug):
+    for row in tqdm(docvqa_val, disable=debug, desc="DocVQA"):
         image = row["image"]
         encoded_image = model.encode_image(image)
         for qa in row["qa"]:
@@ -35,7 +35,7 @@ def eval_docvqa(model, debug=False):
             anls = max(get_anls(model_answer, gt) for gt in answers)
             scores.append(anls)
 
-            if args.debug:
+            if debug:
                 print(f"Question: {question}")
                 print(f"Ground Truth: {answers}")
                 print(f"Model Answer: {model_answer}")
