@@ -17,7 +17,7 @@ def eval_countbenchqa(model, debug=False):
     correct = 0
     total = 0
 
-    for row in tqdm(dataset, disable=debug):
+    for row in tqdm(dataset, disable=debug, desc="CountBenchQA"):
         image = row["image"]
         encoded_image = model.encode_image(image)
 

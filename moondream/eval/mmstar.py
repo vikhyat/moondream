@@ -17,7 +17,7 @@ def eval_mmstar(model, debug=False):
     total = 0
     category_stats = {}
 
-    for row in tqdm(dataset, disable=debug):
+    for row in tqdm(dataset, disable=debug, desc="MMStar"):
         image = row["image"]
         question = row["question"] + SUFFIX
         answer = row["answer"]

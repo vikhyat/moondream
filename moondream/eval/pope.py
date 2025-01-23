@@ -17,7 +17,7 @@ def evaluate_pope(model, debug=False):
         "adversarial": (0, 0),
     }
 
-    for row in tqdm(pope_dataset, disable=debug):
+    for row in tqdm(pope_dataset, disable=debug, desc="POPE"):
         image = row["image"]
         encoded_image = model.encode_image(image)
         for split in ["adversarial", "popular", "random"]:

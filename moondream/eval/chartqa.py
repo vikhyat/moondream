@@ -64,7 +64,7 @@ def eval_chartqa(model, debug=False):
     human_correct = 0
     human_total = 0
 
-    for row in tqdm(dataset, disable=debug):
+    for row in tqdm(dataset, disable=debug, desc="ChartQA"):
         image = row["image"]
         encoded_image = model.encode_image(image)
 

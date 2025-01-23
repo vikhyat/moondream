@@ -20,7 +20,7 @@ def eval_textvqa(model, debug=False):
     total_score = 0
     total_samples = 0
 
-    for row in tqdm(dataset, disable=debug):
+    for row in tqdm(dataset, disable=debug, desc="TextVQA"):
         image = row["image"]
         encoded_image = model.encode_image(image)
         question = PREFIX_TEXTVQA + row["question"]
