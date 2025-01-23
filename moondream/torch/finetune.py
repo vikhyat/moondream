@@ -1,13 +1,8 @@
-import argparse
 from cgitb import text
-import json
-import os
 import torch
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
+from torch.utils.data import Dataset
 import math
 
-from PIL import Image, ImageDraw
 from tqdm import tqdm
 from datasets import load_dataset
 from bitsandbytes.optim import AdamW
