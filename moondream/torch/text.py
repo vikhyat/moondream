@@ -110,6 +110,7 @@ def lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     logits = linear(hidden_BC, w.lm_head)
     return logits
 
+
 def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     hidden_BTC = layer_norm(hidden_BTC, w.post_ln)
     logits = linear(hidden_BTC, w.lm_head)
@@ -131,9 +132,7 @@ def prefill(
     return hidden
 
 
-def _produce_hidden(
-    inputs_embeds: torch.Tensor, w: nn.Module, config: TextConfig
-):
+def _produce_hidden(inputs_embeds: torch.Tensor, w: nn.Module, config: TextConfig):
     hidden_BTC = inputs_embeds
 
     bsz, q_len, d_model = inputs_embeds.shape
@@ -156,27 +155,6 @@ def _produce_hidden(
         hidden_BTC = hidden_BTC + l_attn + l_mlp
 
     return hidden_BTC
-    
-
-
-def loss(
-    inputs_embeds: torch.Tensor, w: nn.Module, labels: torch.Tensor, config: TextConfig
-):
-    _, q_len, _ = inputs_embeds.shape
-    hidden_BTC = _produce_hidden(inputs_embeds, w, config)
-    lm_logits = _lm_head(hidden_BTC, w)
-
-    loss = None
-    if labels is not None:
-        _, _, l_len = labels.shape
-        shift_index = (q_len - l_len )- 1
-        shifted_logits = lm_logits[..., shift_index:-1, :].contiguous()
-        shifted_labels = labels.contiguous()
-        loss = nn.CrossEntropyLoss()(
-            shifted_logits.view(-1, shifted_logits.size(-1)),
-            shifted_labels.view(-1),
-        )
-    return loss
 
 
 def decode_one_token(

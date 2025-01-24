@@ -7,7 +7,6 @@ from PIL import Image, ImageDraw
 from tqdm import tqdm
 
 from .weights import load_weights_into_model
-from safetensors.torch import load_file
 from .moondream import MoondreamModel, MoondreamConfig
 
 if __name__ == "__main__":
