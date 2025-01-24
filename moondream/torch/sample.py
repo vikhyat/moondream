@@ -35,6 +35,7 @@ if __name__ == "__main__":
     else:
         config = MoondreamConfig()
     model = MoondreamModel(config)
+    # model.load_state_dict(torch.load(args.model))
     load_weights_into_model(args.model, model)
 
     # Encode image.
@@ -68,7 +69,7 @@ if __name__ == "__main__":
         print()
 
         # Detect
-        obj = "hand"
+        obj = "crack"
         print(f"Detect: {obj}")
         objs = model.detect(encoded_image, obj)["objects"]
         print(f"Found {len(objs)}")
@@ -85,7 +86,7 @@ if __name__ == "__main__":
         image.save("detect.jpg")
 
         # Point
-        obj = "ear"
+        obj = "crack"
         print(f"Point: {obj}")
         points = model.point(encoded_image, obj)["points"]
         print(f"Found {len(points)}")

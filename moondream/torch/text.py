@@ -131,8 +131,8 @@ def prefill(
     return hidden
 
 
-def loss(
-    inputs_embeds: torch.Tensor, w: nn.Module, labels: torch.Tensor, config: TextConfig
+def _produce_hidden(
+    inputs_embeds: torch.Tensor, w: nn.Module, config: TextConfig
 ):
     hidden_BTC = inputs_embeds
 
@@ -154,6 +154,16 @@ def loss(
         )
         l_mlp = mlp(l_in, block.mlp)
         hidden_BTC = hidden_BTC + l_attn + l_mlp
+
+    return hidden_BTC
+    
+
+
+def loss(
+    inputs_embeds: torch.Tensor, w: nn.Module, labels: torch.Tensor, config: TextConfig
+):
+    _, q_len, _ = inputs_embeds.shape
+    hidden_BTC = _produce_hidden(inputs_embeds, w, config)
     lm_logits = _lm_head(hidden_BTC, w)
 
     loss = None
