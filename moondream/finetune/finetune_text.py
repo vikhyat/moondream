@@ -1,17 +1,18 @@
 import torch
 from torch.utils.data import Dataset
 import math
+from safetensors.torch import save_file
 
 from tqdm import tqdm
 from datasets import load_dataset
 from bitsandbytes.optim import AdamW
 import wandb
 
-from .weights import load_weights_into_model
-from .moondream import MoondreamModel, MoondreamConfig, text_encoder
-from .text import loss as t_loss
+from ..torch.weights import load_weights_into_model
+from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
+from ..torch.text import loss as t_loss
 
-MODEL_PATH = "/home/user/moondream/moondream/data/model.pt"
+MODEL_PATH = "/home/user/moondream/moondream/data/model.safetensors"
 ANSWER_EOS = "<|endoftext|>"
 LR = 1e-4
 EPOCHS = 1
@@ -26,7 +27,7 @@ def lr_schedule(step, max_steps):
         return 0.1 * LR + 0.9 * LR * (1 + math.cos(math.pi * (x - 0.1))) / 2
 
 
-class CaptchaDataset(Dataset):
+class DocciDataset(Dataset):
     def __init__(self, split="train"):
         self.data = load_dataset("google/docci", trust_remote_code=True)[split]
 
@@ -74,7 +75,7 @@ def main():
         eps=1e-6,
     )
 
-    dataset = CaptchaDataset("train")
+    dataset = DocciDataset("train")
 
     total_steps = EPOCHS * len(dataset) // GRAD_ACCUM_STEPS
     pbar = tqdm(total=total_steps)
@@ -82,6 +83,8 @@ def main():
     i = 0
     for epoch in range(EPOCHS):
         for sample in dataset:
+            if i > 40 * GRAD_ACCUM_STEPS:
+                break
             i += 1
             with torch.no_grad():
                 img_emb = model._run_vision_encoder(sample["image"])
@@ -101,6 +104,12 @@ def main():
                     torch.tensor([[answer_tokens]], device=model.device),
                     model.text,
                 ).squeeze(0)
+                eos_emb = text_encoder(
+                    torch.tensor(
+                        [[model.config.tokenizer.eos_id]], device=model.device
+                    ),
+                    model.text,
+                )
                 inputs_embeds = torch.cat(
                     [bos_emb, img_emb[None], question_emb, answer_emb], dim=1
                 )
@@ -126,6 +135,10 @@ def main():
                     {"loss/train": loss.item(), "lr": optimizer.param_groups[0]["lr"]}
                 )
     wandb.finish()
+    save_file(
+        model.state_dict(),
+        "/home/user/moondream/moondream/data/model_text_ft_hard.safetensors",
+    )
 
 
 if __name__ == "__main__":

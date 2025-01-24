@@ -258,20 +258,28 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module) -
 def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
     """Load weights from a safetensors file into a MoondreamModel instance."""
     with safetensors_open(weights_file) as get_tensor:
-        # Wrap the get_tensor function to handle key normalization
-        name_map = {k.replace("._orig_mod", ""): k for k in get_tensor.keys()}
-        _load_weights(lambda x: get_tensor(name_map[x]).to(dtype=torch.float16), model)
+        if "vision.blocks.0.attn.proj.bias" in get_tensor.keys():
+            model.load_state_dict(safetensors.torch.load_file(weights_file))
+        else:
+            # Wrap the get_tensor function to handle key normalization
+            name_map = {k.replace("._orig_mod", ""): k for k in get_tensor.keys()}
+            _load_weights(
+                lambda x: get_tensor(name_map[x]).to(dtype=torch.float16), model
+            )
 
 
 def load_weights_from_pt(weights_file: str, model: nn.Module) -> None:
     """Load weights from a PyTorch file into a MoondreamModel instance."""
     device = str(torch.empty(0).device)
     tensors = torch.load(weights_file, map_location=device, weights_only=True)
-    tensors = {
-        k.replace("._orig_mod", ""): v.to(dtype=torch.float16)
-        for k, v in tensors.items()
-    }
-    _load_weights(lambda x: tensors[x], model)
+    if "vision.blocks.0.attn.proj.bias" in tensors.keys():
+        model.load_state_dict(tensors)
+    else:
+        tensors = {
+            k.replace("._orig_mod", ""): v.to(dtype=torch.float16)
+            for k, v in tensors.items()
+        }
+        _load_weights(lambda x: tensors[x], model)
 
 
 def load_weights_into_model(weights_file: str, model: nn.Module) -> None:

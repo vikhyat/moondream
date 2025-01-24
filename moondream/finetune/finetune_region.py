@@ -15,10 +15,15 @@ import random
 from ..torch.weights import load_weights_into_model, RegionModel
 from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
 from ..torch.text import _produce_hidden
-from ..torch.region import encode_coordinate, encode_size
-from ..torch.region import decode_coordinate, decode_size
+from ..torch.region import (
+    decode_coordinate,
+    decode_size,
+    encode_coordinate,
+    encode_size,
+)
 
 MODEL_PATH = "/home/user/moondream/moondream/data/model.safetensors"
+ANSWER_EOS = "<|endoftext|>"
 LR = 5e-5
 EPOCHS = 1
 GRAD_ACCUM_STEPS = 64
@@ -159,6 +164,7 @@ def main():
         eps=1e-6,
     )
 
+    # Add path to annotation file and img dir
     dataset = CocoDataset(
         annotation_file="/home/user/moondream/moondream/data/roboflow/train/_annotations.coco.json",
         img_dir="/home/user/moondream/moondream/data/roboflow/train",
@@ -188,10 +194,9 @@ def main():
                     model.text,
                 ).squeeze(0)
 
+                eos_token = model.tokenizer.encode(ANSWER_EOS).ids
                 eos_emb = text_encoder(
-                    torch.tensor(
-                        [[model.config.tokenizer.eos_id]], device=model.device
-                    ),
+                    torch.tensor([eos_token], device=model.device),
                     model.text,
                 )
 
@@ -253,10 +258,13 @@ def main():
                     {"loss/train": loss.item(), "lr": optimizer.param_groups[0]["lr"]}
                 )
     wandb.finish()
-    save_file(
-        model.state_dict(), "/home/user/moondream/moondream/data/model_ft.safetensors"
-    )
+    # Add save path: ex. home/model.safetensors
+    save_file(model.state_dict(), "")
 
 
 if __name__ == "__main__":
+    """
+    Replace paths with your appropriate paths.
+    To run: python -m moondream.finetune.finetune_region
+    """
     main()
