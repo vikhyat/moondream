@@ -3,7 +3,6 @@ import math
 
 from .weights import RegionModel
 from .layers import linear, mlp
-import torch.nn as nn
 
 
 def fourier_features(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:

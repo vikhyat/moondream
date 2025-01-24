@@ -68,7 +68,7 @@ if __name__ == "__main__":
         print()
 
         # Detect
-        obj = "crack"
+        obj = "hand"
         print(f"Detect: {obj}")
         objs = model.detect(encoded_image, obj)["objects"]
         print(f"Found {len(objs)}")
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         image.save("detect.jpg")
 
         # Point
-        obj = "crack"
+        obj = "hand"
         print(f"Point: {obj}")
         points = model.point(encoded_image, obj)["points"]
         print(f"Found {len(points)}")
