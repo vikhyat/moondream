@@ -4,7 +4,6 @@ import math
 from .weights import RegionModel
 from .layers import linear, mlp
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 def fourier_features(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
@@ -82,32 +81,3 @@ def decode_size(hidden_state: torch.Tensor, w: RegionModel) -> torch.Tensor:
         predicted height.
     """
     return mlp(hidden_state, w.size_decoder).view(2, -1)
-
-
-def loss(
-    hidden_states: torch.Tensor,
-    w: RegionModel,
-    labels: torch.Tensor,
-    c_idx: torch.Tensor,
-    s_idx: torch.Tensor,
-):
-    l_idx = torch.arange(len(labels))
-
-    c_idx = c_idx - 1
-    c_hidden = hidden_states[:, c_idx, :]
-    c_logits = decode_coordinate(c_hidden, w)
-    c_labels = labels[(l_idx % 4) < 2]
-
-    c_loss = nn.CrossEntropyLoss()(
-        c_logits.view(-1, c_logits.size(-1)),
-        c_labels,
-    )
-
-    s_idx = s_idx - 1
-    s_hidden = hidden_states[:, s_idx, :]
-    s_logits = decode_size(s_hidden, w).view(-1, 1024)
-    s_labels = labels[(l_idx % 4) >= 2]
-
-    s_loss = nn.CrossEntropyLoss()(s_logits, s_labels)
-
-    return c_loss + s_loss

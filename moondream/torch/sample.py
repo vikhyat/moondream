@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw
 from tqdm import tqdm
 
 from .weights import load_weights_into_model
+from safetensors.torch import load_file
 from .moondream import MoondreamModel, MoondreamConfig
 
 if __name__ == "__main__":
@@ -35,7 +36,8 @@ if __name__ == "__main__":
     else:
         config = MoondreamConfig()
     model = MoondreamModel(config)
-    model.load_state_dict(torch.load(args.model))
+    state_dict = load_file(args.model)
+    model.load_state_dict(state_dict)
     # load_weights_into_model(args.model, model)
 
     # Encode image.

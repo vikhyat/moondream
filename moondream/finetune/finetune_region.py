@@ -1,21 +1,22 @@
 import json
 import os
-from tkinter import HIDDEN
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
+import torch.nn.functional as F
 import math
+from safetensors.torch import save_file
 
 from PIL import Image
 from tqdm import tqdm
-from bitsandbytes.optim import AdamW
+from bitsandbytes.optim import AdamW8bit
 import wandb
 import random
 
-from .weights import load_weights_into_model
-from .moondream import MoondreamModel, MoondreamConfig, text_encoder
-from .text import _produce_hidden
-from .region import encode_coordinate, encode_size
-from .region import loss as region_loss
+from ..torch.weights import load_weights_into_model, RegionModel
+from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
+from ..torch.text import _produce_hidden
+from ..torch.region import encode_coordinate, encode_size
+from ..torch.region import decode_coordinate, decode_size
 
 MODEL_PATH = "/home/user/moondream/moondream/data/model.safetensors"
 LR = 5e-5
@@ -31,12 +32,33 @@ def lr_schedule(step, max_steps):
         return 0.1 * LR + 0.9 * LR * (1 + math.cos(math.pi * (x - 0.1))) / 2
 
 
-import json
-import os
-from PIL import Image
+def region_loss(
+    hidden_states: torch.Tensor,
+    w: RegionModel,
+    labels: torch.Tensor,
+    c_idx: torch.Tensor,
+    s_idx: torch.Tensor,
+):
+    l_idx = torch.arange(len(labels))
 
-import torch
-from torch.utils.data import Dataset
+    c_idx = c_idx - 1
+    c_hidden = hidden_states[:, c_idx, :]
+    c_logits = decode_coordinate(c_hidden, w)
+    c_labels = labels[(l_idx % 4) < 2]
+
+    c_loss = F.cross_entropy(
+        c_logits.view(-1, c_logits.size(-1)),
+        c_labels,
+    )
+
+    s_idx = s_idx - 1
+    s_hidden = hidden_states[:, s_idx, :]
+    s_logits = decode_size(s_hidden, w).view(-1, 1024)
+    s_labels = labels[(l_idx % 4) >= 2]
+
+    s_loss = F.cross_entropy(s_logits, s_labels)
+
+    return c_loss + s_loss
 
 
 class CocoDataset(Dataset):
@@ -119,7 +141,6 @@ def main():
         project="moondream-ft",
         config={
             "EPOCHS": EPOCHS,
-            "BATCH_SIZE": 1,
             "GRAD_ACCUM_STEPS": GRAD_ACCUM_STEPS,
             "LR": LR,
         },
@@ -129,7 +150,7 @@ def main():
     model = MoondreamModel(config)
     load_weights_into_model(MODEL_PATH, model)
 
-    optimizer = AdamW(
+    optimizer = AdamW8bit(
         [
             {"params": model.region.parameters()},
         ],
@@ -159,6 +180,7 @@ def main():
                     model.text,
                 )
 
+                # Basic prompt to detect a crack in the railway tracks
                 instruction = "\n\nDetect: crack\n\n"
                 instruction_tokens = model.tokenizer.encode(instruction).ids
                 instruction_emb = text_encoder(
@@ -231,7 +253,9 @@ def main():
                     {"loss/train": loss.item(), "lr": optimizer.param_groups[0]["lr"]}
                 )
     wandb.finish()
-    torch.save(model.state_dict(), "/home/user/moondream/moondream/data/model_ft.pt")
+    save_file(
+        model.state_dict(), "/home/user/moondream/moondream/data/model_ft.safetensors"
+    )
 
 
 if __name__ == "__main__":
