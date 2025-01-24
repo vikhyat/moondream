@@ -1,25 +1,24 @@
 import json
 import os
+from tkinter import HIDDEN
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
 import math
 
-from PIL import Image, ImageDraw
+from PIL import Image
 from tqdm import tqdm
-from datasets import load_dataset
 from bitsandbytes.optim import AdamW
 import wandb
+import random
 
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig, text_encoder
-from .text import loss as t_loss, _produce_hidden
+from .text import _produce_hidden
 from .region import encode_coordinate, encode_size
 from .region import loss as region_loss
 
-MODEL_PATH = "/home/user/moondream/moondream/data/model.pt"
-ANSWER_EOS = "<|endoftext|>"
-LR = 1e-6
+MODEL_PATH = "/home/user/moondream/moondream/data/model.safetensors"
+LR = 5e-5
 EPOCHS = 1
 GRAD_ACCUM_STEPS = 64
 
@@ -41,6 +40,11 @@ from torch.utils.data import Dataset
 
 
 class CocoDataset(Dataset):
+    """
+    Dataset class for COCO type data.
+    To download the Roboflow railwayvision dataset visit: https://universe.roboflow.com/research-zwl99/railwayvision
+    """
+
     def __init__(self, annotation_file, img_dir, transform=None):
         self.annotation_file = annotation_file
         self.img_dir = img_dir
@@ -66,6 +70,7 @@ class CocoDataset(Dataset):
             if img_id in self.img_id_to_anns and len(self.img_id_to_anns[img_id]) > 0:
                 self.ids.append(img_id)
                 self.id_to_img[img_id] = img_info
+        random.shuffle(self.ids)
 
     def __len__(self):
         return len(self.ids)
@@ -88,8 +93,8 @@ class CocoDataset(Dataset):
             bbox = ann["bbox"]
             boxes.append(
                 [
-                    ((bbox[0] + bbox[2]) / 2) / width,
-                    ((bbox[1] + bbox[3]) / 2) / height,
+                    (bbox[0] + (bbox[2] / 2)) / width,
+                    (bbox[1] + (bbox[3] / 2)) / height,
                     bbox[2] / width,
                     bbox[3] / height,
                 ]
@@ -161,9 +166,10 @@ def main():
                     model.text,
                 ).squeeze(0)
 
-                eos_token = model.tokenizer.encode(ANSWER_EOS).ids
                 eos_emb = text_encoder(
-                    torch.tensor([eos_token], device=model.device),
+                    torch.tensor(
+                        [[model.config.tokenizer.eos_id]], device=model.device
+                    ),
                     model.text,
                 )
 

@@ -110,10 +110,4 @@ def loss(
 
     s_loss = nn.CrossEntropyLoss()(s_logits, s_labels)
 
-    # result = []
-    # for i in range(0, len(lst), 4):
-    #     result.extend(lst[i:i+2])
-
-    # print(result)
-
     return c_loss + s_loss

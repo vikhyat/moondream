@@ -35,8 +35,8 @@ if __name__ == "__main__":
     else:
         config = MoondreamConfig()
     model = MoondreamModel(config)
-    # model.load_state_dict(torch.load(args.model))
-    load_weights_into_model(args.model, model)
+    model.load_state_dict(torch.load(args.model))
+    # load_weights_into_model(args.model, model)
 
     # Encode image.
     image_path = args.image
