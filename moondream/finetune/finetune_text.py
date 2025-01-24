@@ -1,20 +1,21 @@
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset
 import math
 from safetensors.torch import save_file
 
 from tqdm import tqdm
 from datasets import load_dataset
-from bitsandbytes.optim import AdamW
+from bitsandbytes.optim import AdamW8bit
 import wandb
 
 from ..torch.weights import load_weights_into_model
 from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
-from ..torch.text import loss as t_loss
+from ..torch.text import _produce_hidden, _lm_head, TextConfig
 
-MODEL_PATH = "/home/user/moondream/moondream/data/model.safetensors"
+MODEL_PATH = ""
 ANSWER_EOS = "<|endoftext|>"
-LR = 1e-4
+LR = 1e-5
 EPOCHS = 1
 GRAD_ACCUM_STEPS = 64
 
@@ -25,6 +26,26 @@ def lr_schedule(step, max_steps):
         return 0.1 * LR + 0.9 * LR * x / 0.1
     else:
         return 0.1 * LR + 0.9 * LR * (1 + math.cos(math.pi * (x - 0.1))) / 2
+
+
+def text_loss(
+    inputs_embeds: torch.Tensor, w: nn.Module, labels: torch.Tensor, config: TextConfig
+):
+    _, q_len, _ = inputs_embeds.shape
+    hidden_BTC = _produce_hidden(inputs_embeds, w, config)
+    lm_logits = _lm_head(hidden_BTC, w)
+
+    loss = None
+    if labels is not None:
+        _, _, l_len = labels.shape
+        shift_index = (q_len - l_len) - 1
+        shifted_logits = lm_logits[..., shift_index:-1, :].contiguous()
+        shifted_labels = labels.contiguous()
+        loss = nn.CrossEntropyLoss()(
+            shifted_logits.view(-1, shifted_logits.size(-1)),
+            shifted_labels.view(-1),
+        )
+    return loss
 
 
 class DocciDataset(Dataset):
@@ -56,7 +77,6 @@ def main():
         project="moondream-ft",
         config={
             "EPOCHS": EPOCHS,
-            "BATCH_SIZE": 1,
             "GRAD_ACCUM_STEPS": GRAD_ACCUM_STEPS,
             "LR": LR,
         },
@@ -66,11 +86,11 @@ def main():
     model = MoondreamModel(config)
     load_weights_into_model(MODEL_PATH, model)
 
-    optimizer = AdamW(
+    optimizer = AdamW8bit(
         [
             {"params": model.text.parameters()},
         ],
-        lr=LR * 0.1,
+        lr=LR,
         betas=(0.9, 0.95),
         eps=1e-6,
     )
@@ -83,8 +103,6 @@ def main():
     i = 0
     for epoch in range(EPOCHS):
         for sample in dataset:
-            if i > 40 * GRAD_ACCUM_STEPS:
-                break
             i += 1
             with torch.no_grad():
                 img_emb = model._run_vision_encoder(sample["image"])
@@ -104,16 +122,10 @@ def main():
                     torch.tensor([[answer_tokens]], device=model.device),
                     model.text,
                 ).squeeze(0)
-                eos_emb = text_encoder(
-                    torch.tensor(
-                        [[model.config.tokenizer.eos_id]], device=model.device
-                    ),
-                    model.text,
-                )
                 inputs_embeds = torch.cat(
                     [bos_emb, img_emb[None], question_emb, answer_emb], dim=1
                 )
-            loss = t_loss(
+            loss = text_loss(
                 inputs_embeds=inputs_embeds,
                 w=model.text,
                 labels=torch.tensor([[answer_tokens]], device=model.device),
@@ -135,11 +147,16 @@ def main():
                     {"loss/train": loss.item(), "lr": optimizer.param_groups[0]["lr"]}
                 )
     wandb.finish()
+    # Add save path: ex. home/model.safetensors
     save_file(
         model.state_dict(),
-        "/home/user/moondream/moondream/data/model_text_ft_hard.safetensors",
+        "",
     )
 
 
 if __name__ == "__main__":
+    """
+    Replace paths with your appropriate paths.
+    To run: python -m moondream.finetune.finetune_text
+    """
     main()

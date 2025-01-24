@@ -22,7 +22,7 @@ from ..torch.region import (
     encode_size,
 )
 
-MODEL_PATH = "/home/user/moondream/moondream/data/model.safetensors"
+MODEL_PATH = ""
 ANSWER_EOS = "<|endoftext|>"
 LR = 5e-5
 EPOCHS = 1
@@ -225,7 +225,8 @@ def main():
                 cs_emb = torch.stack(cs_emb)
 
                 inputs_embeds = torch.cat(
-                    [bos_emb, img_emb[None], cs_emb[None], eos_emb], dim=1
+                    [bos_emb, img_emb[None], instruction_emb, cs_emb[None], eos_emb],
+                    dim=1,
                 )
                 prefix = inputs_embeds.size(1) - cs_emb.size(0)
                 c_idx = torch.tensor(c_idx) + prefix
@@ -259,7 +260,10 @@ def main():
                 )
     wandb.finish()
     # Add save path: ex. home/model.safetensors
-    save_file(model.state_dict(), "")
+    save_file(
+        model.state_dict(),
+        "",
+    )
 
 
 if __name__ == "__main__":
