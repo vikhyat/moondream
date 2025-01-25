@@ -104,3 +104,4 @@ model = AutoModelForCausalLM.from_pretrained(
     torch_dtype=torch.float16, attn_implementation="flash_attention_2"
 ).to("cuda")
 ```
+> **_NOTE:_**  Flash Attention supports the following revisions: `2024-08-26`, `2024-07-23`, `2024-05-20`, `2024-05-08`, `2024-04-02`, `2024-03-13`, `2024-03-06`.
