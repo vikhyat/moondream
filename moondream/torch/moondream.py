@@ -10,7 +10,7 @@ from tokenizers import Tokenizer
 from .config import MoondreamConfig
 from .image_crops import reconstruct_from_crops
 from .vision import vision_encoder, vision_projection, prepare_crops, build_vision_model
-from .text import build_text_model, prefill, text_encoder, lm_head, text_decoder
+from .text import build_text_model, text_encoder, lm_head, text_decoder
 from .region import decode_coordinate, encode_coordinate, decode_size, encode_size
 from .utils import remove_outlier_points
 
@@ -147,47 +147,40 @@ class MoondreamModel(nn.Module):
                 device=self.device,
             )
 
-        self.ops = {
-            "vision_encoder": vision_encoder,
-            "vision_projection": vision_projection,
-            "prefill": prefill,
-        }
-
     @property
     def device(self):
         return self.vision.pos_emb.device
 
-    def decode_one_token(
-        self,
-        x: torch.Tensor,
-        attn_mask: torch.Tensor,
-        pos_ids: torch.Tensor,
+    def _vis_enc(self, x: torch.Tensor):
+        return vision_encoder(x, self.vision, self.config.vision)
+
+    def _vis_proj(self, g: torch.Tensor, r: torch.Tensor):
+        return vision_projection(g, r, self.vision, self.config.vision)
+
+    def _prefill(self, x: torch.Tensor, attn_mask: torch.Tensor, pos_ids: torch.Tensor):
+        hidden = text_decoder(x, self.text, attn_mask, pos_ids, self.config.text)
+        return hidden
+
+    def _decode_one_tok(
+        self, x: torch.Tensor, attn_mask: torch.Tensor, pos_ids: torch.Tensor
     ):
         hidden = text_decoder(x[None], self.text, attn_mask, pos_ids, self.config.text)
         logits = lm_head(hidden, self.text)
         return logits, hidden
 
     def compile(self):
-        self.ops["vision_encoder"] = torch.compile(
-            self.ops["vision_encoder"], fullgraph=True
+        # TODO: vision_projection is not being compiled
+        self._vis_enc = torch.compile(self._vis_enc, fullgraph=True)
+        self._prefill = torch.compile(self._prefill, fullgraph=True)
+        self._decode_one_tok = torch.compile(
+            self._decode_one_tok, fullgraph=True, mode="reduce-overhead"
         )
-        # Need to figure out how to mark the 'reconstructed' input shape as dynamic
-        # self.ops["vision_projection"] = torch.compile(
-        #     self.ops["vision_projection"], fullgraph=True
-        # )
-        self.ops["prefill"] = torch.compile(self.ops["prefill"], fullgraph=True)
-        self.decode_one_token = torch.compile(
-            self.decode_one_token, fullgraph=True, mode="reduce-overhead"
-        )
-        # self.ops["decode_one_token"] = torch.compile(
-        #     self.ops["decode_one_token"], fullgraph=True  # , mode="reduce-overhead"
-        # )
 
     def _run_vision_encoder(self, image: Image.Image) -> torch.Tensor:
         all_crops, tiling = prepare_crops(image, self.config.vision, device=self.device)
         torch._dynamo.mark_dynamic(all_crops, 0)
 
-        outputs = self.ops["vision_encoder"](all_crops, self.vision, self.config.vision)
+        outputs = self._vis_enc(all_crops)
 
         global_features = outputs[0]
         local_features = outputs[1:].view(
@@ -204,9 +197,7 @@ class MoondreamModel(nn.Module):
             overlap_margin=self.config.vision.overlap_margin,
         )
 
-        return self.ops["vision_projection"](
-            global_features, reconstructed, self.vision, self.config.vision
-        )
+        return self._vis_proj(global_features, reconstructed)
 
     def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
         if isinstance(image, EncodedImage):
@@ -225,9 +216,7 @@ class MoondreamModel(nn.Module):
             inputs_embeds = torch.cat([bos_emb, img_emb[None]], dim=1)
             mask = self.attn_mask[:, :, 0 : inputs_embeds.size(1), :]
             pos_ids = torch.arange(inputs_embeds.size(1), dtype=torch.long)
-            self.ops["prefill"](
-                inputs_embeds, mask, pos_ids, self.text, self.config.text
-            )
+            self._prefill(inputs_embeds, mask, pos_ids)
 
         return EncodedImage(
             pos=inputs_embeds.size(1),
@@ -246,9 +235,7 @@ class MoondreamModel(nn.Module):
             torch._dynamo.mark_dynamic(prompt_emb, 1)
             mask = self.attn_mask[:, :, pos : pos + prompt_emb.size(1), :]
             pos_ids = torch.arange(pos, pos + prompt_emb.size(1), dtype=torch.long)
-            hidden = self.ops["prefill"](
-                prompt_emb, mask, pos_ids, self.text, self.config.text
-            )
+            hidden = self._prefill(prompt_emb, mask, pos_ids)
             logits = lm_head(hidden, self.text)
             next_token = torch.argmax(logits, dim=-1)
         pos = pos + prompt_emb.size(1)
@@ -276,7 +263,7 @@ class MoondreamModel(nn.Module):
                 with torch.no_grad():
                     next_emb = text_encoder(next_token, self.text)
                     mask[:, :, pos], pos_ids[0] = 1, pos
-                    logits, _ = self.decode_one_token(next_emb, mask, pos_ids)
+                    logits, _ = self._decode_one_tok(next_emb, mask, pos_ids)
                     pos += 1
                     next_token = torch.argmax(logits, dim=-1)
                     generated_tokens += 1
@@ -381,7 +368,7 @@ class MoondreamModel(nn.Module):
 
                 # Decode y-coordinate
                 mask[:, :, pos], pos_ids[0] = 1, pos
-                _, hidden = self.decode_one_token(next_emb, mask, pos_ids)
+                _, hidden = self._decode_one_tok(next_emb, mask, pos_ids)
                 pos += 1
                 y_logits = decode_coordinate(hidden, self.region)
                 y_center = torch.argmax(y_logits, dim=-1) / y_logits.size(-1)
@@ -392,7 +379,7 @@ class MoondreamModel(nn.Module):
                 # Decode size
                 if include_size:
                     mask[:, :, pos], pos_ids[0] = 1, pos
-                    logits, hidden = self.decode_one_token(next_emb, mask, pos_ids)
+                    logits, hidden = self._decode_one_tok(next_emb, mask, pos_ids)
                     pos += 1
                     size_logits = decode_size(hidden, self.region)
                     w = torch.argmax(size_logits[0], dim=-1) / size_logits.size(-1)
@@ -418,7 +405,7 @@ class MoondreamModel(nn.Module):
 
                 # Decode next token (x-coordinate, or eos)
                 mask[:, :, pos], pos_ids[0] = 1, pos
-                logits, hidden = self.decode_one_token(next_emb, mask, pos_ids)
+                logits, hidden = self._decode_one_tok(next_emb, mask, pos_ids)
                 pos += 1
                 next_token = torch.argmax(logits, dim=-1)
 
@@ -520,9 +507,7 @@ class MoondreamModel(nn.Module):
             pos_ids = torch.arange(
                 image.pos, image.pos + prompt_emb.size(1), dtype=torch.long
             )
-            hidden = self.ops["prefill"](
-                prompt_emb, mask, pos_ids, self.text, self.config.text
-            )
+            hidden = self._prefill(prompt_emb, mask, pos_ids)
             logits = lm_head(hidden, self.text)
             next_token = torch.argmax(logits, dim=-1)
             pos = image.pos + prompt_emb.size(1)

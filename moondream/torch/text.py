@@ -77,30 +77,6 @@ def lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     return logits
 
 
-def prefill(
-    x: torch.Tensor,
-    attn_mask: torch.Tensor,
-    pos_ids: torch.Tensor,
-    w: nn.Module,
-    config: TextConfig,
-):
-    hidden = text_decoder(x, w, attn_mask, pos_ids, config)
-    return hidden
-
-
-def decode_one_token(
-    x: torch.Tensor,
-    kv_cache: torch.Tensor,
-    attn_mask: torch.Tensor,
-    pos_ids: torch.Tensor,
-    w: nn.Module,
-    config: TextConfig,
-):
-    hidden = text_decoder(x[None], w, attn_mask, pos_ids, config)
-    logits = lm_head(hidden, w)
-    return logits, hidden
-
-
 def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
     text = nn.ModuleDict(
         {
