@@ -1,9 +1,15 @@
 import math
 import numpy as np
 import torch
-import pyvips
-
 from typing import TypedDict
+
+from PIL import Image
+
+try:
+    import pyvips
+    HAVE_PYVIPS = True
+except ImportError:
+    HAVE_PYVIPS = False
 
 
 def select_tiling(
@@ -113,18 +119,28 @@ def overlap_crop_image(
         tiling[1] * crop_window_size + total_margin_pixels,
     )
 
-    # Convert to vips for resizing
-    vips_image = pyvips.Image.new_from_array(image)
-    scale_x = target_size[1] / image.shape[1]
-    scale_y = target_size[0] / image.shape[0]
-    resized = vips_image.resize(scale_x, vscale=scale_y)
-    image = resized.numpy()
+    if HAVE_PYVIPS:
+        # Convert to vips for resizing
+        vips_image = pyvips.Image.new_from_array(image)
+        scale_x = target_size[1] / image.shape[1]
+        scale_y = target_size[0] / image.shape[0]
+        resized = vips_image.resize(scale_x, vscale=scale_y)
+        image = resized.numpy()
 
-    # Create global crop
-    scale_x = base_size[1] / vips_image.width
-    scale_y = base_size[0] / vips_image.height
-    global_vips = vips_image.resize(scale_x, vscale=scale_y)
-    crops[0] = global_vips.numpy()
+        # Create global crop
+        scale_x = base_size[1] / vips_image.width
+        scale_y = base_size[0] / vips_image.height
+        global_vips = vips_image.resize(scale_x, vscale=scale_y)
+        crops[0] = global_vips.numpy()
+    else:
+        # Use PIL for resizing
+        pil_image = Image.fromarray(image)
+        resized = pil_image.resize((target_size[1], target_size[0]), Image.Resampling.LANCZOS)
+        image = np.array(resized)
+
+        # Create global crop
+        global_pil = pil_image.resize((base_size[1], base_size[0]), Image.Resampling.LANCZOS)
+        crops[0] = np.array(global_pil)
 
     for i in range(tiling[0]):
         for j in range(tiling[1]):
