@@ -76,7 +76,7 @@ class KVCache(nn.Module):
 
 
 class MoondreamModel(nn.Module):
-    def __init__(self, config: MoondreamConfig, dtype=torch.float16):
+    def __init__(self, config: MoondreamConfig, dtype=torch.float16, setup_caches=True):
         super().__init__()
         self.config = config
 
@@ -139,13 +139,13 @@ class MoondreamModel(nn.Module):
         self.register_buffer("attn_mask", attn_mask, persistent=False)
 
         # Initialize KV caches.
+        if setup_caches:
+            self._setup_caches()
+
+    def _setup_caches(self):
+        c = self.config.text
         for b in self.text.blocks:
-            b.kv_cache = KVCache(
-                config.text.n_heads,
-                config.text.max_context,
-                config.text.dim,
-                device=self.device,
-            )
+            b.kv_cache = KVCache(c.n_heads, c.max_context, c.dim, device=self.device)
 
     @property
     def device(self):
@@ -158,8 +158,7 @@ class MoondreamModel(nn.Module):
         return vision_projection(g, r, self.vision, self.config.vision)
 
     def _prefill(self, x: torch.Tensor, attn_mask: torch.Tensor, pos_ids: torch.Tensor):
-        hidden = text_decoder(x, self.text, attn_mask, pos_ids, self.config.text)
-        return hidden
+        return text_decoder(x, self.text, attn_mask, pos_ids, self.config.text)
 
     def _decode_one_tok(
         self, x: torch.Tensor, attn_mask: torch.Tensor, pos_ids: torch.Tensor

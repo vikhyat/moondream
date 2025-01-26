@@ -36,30 +36,44 @@ class HfMoondream(PreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.model = MoondreamModel(MoondreamConfig.from_dict(config.config))
+        self.model = MoondreamModel(
+            MoondreamConfig.from_dict(config.config), setup_caches=False
+        )
+        self._is_kv_cache_setup = False
+
+    def _setup_caches(self):
+        if not self._is_kv_cache_setup:
+            self.model._setup_caches()
+            self._is_kv_cache_setup = True
 
     @property
     def encode_image(self):
+        self._setup_caches()
         return self.model.encode_image
 
     @property
     def query(self):
+        self._setup_caches()
         return self.model.query
 
     @property
     def caption(self):
+        self._setup_caches()
         return self.model.caption
 
     @property
     def detect(self):
+        self._setup_caches()
         return self.model.detect
 
     @property
     def point(self):
+        self._setup_caches()
         return self.model.point
 
     @property
     def detect_gaze(self):
+        self._setup_caches()
         return self.model.detect_gaze
 
     def answer_question(
