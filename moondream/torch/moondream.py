@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import random
 
-from typing import Literal, Tuple, TypedDict, Union, Dict, Any, Optional
+from typing import Literal, Tuple, TypedDict, Union, Dict, Any, Optional, List
 from PIL import Image
 from dataclasses import dataclass
 from tokenizers import Tokenizer
@@ -10,7 +10,7 @@ from tokenizers import Tokenizer
 from .config import MoondreamConfig
 from .image_crops import reconstruct_from_crops
 from .vision import vision_encoder, vision_projection, prepare_crops, build_vision_model
-from .text import build_text_model, prefill, text_encoder, lm_head, decode_one_token
+from .text import build_text_model, prefill, text_encoder, lm_head, text_decoder
 from .region import decode_coordinate, encode_coordinate, decode_size, encode_size
 from .utils import remove_outlier_points
 
@@ -22,12 +22,6 @@ SamplingSettings = TypedDict(
 )
 
 DEFAULT_MAX_TOKENS = 512
-
-
-@dataclass(frozen=True)
-class EncodedImage:
-    pos: int
-    kv_cache: torch.Tensor
 
 
 def _min_p_sampler(
@@ -59,6 +53,26 @@ def _min_p_sampler(
     logits = logits.masked_fill(indices_to_remove, filter_value)
     token = torch.multinomial(logits, num_samples=1)
     return token.squeeze(0)
+
+
+@dataclass(frozen=True)
+class EncodedImage:
+    pos: int
+    caches: List[Tuple[torch.Tensor, torch.Tensor]]
+
+
+class KVCache(nn.Module):
+    def __init__(self, n_heads, max_context, dim, device):
+        super().__init__()
+        cache_shape = (1, n_heads, max_context, dim // n_heads)
+        self.register_buffer("k_cache", torch.zeros(*cache_shape, device=device))
+        self.register_buffer("v_cache", torch.zeros(*cache_shape, device=device))
+
+    def update(self, pos_ids, k, v):
+        kout, vout = self.k_cache, self.v_cache
+        kout[:, :, pos_ids, :] = k
+        vout[:, :, pos_ids, :] = v
+        return kout, vout
 
 
 class MoondreamModel(nn.Module):
@@ -124,16 +138,34 @@ class MoondreamModel(nn.Module):
         attn_mask[..., :prefix_attn_len, :prefix_attn_len] = 1
         self.register_buffer("attn_mask", attn_mask, persistent=False)
 
+        # Initialize KV caches.
+        for b in self.text.blocks:
+            b.kv_cache = KVCache(
+                config.text.n_heads,
+                config.text.max_context,
+                config.text.dim,
+                device=self.device,
+            )
+
         self.ops = {
             "vision_encoder": vision_encoder,
             "vision_projection": vision_projection,
             "prefill": prefill,
-            "decode_one_token": decode_one_token,
         }
 
     @property
     def device(self):
         return self.vision.pos_emb.device
+
+    def decode_one_token(
+        self,
+        x: torch.Tensor,
+        attn_mask: torch.Tensor,
+        pos_ids: torch.Tensor,
+    ):
+        hidden = text_decoder(x[None], self.text, attn_mask, pos_ids, self.config.text)
+        logits = lm_head(hidden, self.text)
+        return logits, hidden
 
     def compile(self):
         self.ops["vision_encoder"] = torch.compile(
@@ -144,9 +176,12 @@ class MoondreamModel(nn.Module):
         #     self.ops["vision_projection"], fullgraph=True
         # )
         self.ops["prefill"] = torch.compile(self.ops["prefill"], fullgraph=True)
-        self.ops["decode_one_token"] = torch.compile(
-            self.ops["decode_one_token"], fullgraph=True, mode="reduce-overhead"
+        self.decode_one_token = torch.compile(
+            self.decode_one_token, fullgraph=True, mode="reduce-overhead"
         )
+        # self.ops["decode_one_token"] = torch.compile(
+        #     self.ops["decode_one_token"], fullgraph=True  # , mode="reduce-overhead"
+        # )
 
     def _run_vision_encoder(self, image: Image.Image) -> torch.Tensor:
         all_crops, tiling = prepare_crops(image, self.config.vision, device=self.device)
@@ -181,16 +216,6 @@ class MoondreamModel(nn.Module):
 
         # Run through text model in addition to the vision encoder, to minimize
         # re-computation if multiple queries are performed on this image.
-        kv_cache = torch.zeros(
-            self.config.text.n_layers,
-            2,  # k, v
-            1,  # batch size
-            self.config.text.n_heads,
-            self.config.text.max_context,  # static cache
-            self.config.text.dim // self.config.text.n_heads,  # head dim
-            device=self.device,
-            dtype=torch.float16,
-        )
         with torch.no_grad():
             img_emb = self._run_vision_encoder(image)
             bos_emb = text_encoder(
@@ -198,24 +223,31 @@ class MoondreamModel(nn.Module):
                 self.text,
             )
             inputs_embeds = torch.cat([bos_emb, img_emb[None]], dim=1)
-            attn_mask = self.attn_mask[
-                :, :, 0 : inputs_embeds.size(1), : inputs_embeds.size(1)
-            ]
+            mask = self.attn_mask[:, :, 0 : inputs_embeds.size(1), :]
+            pos_ids = torch.arange(inputs_embeds.size(1), dtype=torch.long)
             self.ops["prefill"](
-                inputs_embeds, kv_cache, attn_mask, 0, self.text, self.config.text
+                inputs_embeds, mask, pos_ids, self.text, self.config.text
             )
-        return EncodedImage(pos=inputs_embeds.size(1), kv_cache=kv_cache)
 
-    def _prefill_prompt(
-        self, kv_cache: torch.Tensor, prompt_tokens: torch.Tensor, pos: int
-    ):
+        return EncodedImage(
+            pos=inputs_embeds.size(1),
+            caches=[
+                (
+                    b.kv_cache.k_cache[:, :, : inputs_embeds.size(1), :].clone(),
+                    b.kv_cache.v_cache[:, :, : inputs_embeds.size(1), :].clone(),
+                )
+                for b in self.text.blocks
+            ],
+        )
+
+    def _prefill_prompt(self, prompt_tokens: torch.Tensor, pos: int):
         with torch.no_grad():
             prompt_emb = text_encoder(prompt_tokens, self.text)
-            attn_mask = self.attn_mask[
-                :, :, pos : pos + prompt_emb.size(1), : pos + prompt_emb.size(1)
-            ]
+            torch._dynamo.mark_dynamic(prompt_emb, 1)
+            mask = self.attn_mask[:, :, pos : pos + prompt_emb.size(1), :]
+            pos_ids = torch.arange(pos, pos + prompt_emb.size(1), dtype=torch.long)
             hidden = self.ops["prefill"](
-                prompt_emb, kv_cache, attn_mask, pos, self.text, self.config.text
+                prompt_emb, mask, pos_ids, self.text, self.config.text
             )
             logits = lm_head(hidden, self.text)
             next_token = torch.argmax(logits, dim=-1)
@@ -225,14 +257,15 @@ class MoondreamModel(nn.Module):
     def _generate_text(
         self,
         prompt_tokens: torch.Tensor,
-        kv_cache: torch.Tensor,
         pos: int,
         max_tokens: int,
     ):
-        kv_cache = kv_cache.clone()
-        _, _, next_token, pos = self._prefill_prompt(kv_cache, prompt_tokens, pos)
+        _, _, next_token, pos = self._prefill_prompt(prompt_tokens, pos)
 
         def generator(next_token, pos):
+            mask = torch.zeros(1, 1, 2048, device=self.device, dtype=torch.bool)
+            mask[:, :, :pos] = 1
+            pos_ids = torch.tensor([pos], device=self.device, dtype=torch.long)
             generated_tokens = 0
 
             while (
@@ -242,15 +275,8 @@ class MoondreamModel(nn.Module):
 
                 with torch.no_grad():
                     next_emb = text_encoder(next_token, self.text)
-                    attn_mask = torch.ones(
-                        1, 1, pos + 1, device=self.device, dtype=torch.bool
-                    )
-                    logits, _, kv_cache_update = self.ops["decode_one_token"](
-                        next_emb, kv_cache, attn_mask, pos, self.text, self.config.text
-                    )
-                    kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
-                        kv_cache_update
-                    )
+                    mask[:, :, pos], pos_ids[0] = 1, pos
+                    logits, _ = self.decode_one_token(next_emb, mask, pos_ids)
                     pos += 1
                     next_token = torch.argmax(logits, dim=-1)
                     generated_tokens += 1
@@ -268,6 +294,8 @@ class MoondreamModel(nn.Module):
             raise NotImplementedError("Model does not support querying.")
 
         image = self.encode_image(image)
+        self.load_encoded_image(image)
+
         prompt_tokens = torch.tensor(
             [
                 self.config.tokenizer.templates["query"]["prefix"]
@@ -282,15 +310,18 @@ class MoondreamModel(nn.Module):
             max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
         def generator():
-            for token in self._generate_text(
-                prompt_tokens, image.kv_cache, image.pos, max_tokens
-            ):
+            for token in self._generate_text(prompt_tokens, image.pos, max_tokens):
                 yield token
 
         if stream:
             return {"answer": generator()}
         else:
             return {"answer": "".join(list(generator()))}
+
+    def load_encoded_image(self, encoded_image: EncodedImage):
+        for b, (k, v) in zip(self.text.blocks, encoded_image.caches):
+            b.kv_cache.k_cache[:, :, : k.size(2), :] = k
+            b.kv_cache.v_cache[:, :, : v.size(2), :] = v
 
     def caption(
         self,
@@ -305,6 +336,8 @@ class MoondreamModel(nn.Module):
             raise ValueError(f"Model does not support caption length '{length}'.")
 
         image = self.encode_image(image)
+        self.load_encoded_image(image)
+
         prompt_tokens = torch.tensor(
             [self.config.tokenizer.templates["caption"][length]], device=self.device
         )
@@ -314,9 +347,7 @@ class MoondreamModel(nn.Module):
             max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
 
         def generator():
-            for token in self._generate_text(
-                prompt_tokens, image.kv_cache, image.pos, max_tokens
-            ):
+            for token in self._generate_text(prompt_tokens, image.pos, max_tokens):
                 yield token
 
         if stream:
@@ -327,13 +358,15 @@ class MoondreamModel(nn.Module):
     def _generate_points(
         self,
         hidden: torch.Tensor,
-        kv_cache: torch.Tensor,
         next_token: torch.Tensor,
         pos: int,
         include_size: bool = True,
         max_points: int = 50,
     ):
         out = []
+        mask = torch.zeros(1, 1, 2048, device=self.device, dtype=torch.bool)
+        mask[:, :, :pos] = 1
+        pos_ids = torch.tensor([pos], device=self.device, dtype=torch.long)
 
         with torch.no_grad():
             while (
@@ -347,15 +380,8 @@ class MoondreamModel(nn.Module):
                 )
 
                 # Decode y-coordinate
-                attn_mask = torch.ones(
-                    1, 1, pos + 1, device=self.device, dtype=torch.bool
-                )
-                _, hidden, kv_cache_update = self.ops["decode_one_token"](
-                    next_emb, kv_cache, attn_mask, pos, self.text, self.config.text
-                )
-                kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
-                    kv_cache_update
-                )
+                mask[:, :, pos], pos_ids[0] = 1, pos
+                _, hidden = self.decode_one_token(next_emb, mask, pos_ids)
                 pos += 1
                 y_logits = decode_coordinate(hidden, self.region)
                 y_center = torch.argmax(y_logits, dim=-1) / y_logits.size(-1)
@@ -365,15 +391,8 @@ class MoondreamModel(nn.Module):
 
                 # Decode size
                 if include_size:
-                    attn_mask = torch.ones(
-                        1, 1, pos + 1, device=self.device, dtype=torch.bool
-                    )
-                    logits, hidden, kv_cache_update = self.ops["decode_one_token"](
-                        next_emb, kv_cache, attn_mask, pos, self.text, self.config.text
-                    )
-                    kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
-                        kv_cache_update
-                    )
+                    mask[:, :, pos], pos_ids[0] = 1, pos
+                    logits, hidden = self.decode_one_token(next_emb, mask, pos_ids)
                     pos += 1
                     size_logits = decode_size(hidden, self.region)
                     w = torch.argmax(size_logits[0], dim=-1) / size_logits.size(-1)
@@ -398,15 +417,8 @@ class MoondreamModel(nn.Module):
                     out.append({"x": x_center.item(), "y": y_center.item()})
 
                 # Decode next token (x-coordinate, or eos)
-                attn_mask = torch.ones(
-                    1, 1, pos + 1, device=self.device, dtype=torch.bool
-                )
-                logits, hidden, kv_cache_update = self.ops["decode_one_token"](
-                    next_emb, kv_cache, attn_mask, pos, self.text, self.config.text
-                )
-                kv_cache[:, :, :, :, pos : pos + kv_cache_update.size(-2), :] = (
-                    kv_cache_update
-                )
+                mask[:, :, pos], pos_ids[0] = 1, pos
+                logits, hidden = self.decode_one_token(next_emb, mask, pos_ids)
                 pos += 1
                 next_token = torch.argmax(logits, dim=-1)
 
@@ -422,6 +434,8 @@ class MoondreamModel(nn.Module):
             raise NotImplementedError("Model does not support object detection.")
 
         image = self.encode_image(image)
+        self.load_encoded_image(image)
+
         prompt_tokens = torch.tensor(
             [
                 self.config.tokenizer.templates["detect"]["prefix"]
@@ -431,14 +445,11 @@ class MoondreamModel(nn.Module):
             device=self.device,
         )
 
-        kv_cache = image.kv_cache.clone()
-        _, hidden, next_token, pos = self._prefill_prompt(
-            kv_cache, prompt_tokens, image.pos
-        )
+        _, hidden, next_token, pos = self._prefill_prompt(prompt_tokens, image.pos)
         hidden = hidden[:, -1:, :]
 
         objects = self._generate_points(
-            hidden, kv_cache, next_token, pos, include_size=True, max_points=50
+            hidden, next_token, pos, include_size=True, max_points=50
         )
 
         return {"objects": objects}
@@ -453,6 +464,8 @@ class MoondreamModel(nn.Module):
             raise NotImplementedError("Model does not support pointing.")
 
         image = self.encode_image(image)
+        self.load_encoded_image(image)
+
         prompt_tokens = torch.tensor(
             [
                 self.config.tokenizer.templates["point"]["prefix"]
@@ -462,14 +475,11 @@ class MoondreamModel(nn.Module):
             device=self.device,
         )
 
-        kv_cache = image.kv_cache.clone()
-        _, hidden, next_token, pos = self._prefill_prompt(
-            kv_cache, prompt_tokens, image.pos
-        )
+        _, hidden, next_token, pos = self._prefill_prompt(prompt_tokens, image.pos)
         hidden = hidden[:, -1:, :]
 
         objects = self._generate_points(
-            hidden, kv_cache, next_token, pos, include_size=False, max_points=50
+            hidden, next_token, pos, include_size=False, max_points=50
         )
 
         return {"points": objects}
@@ -504,16 +514,14 @@ class MoondreamModel(nn.Module):
 
             prompt_emb = torch.cat([before_emb, x_emb, y_emb, after_emb], dim=1)
 
-            kv_cache = image.kv_cache.clone()
-            attn_mask = torch.ones(
-                1,
-                1,
-                image.pos + prompt_emb.size(1),
-                device=self.device,
-                dtype=torch.bool,
+            self.load_encoded_image(image)
+
+            mask = self.attn_mask[:, :, image.pos : image.pos + prompt_emb.size(1), :]
+            pos_ids = torch.arange(
+                image.pos, image.pos + prompt_emb.size(1), dtype=torch.long
             )
             hidden = self.ops["prefill"](
-                prompt_emb, kv_cache, attn_mask, image.pos, self.text, self.config.text
+                prompt_emb, mask, pos_ids, self.text, self.config.text
             )
             logits = lm_head(hidden, self.text)
             next_token = torch.argmax(logits, dim=-1)
@@ -527,7 +535,7 @@ class MoondreamModel(nn.Module):
                 return None
 
             gaze = self._generate_points(
-                hidden, kv_cache, next_token, pos, include_size=False, max_points=1
+                hidden, next_token, pos, include_size=False, max_points=1
             )
             return gaze[0]
 
