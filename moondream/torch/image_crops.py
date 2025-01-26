@@ -2,6 +2,7 @@ import math
 import numpy as np
 import torch
 from typing import TypedDict
+from PIL import Image
 
 try:
     import pyvips
@@ -133,8 +134,6 @@ def overlap_crop_image(
         crops[0] = global_vips.numpy()
     else:
         # Use PIL for resizing
-        from PIL import Image
-
         pil_image = Image.fromarray(image)
         resized = pil_image.resize(
             (target_size[1], target_size[0]), Image.Resampling.LANCZOS
