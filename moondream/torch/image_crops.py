@@ -3,10 +3,9 @@ import numpy as np
 import torch
 from typing import TypedDict
 
-from PIL import Image
-
 try:
     import pyvips
+
     HAVE_PYVIPS = True
 except ImportError:
     HAVE_PYVIPS = False
@@ -134,12 +133,18 @@ def overlap_crop_image(
         crops[0] = global_vips.numpy()
     else:
         # Use PIL for resizing
+        from PIL import Image
+
         pil_image = Image.fromarray(image)
-        resized = pil_image.resize((target_size[1], target_size[0]), Image.Resampling.LANCZOS)
+        resized = pil_image.resize(
+            (target_size[1], target_size[0]), Image.Resampling.LANCZOS
+        )
         image = np.array(resized)
 
         # Create global crop
-        global_pil = pil_image.resize((base_size[1], base_size[0]), Image.Resampling.LANCZOS)
+        global_pil = pil_image.resize(
+            (base_size[1], base_size[0]), Image.Resampling.LANCZOS
+        )
         crops[0] = np.array(global_pil)
 
     for i in range(tiling[0]):
