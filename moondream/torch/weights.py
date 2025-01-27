@@ -258,8 +258,10 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module) -
 def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
     """Load weights from a safetensors file into a MoondreamModel instance."""
     with safetensors_open(weights_file) as get_tensor:
-        if "vision.blocks.0.attn.proj.bias" in get_tensor.keys():
-            model.load_state_dict(safetensors.torch.load_file(weights_file))
+        if "vision.blocks.0.attn.proj.bias" in get_tensor.keys() or "model.vision.blocks.0.attn.proj.bias" in get_tensor.keys():
+            with safetensors_open(weights_file) as get_tensor:
+                tensors = {k.replace("model.", ""): get_tensor(k) for k in get_tensor.keys()}
+                model.load_state_dict(tensors)
         else:
             # Wrap the get_tensor function to handle key normalization
             name_map = {k.replace("._orig_mod", ""): k for k in get_tensor.keys()}
