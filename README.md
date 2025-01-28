@@ -81,26 +81,18 @@ pip install transformers torch einops
 ```
 
 ```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM
 from PIL import Image
 
-model_id = "vikhyatk/moondream2"
-revision = "2024-08-26"  # Pin to specific version
 model = AutoModelForCausalLM.from_pretrained(
-    model_id, trust_remote_code=True, revision=revision
+    "vikhyatk/moondream2",
+    revision="2025-01-09",
+    trust_remote_code=True,
+    # Uncomment to run on GPU.
+    # device_map={"": "cuda"}
 )
-tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
 
 image = Image.open('<IMAGE_PATH>')
 enc_image = model.encode_image(image)
-print(model.answer_question(enc_image, "Describe this image.", tokenizer))
-```
-
-For GPU acceleration, you can add:
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    model_id, trust_remote_code=True, revision=revision,
-    torch_dtype=torch.float16, attn_implementation="flash_attention_2"
-).to("cuda")
+print(model.answer_question(enc_image, "Describe this image."))
 ```
