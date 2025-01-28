@@ -62,11 +62,15 @@ class EncodedImage:
 
 
 class KVCache(nn.Module):
-    def __init__(self, n_heads, max_context, dim, device):
+    def __init__(self, n_heads, max_context, dim, device, dtype):
         super().__init__()
         cache_shape = (1, n_heads, max_context, dim // n_heads)
-        self.register_buffer("k_cache", torch.zeros(*cache_shape, device=device))
-        self.register_buffer("v_cache", torch.zeros(*cache_shape, device=device))
+        self.register_buffer(
+            "k_cache", torch.zeros(*cache_shape, device=device, dtype=dtype)
+        )
+        self.register_buffer(
+            "v_cache", torch.zeros(*cache_shape, device=device, dtype=dtype)
+        )
 
     def update(self, pos_ids, k, v):
         kout, vout = self.k_cache, self.v_cache
@@ -145,7 +149,13 @@ class MoondreamModel(nn.Module):
     def _setup_caches(self):
         c = self.config.text
         for b in self.text.blocks:
-            b.kv_cache = KVCache(c.n_heads, c.max_context, c.dim, device=self.device)
+            b.kv_cache = KVCache(
+                c.n_heads,
+                c.max_context,
+                c.dim,
+                device=self.device,
+                dtype=self.vision.pos_emb.dtype,
+            )
 
     @property
     def device(self):
