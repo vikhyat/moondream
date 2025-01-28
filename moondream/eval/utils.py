@@ -144,8 +144,8 @@ class VQAScorer:
 
         self.articles = ["a", "an", "the"]
 
-        self.periodStrip = re.compile("(?!<=\d)(\.)(?!\d)")
-        self.commaStrip = re.compile("(\d)(\,)(\d)")
+        self.periodStrip = re.compile(r"(?!<=\d)(\.)(?!\d)")
+        self.commaStrip = re.compile(r"(\d)(\,)(\d)")
         self.punct = [
             ";",
             r"/",
@@ -169,8 +169,8 @@ class VQAScorer:
             "?",
             "!",
         ]
-        self.commaStrip = re.compile("(\d)(,)(\d)")  # noqa: W605
-        self.periodStrip = re.compile("(?!<=\d)(\.)(?!\d)")  # noqa: W605
+        self.commaStrip = re.compile(r"(\d)(,)(\d)")
+        self.periodStrip = re.compile(r"(?!<=\d)(\.)(?!\d)")
 
     def process_punctuation(self, inText: str) -> str:
         outText = inText
@@ -206,9 +206,7 @@ class VQAScorer:
         answer = self.process_digit_article(answer)
         return answer
 
-    def process_line(
-        self, candidate_answer: str, ground_truth_answers: List[str]
-    ) -> float:
+    def process_line(self, prediction: str, gt_answers: List[str]) -> float:
         gt_answers = [self.process_answer(x) for x in gt_answers]
         prediction = self.process_answer(prediction)
         matches = []

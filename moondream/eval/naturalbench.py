@@ -16,7 +16,7 @@ def eval_naturalbench(model, debug=False):
     i_acc = []
     g_acc = []
 
-    for row in tqdm(dataset, disable=debug):
+    for row in tqdm(dataset, disable=debug, desc="NaturalBench"):
         if row["Question_Type"] == "yes_no":
             suffix = " Answer yes or no."
         else:
