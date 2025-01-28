@@ -94,5 +94,5 @@ model = AutoModelForCausalLM.from_pretrained(
 
 image = Image.open('<IMAGE_PATH>')
 enc_image = model.encode_image(image)
-print(model.answer_question(enc_image, "Describe this image."))
+print(model.query(enc_image, "Describe this image."))
 ```
