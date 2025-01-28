@@ -2,13 +2,12 @@ import math
 import numpy as np
 import torch
 from typing import TypedDict
-from PIL import Image
 
 try:
     import pyvips
-
     HAVE_PYVIPS = True
 except ImportError:
+    from PIL import Image
     HAVE_PYVIPS = False
 
 
