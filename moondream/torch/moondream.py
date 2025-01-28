@@ -216,7 +216,7 @@ class MoondreamModel(nn.Module):
 
         # Run through text model in addition to the vision encoder, to minimize
         # re-computation if multiple queries are performed on this image.
-        with torch.no_grad():
+        with torch.inference_mode():
             img_emb = self._run_vision_encoder(image)
             bos_emb = text_encoder(
                 torch.tensor([[self.config.tokenizer.bos_id]], device=self.device),
@@ -239,7 +239,7 @@ class MoondreamModel(nn.Module):
         )
 
     def _prefill_prompt(self, prompt_tokens: torch.Tensor, pos: int):
-        with torch.no_grad():
+        with torch.inference_mode():
             prompt_emb = text_encoder(prompt_tokens, self.text)
             torch._dynamo.mark_dynamic(prompt_emb, 1)
             mask = self.attn_mask[:, :, pos : pos + prompt_emb.size(1), :]
@@ -269,7 +269,7 @@ class MoondreamModel(nn.Module):
             ) != self.config.tokenizer.eos_id and generated_tokens < max_tokens:
                 yield self.tokenizer.decode([next_token_id])
 
-                with torch.no_grad():
+                with torch.inference_mode():
                     next_emb = text_encoder(next_token, self.text)
                     mask[:, :, pos], pos_ids[0] = 1, pos
                     logits, _ = self._decode_one_tok(next_emb, mask, pos_ids)
@@ -364,7 +364,7 @@ class MoondreamModel(nn.Module):
         mask[:, :, :pos] = 1
         pos_ids = torch.tensor([pos], device=self.device, dtype=torch.long)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             while (
                 next_token.item() != self.config.tokenizer.eos_id
                 and len(out) < max_points
@@ -486,7 +486,7 @@ class MoondreamModel(nn.Module):
         source: Tuple[float, float],
         force_detect: bool = False,
     ):
-        with torch.no_grad():
+        with torch.inference_mode():
             before_emb = text_encoder(
                 torch.tensor(
                     [self.tokenizer.encode("\n\nPoint:").ids], device=self.device
