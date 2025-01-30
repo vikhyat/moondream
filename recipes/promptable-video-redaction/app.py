@@ -5,7 +5,7 @@ from main import load_moondream, process_video
 import tempfile
 import shutil
 import torch
-import spaces
+# import spaces
 
 # Get absolute path to workspace root
 WORKSPACE_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -22,7 +22,7 @@ model, tokenizer = load_moondream()
 
 
 # Uncomment for Hugging Face Spaces
-@spaces.GPU(duration=120)
+# @spaces.GPU(duration=120)
 def process_video_file(
     video_file, detect_keyword, box_style, ffmpeg_preset, rows, cols, test_mode
 ):
@@ -100,13 +100,9 @@ with gr.Blocks(title="Promptable Video Redaction") as app:
     gr.Markdown("# Promptable Video Redaction with Moondream")
     gr.Markdown(
         """
-    This app uses [Moondream 2B](https://github.com/vikhyat/moondream), a powerful yet lightweight vision-language model, 
-    to detect and visualize objects in videos. Moondream can recognize a wide variety of objects, people, text, and more 
-    with high accuracy while being much smaller than traditional models. This enables Moondream to redact content from 
-    video quickly with its [object detection](https://docs.moondream.ai/cloud/detect) capabilities.
-    
-    Upload a video and specify what you want to detect. The app will process each frame using Moondream and visualize 
-    the detections using your chosen style. Join the [Moondream Discord server](https://discord.com/invite/tRUdpjDQfH) if you have questions on how this works.
+    [Moondream 2B](https://github.com/vikhyat/moondream) is a lightweight vision model that detects and visualizes objects in videos. It can identify objects, people, text and more.
+
+    Upload a video and specify what to detect. The app will process each frame and apply your chosen visualization style. For help, join the [Moondream Discord](https://discord.com/invite/tRUdpjDQfH).
     """
     )
 
@@ -118,56 +114,58 @@ with gr.Blocks(title="Promptable Video Redaction") as app:
                 label="What to Detect",
                 placeholder="e.g. face, logo, text, person, car, dog, etc.",
                 value="face",
-                info="Moondream can detect almost anything you can describe in natural language",
+                info="Moondream can detect anything that you can describe in natural language",
             )
-            box_style_input = gr.Radio(
-                choices=["censor", "bounding-box", "hitmarker"],
-                value="censor",
-                label="Visualization Style",
-                info="Choose how to display detections",
-            )
-            preset_input = gr.Dropdown(
-                choices=[
-                    "ultrafast",
-                    "superfast",
-                    "veryfast",
-                    "faster",
-                    "fast",
-                    "medium",
-                    "slow",
-                    "slower",
-                    "veryslow",
-                ],
-                value="medium",
-                label="Processing Speed (faster = lower quality)",
-            )
-            with gr.Row():
-                rows_input = gr.Slider(
-                    minimum=1, maximum=4, value=1, step=1, label="Grid Rows"
-                )
-                cols_input = gr.Slider(
-                    minimum=1, maximum=4, value=1, step=1, label="Grid Columns"
-                )
-
-            test_mode_input = gr.Checkbox(
-                label="Test Mode (Process first 3 seconds only)",
-                value=True,
-                info="Enable to quickly test settings on a short clip before processing the full video (recommended)",
-            )
-
             process_btn = gr.Button("Process Video", variant="primary")
-            gr.Markdown(
-                """
-            Note: Processing in test mode will only process the first 3 seconds of the video and is recommended for testing settings.
-            """
-            )
 
-            gr.Markdown(
+            with gr.Accordion("Advanced Settings", open=False):
+                box_style_input = gr.Radio(
+                    choices=["censor", "bounding-box", "hitmarker"],
+                    value="censor",
+                    label="Visualization Style",
+                    info="Choose how to display detections",
+                )
+                preset_input = gr.Dropdown(
+                    choices=[
+                        "ultrafast",
+                        "superfast",
+                        "veryfast",
+                        "faster",
+                        "fast",
+                        "medium",
+                        "slow",
+                        "slower",
+                        "veryslow",
+                    ],
+                    value="medium",
+                    label="Processing Speed (faster = lower quality)",
+                )
+                with gr.Row():
+                    rows_input = gr.Slider(
+                        minimum=1, maximum=4, value=1, step=1, label="Grid Rows"
+                    )
+                    cols_input = gr.Slider(
+                        minimum=1, maximum=4, value=1, step=1, label="Grid Columns"
+                    )
+
+                test_mode_input = gr.Checkbox(
+                    label="Test Mode (Process first 3 seconds only)",
+                    value=True,
+                    info="Enable to quickly test settings on a short clip before processing the full video (recommended)",
+                )
+
+                gr.Markdown(
+                    """
+                Note: Processing in test mode will only process the first 3 seconds of the video and is recommended for testing settings.
                 """
-            We can get a rough estimate of how long the video will take to process by multiplying the videos framerate * seconds * the number of rows and columns and assuming 0.12 seconds processing time per detection.
-            For example, a 3 second video at 30fps with 2x2 grid, the estimated time is 3 * 30 * 2 * 2 * 0.12 = 43.2 seconds (tested on a 4090 GPU).
-            """
-            )
+                )
+
+                gr.Markdown(
+                    """
+                We can get a rough estimate of how long the video will take to process by multiplying the videos framerate * seconds * the number of rows and columns and assuming 0.12 seconds processing time per detection.
+                For example, a 3 second video at 30fps with 2x2 grid, the estimated time is 3 * 30 * 2 * 2 * 0.12 = 43.2 seconds (tested on a 4090 GPU).
+                """
+                )
 
         with gr.Column():
             # Output components
@@ -176,19 +174,11 @@ with gr.Blocks(title="Promptable Video Redaction") as app:
             # About section under the video output
             gr.Markdown(
                 """
-            ### About Moondream
-            Moondream is a tiny yet powerful vision-language model that can analyze images and answer questions about them. 
-            It's designed to be lightweight and efficient while maintaining high accuracy. Some key features:
-            - Only 2B parameters
-            - Fast inference with minimal resource requirements
-            - Supports CPU and GPU execution
-            - Open source and free to use
-            
-            Links:
+            ### Links:
             - [GitHub Repository](https://github.com/vikhyat/moondream)
-            - [Hugging Face Space](https://huggingface.co/vikhyatk/moondream2)
+            - [Hugging Face](https://huggingface.co/vikhyatk/moondream2)
             - [Python Package](https://pypi.org/project/moondream/)
-            - [Promptable Redaction Recipe](https://docs.moondream.ai/recipes)
+            - [Moondream Recipes](https://docs.moondream.ai/recipes)
             """
             )
 
