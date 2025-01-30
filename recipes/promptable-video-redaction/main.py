@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 import cv2, os, subprocess, argparse
 from PIL import Image
-import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
 import numpy as np
-from datetime import datetime
 
 # Constants
 TEST_MODE_DURATION = 3  # Process only first 3 seconds in test mode
