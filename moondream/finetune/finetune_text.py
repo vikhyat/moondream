@@ -13,11 +13,13 @@ from ..torch.weights import load_weights_into_model
 from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
 from ..torch.text import _produce_hidden, _lm_head, TextConfig
 
+# This is a intended to be a basic starting point. Your optimal hyperparams and data may be different.
 MODEL_PATH = ""
+# Your data should end with the eos token. Here is the textual representation.
 ANSWER_EOS = "<|endoftext|>"
-LR = 1e-5
-EPOCHS = 1
-GRAD_ACCUM_STEPS = 64
+LR = 5e-6
+EPOCHS = 3
+GRAD_ACCUM_STEPS = 128
 
 
 def lr_schedule(step, max_steps):

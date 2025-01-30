@@ -22,7 +22,9 @@ from ..torch.region import (
     encode_size,
 )
 
+# This is a intended to be a basic starting point. Your optimal hyperparams and data may be different.
 MODEL_PATH = ""
+# Your data should end with the eos token. Here is the textual representation.
 ANSWER_EOS = "<|endoftext|>"
 LR = 5e-5
 EPOCHS = 1
@@ -70,6 +72,7 @@ class CocoDataset(Dataset):
     """
     Dataset class for COCO type data.
     To download the Roboflow railwayvision dataset visit: https://universe.roboflow.com/research-zwl99/railwayvision
+    Make sure to use COCO JSON format.
     """
 
     def __init__(self, annotation_file, img_dir, transform=None):
@@ -153,7 +156,7 @@ def main():
 
     config = MoondreamConfig()
     model = MoondreamModel(config)
-    load_weights_into_model(MODEL_PATH, model)
+    # load_weights_into_model(MODEL_PATH, model)
 
     optimizer = AdamW8bit(
         [
@@ -166,8 +169,8 @@ def main():
 
     # Add path to annotation file and img dir
     dataset = CocoDataset(
-        annotation_file="/home/user/moondream/moondream/data/roboflow/train/_annotations.coco.json",
-        img_dir="/home/user/moondream/moondream/data/roboflow/train",
+        annotation_file="",
+        img_dir="",
     )
 
     total_steps = EPOCHS * len(dataset) // GRAD_ACCUM_STEPS
