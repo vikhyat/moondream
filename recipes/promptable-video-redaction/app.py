@@ -18,6 +18,7 @@ print(f"CUDA device: {torch.cuda.get_device_name(torch.cuda.current_device())}")
 print("Loading Moondream model...")
 model, tokenizer = load_moondream()
 
+
 def process_video_file(
     video_file, detect_keyword, box_style, ffmpeg_preset, rows, cols, test_mode
 ):
