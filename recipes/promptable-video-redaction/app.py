@@ -6,8 +6,6 @@ import tempfile
 import shutil
 import torch
 
-# import spaces
-
 # Get absolute path to workspace root
 WORKSPACE_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,9 +19,6 @@ print(f"CUDA device: {torch.cuda.get_device_name(torch.cuda.current_device())}")
 print("Loading Moondream model...")
 model, tokenizer = load_moondream()
 
-
-# Uncomment for Hugging Face Spaces
-# @spaces.GPU(duration=120)
 def process_video_file(
     video_file, detect_keyword, box_style, ffmpeg_preset, rows, cols, test_mode
 ):
