@@ -2,7 +2,6 @@
 import gradio as gr
 import os
 from main import load_moondream, process_video
-import tempfile
 import shutil
 import torch
 
