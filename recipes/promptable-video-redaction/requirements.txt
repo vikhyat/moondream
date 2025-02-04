@@ -1,0 +1,11 @@
+gradio>=4.0.0
+torch
+transformers
+opencv-python
+pillow
+numpy
+tqdm
+ffmpeg-python
+einops
+pyvips
+accelerate

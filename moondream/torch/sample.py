@@ -98,6 +98,7 @@ if __name__ == "__main__":
         # Detect gaze
         model.detect_gaze(encoded_image, (0.5, 0.5))
     else:
+        torch._dynamo.reset()
         model.compile()
 
         # Warmup runs

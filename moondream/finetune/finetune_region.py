@@ -12,7 +12,6 @@ from bitsandbytes.optim import AdamW8bit
 import wandb
 import random
 
-from ..torch.weights import load_weights_into_model, RegionModel
 from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
 from ..torch.text import _produce_hidden
 from ..torch.region import (
@@ -41,7 +40,7 @@ def lr_schedule(step, max_steps):
 
 def region_loss(
     hidden_states: torch.Tensor,
-    w: RegionModel,
+    w,
     labels: torch.Tensor,
     c_idx: torch.Tensor,
     s_idx: torch.Tensor,

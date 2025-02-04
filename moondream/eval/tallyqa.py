@@ -10,22 +10,8 @@ from ..torch.weights import load_weights_into_model
 
 PREFIX = "Look at the image carefully and count the objects. Answer with just a number, without any additional text. "
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True)
-    parser.add_argument("--debug", action="store_true")
-    args = parser.parse_args()
 
-    if torch.cuda.is_available():
-        torch.set_default_device("cuda")
-    elif torch.backends.mps.is_available():
-        torch.set_default_device("mps")
-
-    config = MoondreamConfig()
-    model = MoondreamModel(config)
-    load_weights_into_model(args.model, model)
-    model.compile()
-
+def eval_tallyqa(model, debug=False):
     dataset = datasets.load_dataset(
         "vikhyatk/tallyqa-test",
         split="test",
@@ -68,7 +54,29 @@ if __name__ == "__main__":
                 print(f"All Accuracy: {correct * 100 / total:.2f}")
                 print("---------")
 
-print(
-    f"Simple: {total_simple}, Correct: {correct_simple}, Accuracy: {correct_simple*100.0/total_simple:.2f}"
-)
-print(f"Total: {total}, Correct: {correct}, Accuracy: {correct*100.0/total:.2f}")
+    return {
+        "simple_acc": correct_simple * 100 / total_simple,
+        "full_acc": correct * 100 / total,
+    }
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--debug", action="store_true")
+    args = parser.parse_args()
+
+    if torch.cuda.is_available():
+        torch.set_default_device("cuda")
+    elif torch.backends.mps.is_available():
+        torch.set_default_device("mps")
+
+    config = MoondreamConfig()
+    model = MoondreamModel(config)
+    load_weights_into_model(args.model, model)
+    model.compile()
+
+    result = eval_tallyqa(model, args.debug)
+
+    print(f"Simple acc: {result['simple_acc']:.2f}")
+    print(f"Full acc: {result['full_acc']:.2f}")
