@@ -1,6 +1,7 @@
 {
     "text": {
         "dim": 2048,
+        "ff_dim": 8192,
         "n_layers": 24,
         "vocab_size": 51200,
         "max_context": 2048,

@@ -152,10 +152,10 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
                             "mlp": nn.ModuleDict(
                                 {
                                     "fc1": nn.Linear(
-                                        config.dim, 4 * config.dim, dtype=dtype
+                                        config.dim, config.ff_dim, dtype=dtype
                                     ),
                                     "fc2": nn.Linear(
-                                        4 * config.dim, config.dim, dtype=dtype
+                                        config.ff_dim, config.dim, dtype=dtype
                                     ),
                                 }
                             ),
