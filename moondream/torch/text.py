@@ -124,6 +124,7 @@ def lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     logits = linear(hidden_BC, w.lm_head)
     return logits
 
+
 def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     hidden_BTC = layer_norm(hidden_BTC, w.post_ln)
     logits = linear(hidden_BTC, w.lm_head)
