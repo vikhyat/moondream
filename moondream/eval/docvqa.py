@@ -38,12 +38,14 @@ def eval_docvqa(model, debug=False):
             model_answer = model.query(encoded_image, prompt)["answer"]
             anls = max(get_anls(model_answer, gt) for gt in answers)
             scores.append(anls)
-            result.append({
-                "question": question,
-                "ground_truth": answers,
-                "model_answer": model_answer,
-                "anls": anls,
-            })
+            result.append(
+                {
+                    "question": question,
+                    "ground_truth": answers,
+                    "model_answer": model_answer,
+                    "anls": anls,
+                }
+            )
 
             if debug:
                 print(f"Question: {question}")

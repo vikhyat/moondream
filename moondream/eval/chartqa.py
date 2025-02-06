@@ -124,7 +124,6 @@ def eval_chartqa(model, debug=False):
             )
         results.append(result)
 
-
     return {
         "human_acc": human_correct * 100 / human_total,
         "total_acc": correct * 100 / total,

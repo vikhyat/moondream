@@ -23,12 +23,14 @@ def eval_realworldqa(model, debug=False):
         model_answer = model.query(image, question)["answer"]
         is_correct = model_answer.strip().lower() == answer.strip().lower()
 
-        results.append({
-            "question": question,
-            "ground_truth": answer,
-            "model_answer": model_answer,
-            "is_correct": is_correct,
-        })
+        results.append(
+            {
+                "question": question,
+                "ground_truth": answer,
+                "model_answer": model_answer,
+                "is_correct": is_correct,
+            }
+        )
 
         total += 1
         if is_correct:
