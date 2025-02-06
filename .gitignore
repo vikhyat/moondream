@@ -6,3 +6,5 @@ data
 poetry.lock
 dist
 clients/python/moondream/torch
+.vscode/launch.json
+wandb
