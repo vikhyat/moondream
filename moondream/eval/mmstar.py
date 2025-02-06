@@ -16,12 +16,14 @@ def eval_mmstar(model, debug=False):
     correct = 0
     total = 0
     category_stats = {}
+    results = []
 
     for row in tqdm(dataset, disable=debug, desc="MMStar"):
         image = row["image"]
         question = row["question"] + SUFFIX
         answer = row["answer"]
         model_answer = model.query(image, question)["answer"]
+        is_correct = model_answer.strip().lower() == answer.strip().lower()
 
         category = f"{row['category']} / {row['l2_category']}"
         if category not in category_stats:
@@ -30,7 +32,17 @@ def eval_mmstar(model, debug=False):
         total += 1
         category_stats[category]["total"] += 1
 
-        if model_answer.strip().lower() == answer.strip().lower():
+        results.append(
+            {
+                "question": question,
+                "ground_truth": answer,
+                "model_answer": model_answer,
+                "is_correct": is_correct,
+                "category": category,
+            }
+        )
+
+        if is_correct:
             correct += 1
             category_stats[category]["correct"] += 1
         elif debug:
@@ -52,6 +64,7 @@ def eval_mmstar(model, debug=False):
         "correct_count": correct,
         "total_count": total,
         "category_stats": category_stats,
+        "results": results,
     }
 
 

@@ -47,7 +47,7 @@ def eval_all(model, skip=[]):
     results = {}
     for name, eval_fn in evals.items():
         results[name] = eval_fn(model)
-        pprint(results[name])
+        pprint({k: v for k, v in results[name].items() if k != "results"})
 
     return results
 

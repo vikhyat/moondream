@@ -16,6 +16,7 @@ def eval_countbenchqa(model, debug=False):
 
     correct = 0
     total = 0
+    results = []
 
     for row in tqdm(dataset, disable=debug, desc="CountBenchQA"):
         image = row["image"]
@@ -24,9 +25,19 @@ def eval_countbenchqa(model, debug=False):
         question = PREFIX + row["question"]
         answer = str(row["number"])
         model_answer = model.query(encoded_image, question)["answer"]
+        is_correct = model_answer.strip().lower() == answer.strip().lower()
+
+        results.append(
+            {
+                "question": question,
+                "ground_truth": answer,
+                "model_answer": model_answer,
+                "is_correct": is_correct,
+            }
+        )
 
         total += 1
-        if model_answer.strip().lower() == answer.strip().lower():
+        if is_correct:
             correct += 1
         elif debug:
             print(f"Question: {row['question']}")
@@ -41,6 +52,7 @@ def eval_countbenchqa(model, debug=False):
         "acc": correct * 100 / total,
         "correct_count": correct,
         "total_count": total,
+        "results": results,
     }
 
 

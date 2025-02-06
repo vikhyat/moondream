@@ -14,15 +14,24 @@ def eval_realworldqa(model, debug=False):
 
     correct = 0
     total = 0
+    results = []
 
     for row in tqdm(dataset, disable=debug, desc="RealWorldQA"):
         image = row["image"]
         question = row["question"]
         answer = row["answer"]
         model_answer = model.query(image, question)["answer"]
+        is_correct = model_answer.strip().lower() == answer.strip().lower()
+
+        results.append({
+            "question": question,
+            "ground_truth": answer,
+            "model_answer": model_answer,
+            "is_correct": is_correct,
+        })
 
         total += 1
-        if model_answer.strip().lower() == answer.strip().lower():
+        if is_correct:
             correct += 1
         elif debug:
             print(f"Image: {row['image_path']}")
@@ -38,6 +47,7 @@ def eval_realworldqa(model, debug=False):
         "acc": correct * 100 / total,
         "correct_count": correct,
         "total_count": total,
+        "results": results,
     }
 
 

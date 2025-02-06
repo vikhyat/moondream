@@ -63,11 +63,13 @@ def eval_chartqa(model, debug=False):
     total = 0
     human_correct = 0
     human_total = 0
+    results = []
 
     for row in tqdm(dataset, disable=debug, desc="ChartQA"):
         image = row["image"]
         encoded_image = model.encode_image(image)
 
+        result = []
         for qa in row["qa"]:
             question = PREFIX + qa["question"]
             answer = qa["answer"]
@@ -92,6 +94,7 @@ def eval_chartqa(model, debug=False):
             if qa["source"] == "human":
                 human_total += 1
 
+            is_correct = False
             if all(
                 relaxed_correctness(
                     str(cur_answer).strip().lower(),
@@ -102,10 +105,7 @@ def eval_chartqa(model, debug=False):
                 correct += 1
                 if qa["source"] == "human":
                     human_correct += 1
-            elif debug:
-                print(f"Question: {qa['question']}")
-                print(f"Answer: {answer}")
-                print(f"Model Answer: {model_answer}")
+                is_correct = True
             if debug:
                 print(
                     f"Correct: {correct}, Total: {total}, Human Correct: {human_correct}, Human Total: {human_total}"
@@ -113,10 +113,22 @@ def eval_chartqa(model, debug=False):
                 print(f"Human Accuracy: {human_correct * 100 / human_total:.2f}")
                 print(f"Total Accuracy: {correct * 100 / total:.2f}")
                 print("---------")
+            result.append(
+                {
+                    "question": question,
+                    "ground_truth": answer_list,
+                    "model_answer": model_answer_list,
+                    "is_correct": is_correct,
+                    "source": qa["source"],
+                }
+            )
+        results.append(result)
+
 
     return {
         "human_acc": human_correct * 100 / human_total,
         "total_acc": correct * 100 / total,
+        "results": results,
     }
 
 

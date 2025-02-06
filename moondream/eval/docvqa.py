@@ -23,9 +23,13 @@ def eval_docvqa(model, debug=False):
     docvqa_val = load_dataset("vikhyatk/docvqa-val", split="validation")
 
     scores = []
+    results = []
+
     for row in tqdm(docvqa_val, disable=debug, desc="DocVQA"):
         image = row["image"]
         encoded_image = model.encode_image(image)
+
+        result = []
         for qa in row["qa"]:
             question = qa["question"]
             answers = qa["answers"]
@@ -34,6 +38,12 @@ def eval_docvqa(model, debug=False):
             model_answer = model.query(encoded_image, prompt)["answer"]
             anls = max(get_anls(model_answer, gt) for gt in answers)
             scores.append(anls)
+            result.append({
+                "question": question,
+                "ground_truth": answers,
+                "model_answer": model_answer,
+                "anls": anls,
+            })
 
             if debug:
                 print(f"Question: {question}")
@@ -42,9 +52,11 @@ def eval_docvqa(model, debug=False):
                 print(f"ANLS: {anls}")
                 print(f"Current Average ANLS: {sum(scores) / len(scores):.4f}")
                 print("---------")
+        results.append(result)
 
     return {
         "anls": sum(scores) / len(scores),
+        "results": results,
     }
 
 

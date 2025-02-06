@@ -19,6 +19,7 @@ def eval_textvqa(model, debug=False):
 
     total_score = 0
     total_samples = 0
+    results = []
 
     for row in tqdm(dataset, disable=debug, desc="TextVQA"):
         image = row["image"]
@@ -30,6 +31,15 @@ def eval_textvqa(model, debug=False):
         total_score += score
         total_samples += 1
 
+        results.append(
+            {
+                "question": question,
+                "ground_truth": row["answers"],
+                "model_answer": model_answer,
+                "score": score,
+            }
+        )
+
         if debug:
             print(f"Question: {row['question']}")
             print(f"Ground Truth Answers: {row['answers']}")
@@ -38,7 +48,7 @@ def eval_textvqa(model, debug=False):
             print(f"Running Average Score: {total_score * 100 / total_samples:.2f}")
             print("---------")
 
-    return {"score": total_score * 100 / total_samples}
+    return {"score": total_score * 100 / total_samples, "results": results}
 
 
 if __name__ == "__main__":
