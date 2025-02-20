@@ -18,7 +18,13 @@ Welcome to the future of content moderation. This tool uses Moondream 2B, a powe
 - Test mode (process only first X seconds)
 - Advanced moderation analysis with multiple visualization plots
 
-> This recipe is meant to be used through Gradio
+## Examples
+
+| Example Outputs |
+|------|
+| ![Demo](./examples/clip-cig.gif)     |
+| ![Demo](./examples/clip-gu.gif)      |
+| ![Demo](./examples/clip-conflag.gif) |
 
 ## Requirements
 
