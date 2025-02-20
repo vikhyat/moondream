@@ -39,7 +39,7 @@ wget https://huggingface.co/vikhyatk/moondream2/resolve/main/model.safetensors
 
 We use Weights & Biases (wandb) to track finetuning progress.
 
-To set it up to track your runs, use `wandb login`
+To set it up to track your runs, use `wandb login`.
 
 This will take you through creating an account if you don't have one setup already. Enter your API key and you're ready to go.
 
@@ -67,7 +67,7 @@ We return a more detailed caption of the image then you would get from the base 
 python -m moondream.finetune.finetune_text
 ```
 
-The process will output a finetuned version of Moondream into your save path. Example output: `models/moondream_text_finetuned.safetensors`
+The process will output a finetuned version of Moondream into your save path. Example output: `models/moondream_text_finetuned.safetensors`.
 
 ### Test the Finetuned Text Encoder
 
@@ -114,4 +114,4 @@ We are returned the coordinates of a detected crack in the following format:
 python -m moondream.finetune.finetune_region
 ```
 
-The process will output a finetuned version of Moondream into your save path. Example output: `models/moondream_region_finetuned.safetensors`
+The process will output a finetuned version of Moondream into your save path. Example output: `models/moondream_region_finetuned.safetensors`.
