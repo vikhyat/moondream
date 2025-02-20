@@ -1,0 +1,26 @@
+gradio>=4.0.0
+torch>=2.0.0
+# if on windows: pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 --index-url https://download.pytorch.org/whl/cu121 
+transformers>=4.36.0
+opencv-python>=4.8.0
+pillow>=10.0.0
+numpy>=1.24.0
+tqdm>=4.66.0
+ffmpeg-python
+einops
+pyvips-binary
+pyvips
+accelerate
+# for spaces
+--extra-index-url https://download.pytorch.org/whl/cu113
+spaces
+# SAM dependencies
+torchvision>=0.20.1
+matplotlib>=3.7.0
+pandas>=2.0.0
+plotly
+# DeepSORT dependencies
+deep-sort-realtime>=1.3.2
+scikit-learn  # Required for deep-sort-realtime
+# Scene detection dependencies (for intelligent scene-aware tracking)
+scenedetect[opencv]>=0.6.2  # Provides scene change detection capabilities
