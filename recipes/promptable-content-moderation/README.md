@@ -22,9 +22,9 @@ Welcome to the future of content moderation. This tool uses Moondream 2B, a powe
 
 | Example Outputs |
 |------|
-| ![Demo](./examples/clip-cig.gif)     |
-| ![Demo](./examples/clip-gu.gif)      |
-| ![Demo](./examples/clip-conflag.gif) |
+| ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-cig.gif)     |
+| ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-gu.gif)      |
+| ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-conflag.gif) |
 
 ## Requirements
 
