@@ -307,7 +307,7 @@ with gr.Blocks(title="Promptable Content Moderation") as app:
                     video_input = gr.Video(label="Upload Video")
 
                     detect_input = gr.Textbox(
-                        label="What to Modereate",
+                        label="What to Moderate",
                         placeholder="e.g. face, cigarette, gun, etc.",
                         value="face",
                         info="Moondream can moderate anything that you can describe in natural language",
