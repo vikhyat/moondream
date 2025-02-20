@@ -1,6 +1,6 @@
 # Promptable Content Moderation with Moondream
 
-Welcome to the future of content moderation. This tool uses Moondream 2B, a powerful yet lightweight vision-language model, to moderate content in videos. Moondream allows you to detect and moderate content using natural language prompts.
+Welcome to the future of content moderation with Moondream 2B, a powerful and lightweight vision-language model that enables detection and moderation of video content using natural language prompts.
 
 [Try it now.](https://huggingface.co/spaces/moondream/content-moderation)
 
