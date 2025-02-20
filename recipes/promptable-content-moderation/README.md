@@ -20,11 +20,11 @@ Welcome to the future of content moderation with Moondream 2B, a powerful and li
 
 ## Examples
 
-| Example Outputs |
-|------|
-| ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-cig.gif)     |
-| ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-gu.gif)      |
-| ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-conflag.gif) |
+| Prompt | Output |
+|--------|-----------------|
+| "white cigarette" | ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-cig.gif)     |
+| "gun" | ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-gu.gif)      |
+| "confederate flag" | ![Demo](https://github.com/parsakhaz/promptable-content-moderation/raw/main/examples/clip-conflag.gif) |
 
 ## Requirements
 
