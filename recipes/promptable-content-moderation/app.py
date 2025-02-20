@@ -2,14 +2,12 @@
 import gradio as gr
 import os
 from main import load_moondream, process_video, load_sam_model
-import tempfile
 import shutil
 import torch
 from visualization import visualize_detections
 from persistence import load_detection_data
 import matplotlib.pyplot as plt
 import io
-import base64
 from PIL import Image
 import pandas as pd
 from video_visualization import create_video_visualization

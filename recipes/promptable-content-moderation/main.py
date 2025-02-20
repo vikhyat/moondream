@@ -6,8 +6,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, SamModel, SamProce
 from tqdm import tqdm
 import numpy as np
 from datetime import datetime
-import colorsys
-import random
 from deep_sort_integration import DeepSORTTracker
 from scenedetect import detect, ContentDetector
 from functools import lru_cache
