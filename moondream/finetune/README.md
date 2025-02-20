@@ -58,7 +58,7 @@ We return a more detailed caption of the image then you would get from the base 
 ``` # Add save path
     save_file(
         model.state_dict(),
-        "", // update this line ex: "models/moondream_text_finetuned.safetensors"
+        "moondream_finetune.safetensors", // update this line ex: "models/moondream_text_finetuned.safetensors"
     )
 ```
 
@@ -87,25 +87,25 @@ For this example, we will be teaching Moondream to detect railroad cracks in ima
 Our dataset trains our model such that,
 
 Given the prompt: 
-`\n\nDetect: crack\n\n`
+`\n\nDetect: <class_name>\n\n`
 
 We are returned the coordinates of a detected crack in the following format:
 ```{'objects': [{'x_min': [X_MIN], 'y_min': [Y_MIN], 'x_max': [X_MAX], 'y_max': [Y_MAX]}]}```
 
 ### Setup Dataset Dependencies
 
-1. Visit https://universe.roboflow.com/research-zwl99/railwayvision
-2. Download dataset in COCO JSON format into relevant directory (ex: `datasets`)
-3. Update path to `annotation_file` (line 169) & `img_dir` (line 170) in `finetune_region.py` to point at the dataset 
-- `annotation_file` should point to `<dataset_directory>/train/_annotations.coco.json`
-- `img_dir` should point to `<dataset_directory>/train/`
-4. Double check that you've updated MODEL_PATH to point to the base moondream model in `moondream/finetune/finetune_region.py`
+1. Visit https://universe.roboflow.com/waste-detection-l4m9b/waste-detection-ttdir
+2. Download dataset in COCO JSON format into relevant directory (ex: `datasets`).
+3. Update path to `annotation_file` (line 175) & `img_dir` (line 176) in `finetune_region.py` to point at the dataset.
+- `annotation_file` should point to `<dataset_directory>/train/_annotations.coco.json`.
+- `img_dir` should point to `<dataset_directory>/train/`.
+4. Double check that you've updated MODEL_PATH to point to the base moondream model.
 5. Double check that the save path ends in `.safetensors`, otherwise the run will fail.
-> Navigate to line 262 in `moondream/finetune/finetune_region.py`
+> Navigate to line 287 in `moondream/finetune/finetune_region.py`.
 ``` # Add save path
     save_file(
         model.state_dict(),
-        "", // update this line ex: "models/moondream_region_finetuned.safetensors"
+        "moondream_finetune.safetensors", // update this line ex: "models/moondream_region_finetuned.safetensors"
     )
 ```
 

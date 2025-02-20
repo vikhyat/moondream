@@ -8,7 +8,7 @@ from safetensors.torch import save_file
 
 from PIL import Image
 from tqdm import tqdm
-from bitsandbytes.optim import AdamW
+from bitsandbytes.optim import AdamW8bit
 import wandb
 import random
 
@@ -146,7 +146,7 @@ class CocoDataset(Dataset):
 
 def main():
     if torch.cuda.is_available():
-        torch.set_default_device("cuda:7")
+        torch.set_default_device("cuda")
     elif torch.backends.mps.is_available():
         torch.set_default_device("mps")
 
@@ -163,10 +163,7 @@ def main():
     model = MoondreamModel(config)
     load_weights_into_model(MODEL_PATH, model)
 
-    # If using CUDA, you can compile to speed it up.
-    # model.compile()
-
-    optimizer = AdamW(
+    optimizer = AdamW8bit(
         [{"params": model.region.parameters()}],
         lr=LR,
         betas=(0.9, 0.95),
@@ -296,8 +293,8 @@ if __name__ == "__main__":
     Replace paths with your appropriate paths.
     To run: python -m moondream.finetune.finetune_region
 
-    1 epoch of fine-tuning on the example 'Trash and Waste' dataset brings
-    mAP from 71.74 to 73.69.
+    1 epoch of fine-tuning on the example 'Waste Detection' dataset results in a
+    2 percentage point increase in mAP.
     Dataset: https://universe.roboflow.com/waste-detection-l4m9b/waste-detection-ttdir
     """
     main()
