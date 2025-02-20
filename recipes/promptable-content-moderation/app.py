@@ -12,8 +12,6 @@ from PIL import Image
 import pandas as pd
 from video_visualization import create_video_visualization
 
-# import spaces
-
 # Get absolute path to workspace root
 WORKSPACE_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -26,9 +24,6 @@ print(f"CUDA device: {torch.cuda.get_device_name(torch.cuda.current_device())}")
 # Initialize Moondream model globally for reuse (will be loaded on first use)
 model, tokenizer = None, None
 
-
-# Uncomment for Hugging Face Spaces
-# @spaces.GPU(duration=120)
 def process_video_file(
     video_file,
     target_object,
