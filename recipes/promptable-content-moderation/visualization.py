@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 from persistence import load_detection_data
 import argparse
 
+
 def visualize_detections(json_path):
     """
     Visualize detection data from a JSON file.
-    
+
     Args:
         json_path (str): Path to the JSON file containing detection data.
     """
@@ -21,16 +22,19 @@ def visualize_detections(json_path):
         frame = frame_data["frame"]
         timestamp = frame_data["timestamp"]
         for obj in frame_data["objects"]:
-            rows.append({
-                "frame": frame,
-                "timestamp": timestamp,
-                "keyword": obj["keyword"],
-                "x1": obj["bbox"][0],
-                "y1": obj["bbox"][1],
-                "x2": obj["bbox"][2],
-                "y2": obj["bbox"][3],
-                "area": (obj["bbox"][2] - obj["bbox"][0]) * (obj["bbox"][3] - obj["bbox"][1])
-            })
+            rows.append(
+                {
+                    "frame": frame,
+                    "timestamp": timestamp,
+                    "keyword": obj["keyword"],
+                    "x1": obj["bbox"][0],
+                    "y1": obj["bbox"][1],
+                    "x2": obj["bbox"][2],
+                    "y2": obj["bbox"][3],
+                    "area": (obj["bbox"][2] - obj["bbox"][0])
+                    * (obj["bbox"][3] - obj["bbox"][1]),
+                }
+            )
 
     if not rows:
         print("No detections found in the data")
@@ -40,7 +44,7 @@ def visualize_detections(json_path):
 
     # Create a figure with multiple subplots
     fig = plt.figure(figsize=(15, 10))
-    
+
     # Plot 1: Number of detections per frame
     plt.subplot(2, 2, 1)
     detections_per_frame = df.groupby("frame").size()
@@ -82,17 +86,23 @@ def visualize_detections(json_path):
     print("\nSummary Statistics:")
     print(f"Total frames analyzed: {len(data['frame_detections'])}")
     print(f"Total detections: {len(df)}")
-    print(f"Average detections per frame: {len(df) / len(data['frame_detections']):.2f}")
+    print(
+        f"Average detections per frame: {len(df) / len(data['frame_detections']):.2f}"
+    )
     print(f"\nVideo metadata:")
     for key, value in data["video_metadata"].items():
         print(f"{key}: {value}")
 
+
 def main():
     parser = argparse.ArgumentParser(description="Visualize object detection data")
-    parser.add_argument("json_file", help="Path to the JSON file containing detection data")
+    parser.add_argument(
+        "json_file", help="Path to the JSON file containing detection data"
+    )
     args = parser.parse_args()
-    
+
     visualize_detections(args.json_file)
 
+
 if __name__ == "__main__":
-    main() 
+    main()

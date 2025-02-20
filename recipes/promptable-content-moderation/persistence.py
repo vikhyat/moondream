@@ -1,6 +1,7 @@
 import json
 import os
 
+
 def save_detection_data(data, output_file):
     """
     Saves the detection data to a JSON file.
@@ -12,7 +13,7 @@ def save_detection_data(data, output_file):
     try:
         # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        
+
         with open(output_file, "w") as f:
             json.dump(data, f, indent=4)
         print(f"Detection data saved to {output_file}")
@@ -21,13 +22,14 @@ def save_detection_data(data, output_file):
         print(f"Error saving data: {str(e)}")
         return False
 
+
 def load_detection_data(input_file):
     """
     Loads the detection data from a JSON file.
 
     Args:
         input_file (str): Path to the JSON file.
-        
+
     Returns:
         dict: The loaded detection data, or None if there was an error.
     """
@@ -36,4 +38,4 @@ def load_detection_data(input_file):
             return json.load(f)
     except Exception as e:
         print(f"Error loading data: {str(e)}")
-        return None 
+        return None

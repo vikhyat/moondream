@@ -45,16 +45,21 @@ sam_processor = None
 slimsam_model = None
 slimsam_processor = None
 
+
 @lru_cache(maxsize=2)  # Cache both regular and slim SAM models
 def get_sam_model(slim=False):
     """Get cached SAM model and processor."""
     global sam_model, sam_processor, slimsam_model, slimsam_processor
-    
+
     if slim:
         if slimsam_model is None:
             print("Loading SlimSAM model for the first time...")
-            slimsam_model = SamModel.from_pretrained("nielsr/slimsam-50-uniform").to(device)
-            slimsam_processor = SamProcessor.from_pretrained("nielsr/slimsam-50-uniform")
+            slimsam_model = SamModel.from_pretrained("nielsr/slimsam-50-uniform").to(
+                device
+            )
+            slimsam_processor = SamProcessor.from_pretrained(
+                "nielsr/slimsam-50-uniform"
+            )
         return slimsam_model, slimsam_processor
     else:
         if sam_model is None:
@@ -63,9 +68,11 @@ def get_sam_model(slim=False):
             sam_processor = SamProcessor.from_pretrained("facebook/sam-vit-huge")
         return sam_model, sam_processor
 
+
 def load_sam_model(slim=False):
     """Load SAM model and processor with caching."""
     return get_sam_model(slim=slim)
+
 
 def generate_color_pair():
     """Generate a generic light blue and dark blue color pair for SAM visualization."""
@@ -73,9 +80,10 @@ def generate_color_pair():
     light_rgb = [173, 216, 230]  # Light blue
     return dark_rgb, light_rgb
 
+
 def create_mask_overlay(image, masks, points=None, labels=None):
     """Create a mask overlay with contours for multiple SAM visualizations.
-    
+
     Args:
         image: PIL Image to overlay masks on
         masks: List of binary masks or single mask
@@ -85,39 +93,43 @@ def create_mask_overlay(image, masks, points=None, labels=None):
     # Convert single mask to list for uniform processing
     if not isinstance(masks, list):
         masks = [masks]
-    
+
     # Create empty overlays
     overlay = np.zeros((*image.size[::-1], 4), dtype=np.uint8)
     outline = np.zeros((*image.size[::-1], 4), dtype=np.uint8)
-    
+
     # Process each mask
     for i, mask in enumerate(masks):
         # Convert binary mask to uint8
         mask_uint8 = (mask > 0).astype(np.uint8)
-        
+
         # Dilation to fill gaps
         kernel = np.ones((5, 5), np.uint8)
         mask_dilated = cv2.dilate(mask_uint8, kernel, iterations=1)
-        
+
         # Find contours of the dilated mask
-        contours, _ = cv2.findContours(mask_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
+        contours, _ = cv2.findContours(
+            mask_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+
         # Generate random color pair for this segmentation
         dark_color, light_color = generate_color_pair()
-        
+
         # Add to the overlays
         overlay[mask_dilated > 0] = [*light_color, 90]  # Light color with 35% opacity
-        cv2.drawContours(outline, contours, -1, (*dark_color, 255), 2)  # Dark color outline
-    
+        cv2.drawContours(
+            outline, contours, -1, (*dark_color, 255), 2
+        )  # Dark color outline
+
     # Convert to PIL images
-    mask_overlay = Image.fromarray(overlay, 'RGBA')
-    outline_overlay = Image.fromarray(outline, 'RGBA')
-    
+    mask_overlay = Image.fromarray(overlay, "RGBA")
+    outline_overlay = Image.fromarray(outline, "RGBA")
+
     # Composite the layers
-    result = image.convert('RGBA')
+    result = image.convert("RGBA")
     result.paste(mask_overlay, (0, 0), mask_overlay)
     result.paste(outline_overlay, (0, 0), outline_overlay)
-    
+
     # Add labels if provided
     if points and labels:
         result_array = np.array(result)
@@ -134,26 +146,25 @@ def create_mask_overlay(image, masks, points=None, labels=None):
                 cv2.LINE_AA,
             )
         result = Image.fromarray(result_array)
-    
+
     return result
+
 
 def process_sam_detection(image, center_x, center_y, slim=False):
     """Process a single detection point with SAM.
-    
+
     Returns:
         tuple: (mask, result_pil) where mask is the binary mask and result_pil is the visualization
     """
     if not isinstance(image, Image.Image):
         image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    
+
     # Get appropriate model from cache
     model, processor = get_sam_model(slim)
-    
+
     # Process the image with SAM
     inputs = processor(
-        image,
-        input_points=[[[center_x, center_y]]],
-        return_tensors="pt"
+        image, input_points=[[[center_x, center_y]]], return_tensors="pt"
     ).to(device)
 
     with torch.no_grad():
@@ -162,12 +173,13 @@ def process_sam_detection(image, center_x, center_y, slim=False):
     mask = processor.post_process_masks(
         outputs.pred_masks.cpu(),
         inputs["original_sizes"].cpu(),
-        inputs["reshaped_input_sizes"].cpu()
+        inputs["reshaped_input_sizes"].cpu(),
     )[0][0][0].numpy()
-    
+
     # Create the visualization
     result = create_mask_overlay(image, mask)
     return mask, result
+
 
 def load_moondream():
     """Load Moondream model and tokenizer."""
@@ -315,7 +327,9 @@ def merge_tile_detections(tile_detections, iou_threshold=0.5):
     return [(all_boxes[i], all_keywords[i]) for i in keep]
 
 
-def detect_objects_in_frame(model, tokenizer, image, target_object, grid_rows=1, grid_cols=1):
+def detect_objects_in_frame(
+    model, tokenizer, image, target_object, grid_rows=1, grid_cols=1
+):
     """Detect specified objects in a frame using grid-based analysis."""
     if grid_rows == 1 and grid_cols == 1:
         return detect_objects_in_frame_single(model, tokenizer, image, target_object)
@@ -493,9 +507,9 @@ def draw_ad_boxes(frame, detected_objects, detect_keyword, model, box_style="cen
         frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         try:
             point_response = model.point(frame_pil, detect_keyword)
-            
-            if isinstance(point_response, dict) and 'points' in point_response:
-                points = point_response['points']
+
+            if isinstance(point_response, dict) and "points" in point_response:
+                points = point_response["points"]
         except Exception as e:
             print(f"Error during point detection: {str(e)}")
             points = []
@@ -504,32 +518,36 @@ def draw_ad_boxes(frame, detected_objects, detect_keyword, model, box_style="cen
     if box_style in ["sam", "sam-fast"] and points:
         # Start with the original PIL image
         frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        
+
         # Collect all masks and points
         all_masks = []
         point_coords = []
         point_labels = []
-        
+
         for point in points:
             try:
                 center_x = int(float(point["x"]) * width)
                 center_y = int(float(point["y"]) * height)
 
                 # Get mask and visualization
-                mask, _ = process_sam_detection(frame_pil, center_x, center_y, slim=(box_style == "sam-fast"))
-                
+                mask, _ = process_sam_detection(
+                    frame_pil, center_x, center_y, slim=(box_style == "sam-fast")
+                )
+
                 # Collect mask and point data
                 all_masks.append(mask)
                 point_coords.append((center_x, center_y))
                 point_labels.append(detect_keyword)
-                
+
             except Exception as e:
                 print(f"Error processing individual SAM point: {str(e)}")
                 print(f"Point data: {point}")
-        
+
         if all_masks:
             # Create final visualization with all masks
-            result_pil = create_mask_overlay(frame_pil, all_masks, point_coords, point_labels)
+            result_pil = create_mask_overlay(
+                frame_pil, all_masks, point_coords, point_labels
+            )
             frame = cv2.cvtColor(np.array(result_pil), cv2.COLOR_RGB2BGR)
 
     # Process other visualization styles
@@ -558,7 +576,9 @@ def draw_ad_boxes(frame, detected_objects, detect_keyword, model, box_style="cen
                 elif box_style == "bounding-box":
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 3)
 
-                    label = f"{detect_keyword}" if track_id is not None else detect_keyword
+                    label = (
+                        f"{detect_keyword}" if track_id is not None else detect_keyword
+                    )
                     label_size = cv2.getTextSize(label, FONT, 0.7, 2)[0]
                     cv2.rectangle(
                         frame, (x1, y1 - 25), (x1 + label_size[0], y1), (0, 0, 255), -1
@@ -586,7 +606,9 @@ def draw_ad_boxes(frame, detected_objects, detect_keyword, model, box_style="cen
                     # Pixelate by resizing down and up
                     h, w = roi.shape[:2]
                     temp = cv2.resize(roi, (10, 10), interpolation=cv2.INTER_LINEAR)
-                    pixelated = cv2.resize(temp, (w, h), interpolation=cv2.INTER_NEAREST)
+                    pixelated = cv2.resize(
+                        temp, (w, h), interpolation=cv2.INTER_NEAREST
+                    )
                     # Mix up the pixelated frame slightly by adding random noise
                     noise = np.random.randint(0, 50, (h, w, 3), dtype=np.uint8)
                     pixelated = cv2.add(pixelated, noise)
@@ -600,69 +622,78 @@ def draw_ad_boxes(frame, detected_objects, detect_keyword, model, box_style="cen
                     box_height = y2 - y1
                     expand_x = int(box_width * 0.10)
                     expand_y = int(box_height * 0.10)
-                    
+
                     # Expand the bounding box by 10% in all directions
                     x1_expanded = max(0, x1 - expand_x)
                     y1_expanded = max(0, y1 - expand_y)
                     x2_expanded = min(width - 1, x2 + expand_x)
                     y2_expanded = min(height - 1, y2 + expand_y)
-                    
+
                     # Extract ROI with much larger padding for true background sampling
                     padding = 100  # Much larger padding to get true background
                     y1_pad = max(0, y1_expanded - padding)
                     y2_pad = min(height, y2_expanded + padding)
                     x1_pad = max(0, x1_expanded - padding)
                     x2_pad = min(width, x2_expanded + padding)
-                    
+
                     # Get the padded region including background
                     padded_roi = frame[y1_pad:y2_pad, x1_pad:x2_pad]
-                    
+
                     # Create mask that excludes a larger region around the detection
                     h, w = y2_expanded - y1_expanded, x2_expanded - x1_expanded
                     bg_mask = np.ones(padded_roi.shape[:2], dtype=bool)
-                    
+
                     # Exclude a larger region around the detection from background sampling
                     exclusion_padding = 50  # Area to exclude around detection
                     exclude_y1 = padding - exclusion_padding
                     exclude_y2 = padding + h + exclusion_padding
                     exclude_x1 = padding - exclusion_padding
                     exclude_x2 = padding + w + exclusion_padding
-                    
+
                     # Make sure exclusion coordinates are valid
                     exclude_y1 = max(0, exclude_y1)
                     exclude_y2 = min(padded_roi.shape[0], exclude_y2)
                     exclude_x1 = max(0, exclude_x1)
                     exclude_x2 = min(padded_roi.shape[1], exclude_x2)
-                    
+
                     # Mark the exclusion zone in the mask
                     bg_mask[exclude_y1:exclude_y2, exclude_x1:exclude_x2] = False
-                    
+
                     # If we have enough background pixels, calculate average color
                     if np.any(bg_mask):
                         bg_color = np.mean(padded_roi[bg_mask], axis=0).astype(np.uint8)
                     else:
                         # Fallback to edges if we couldn't get enough background
-                        edge_samples = np.concatenate([
-                            padded_roi[0],  # Top edge
-                            padded_roi[-1],  # Bottom edge
-                            padded_roi[:, 0],  # Left edge
-                            padded_roi[:, -1]  # Right edge
-                        ])
+                        edge_samples = np.concatenate(
+                            [
+                                padded_roi[0],  # Top edge
+                                padded_roi[-1],  # Bottom edge
+                                padded_roi[:, 0],  # Left edge
+                                padded_roi[:, -1],  # Right edge
+                            ]
+                        )
                         bg_color = np.mean(edge_samples, axis=0).astype(np.uint8)
-                    
+
                     # Create base pixelated version (of the expanded region)
-                    temp = cv2.resize(frame[y1_expanded:y2_expanded, x1_expanded:x2_expanded], 
-                                   (6, 6), interpolation=cv2.INTER_LINEAR)
-                    pixelated = cv2.resize(temp, (w, h), interpolation=cv2.INTER_NEAREST)
-                    
+                    temp = cv2.resize(
+                        frame[y1_expanded:y2_expanded, x1_expanded:x2_expanded],
+                        (6, 6),
+                        interpolation=cv2.INTER_LINEAR,
+                    )
+                    pixelated = cv2.resize(
+                        temp, (w, h), interpolation=cv2.INTER_NEAREST
+                    )
+
                     # Blend heavily towards background color
                     blend_factor = 0.9  # Much stronger blend with background
                     blended = cv2.addWeighted(
-                        pixelated, 1 - blend_factor,
-                        np.full((h, w, 3), bg_color, dtype=np.uint8), blend_factor,
-                        0
+                        pixelated,
+                        1 - blend_factor,
+                        np.full((h, w, 3), bg_color, dtype=np.uint8),
+                        blend_factor,
+                        0,
                     )
-                    
+
                     # Replace original ROI with blended version (using expanded coordinates)
                     frame[y1_expanded:y2_expanded, x1_expanded:x2_expanded] = blended
                 elif box_style == "intense-pixelated-blur":
@@ -677,14 +708,18 @@ def draw_ad_boxes(frame, detected_objects, detect_keyword, model, box_style="cen
                     # Pixelate by resizing down and up
                     h, w = roi.shape[:2]
                     temp = cv2.resize(roi, (10, 10), interpolation=cv2.INTER_LINEAR)
-                    pixelated = cv2.resize(temp, (w, h), interpolation=cv2.INTER_NEAREST)
+                    pixelated = cv2.resize(
+                        temp, (w, h), interpolation=cv2.INTER_NEAREST
+                    )
                     # Mix up the pixelated frame slightly by adding random noise
                     noise = np.random.randint(0, 50, (h, w, 3), dtype=np.uint8)
                     pixelated = cv2.add(pixelated, noise)
                     # Apply stronger Gaussian blur to smooth edges
                     blurred_pixelated = cv2.GaussianBlur(pixelated, (15, 15), 0)
                     # Replace original ROI
-                    frame[y1_expanded:y2_expanded, x1_expanded:x2_expanded] = blurred_pixelated
+                    frame[y1_expanded:y2_expanded, x1_expanded:x2_expanded] = (
+                        blurred_pixelated
+                    )
                 elif box_style == "hitmarker":
                     if points:
                         for point in points:
@@ -692,16 +727,25 @@ def draw_ad_boxes(frame, detected_objects, detect_keyword, model, box_style="cen
                                 print(f"Processing point: {point}")
                                 center_x = int(float(point["x"]) * width)
                                 center_y = int(float(point["y"]) * height)
-                                print(f"Converted coordinates: ({center_x}, {center_y})")
+                                print(
+                                    f"Converted coordinates: ({center_x}, {center_y})"
+                                )
 
                                 draw_hitmarker(frame, center_x, center_y)
 
-                                label = f"{detect_keyword}" if track_id is not None else detect_keyword
+                                label = (
+                                    f"{detect_keyword}"
+                                    if track_id is not None
+                                    else detect_keyword
+                                )
                                 label_size = cv2.getTextSize(label, FONT, 0.5, 1)[0]
                                 cv2.putText(
                                     frame,
                                     label,
-                                    (center_x - label_size[0] // 2, center_y - HITMARKER_SIZE - 5),
+                                    (
+                                        center_x - label_size[0] // 2,
+                                        center_y - HITMARKER_SIZE - 5,
+                                    ),
                                     FONT,
                                     0.5,
                                     HITMARKER_COLOR,
@@ -758,7 +802,16 @@ def filter_temporal_outliers(detections_dict):
     return filtered_detections
 
 
-def describe_frames(video_path, model, tokenizer, detect_keyword, test_mode=False, test_duration=DEFAULT_TEST_MODE_DURATION, grid_rows=1, grid_cols=1):
+def describe_frames(
+    video_path,
+    model,
+    tokenizer,
+    detect_keyword,
+    test_mode=False,
+    test_duration=DEFAULT_TEST_MODE_DURATION,
+    grid_rows=1,
+    grid_cols=1,
+):
     """Extract and detect objects in frames."""
     props = get_video_properties(video_path)
     fps = props["fps"]
@@ -793,7 +846,12 @@ def describe_frames(video_path, model, tokenizer, detect_keyword, test_mode=Fals
             if frame_count_processed in scene_changes:
                 # Detect objects in the frame
                 detected_objects = detect_objects_in_frame(
-                    model, tokenizer, frame, detect_keyword, grid_rows=grid_rows, grid_cols=grid_cols
+                    model,
+                    tokenizer,
+                    frame,
+                    detect_keyword,
+                    grid_rows=grid_rows,
+                    grid_cols=grid_cols,
                 )
 
             # Update tracker with current detections
@@ -853,7 +911,9 @@ def create_detection_video(
     # If in test mode, only process first few seconds
     if test_mode:
         frame_count = min(int(fps * test_duration), props["frame_count"])
-        print(f"Test mode enabled: Processing first {test_duration} seconds ({frame_count} frames)")
+        print(
+            f"Test mode enabled: Processing first {test_duration} seconds ({frame_count} frames)"
+        )
     else:
         frame_count = props["frame_count"]
         print("Full video mode: Processing entire video")
@@ -883,7 +943,11 @@ def create_detection_video(
                 current_detections = ad_detections[frame_count_processed]
                 if current_detections:
                     frame = draw_ad_boxes(
-                        frame, current_detections, detect_keyword, model, box_style=box_style
+                        frame,
+                        current_detections,
+                        detect_keyword,
+                        model,
+                        box_style=box_style,
                     )
 
             out.write(frame)
@@ -958,17 +1022,15 @@ def create_detection_video(
 
         if test_mode:
             # In test mode, ensure output duration matches test_duration
-            ffmpeg_cmd.extend([
-                "-t",
-                str(test_duration),
-                "-shortest"  # Ensure output duration matches shortest input
-            ])
+            ffmpeg_cmd.extend(
+                [
+                    "-t",
+                    str(test_duration),
+                    "-shortest",  # Ensure output duration matches shortest input
+                ]
+            )
 
-        ffmpeg_cmd.extend([
-            "-loglevel",
-            "error",
-            output_path
-        ])
+        ffmpeg_cmd.extend(["-loglevel", "error", output_path])
 
         subprocess.run(ffmpeg_cmd, check=True)
 
@@ -1014,10 +1076,10 @@ def process_video(
 
         # Get video properties
         props = get_video_properties(video_path)
-        
+
         # Initialize scene detector with ContentDetector
         scene_detector = ContentDetector(threshold=30.0)  # Adjust threshold as needed
-        
+
         # Initialize DeepSORT tracker
         tracker = DeepSORTTracker()
 
@@ -1046,12 +1108,19 @@ def process_video(
 
                 # Check if current frame is a scene change
                 if frame_count_processed in scene_changes:
-                    print(f"Scene change detected at frame {frame_count_processed}. Resetting tracker.")
+                    print(
+                        f"Scene change detected at frame {frame_count_processed}. Resetting tracker."
+                    )
                     tracker.reset()
 
                 # Detect objects in the frame
                 detected_objects = detect_objects_in_frame(
-                    model, tokenizer, frame, target_object, grid_rows=grid_rows, grid_cols=grid_cols
+                    model,
+                    tokenizer,
+                    frame,
+                    target_object,
+                    grid_rows=grid_rows,
+                    grid_cols=grid_cols,
                 )
 
                 # Update tracker with current detections
@@ -1071,7 +1140,7 @@ def process_video(
 
         # Apply filtering
         filtered_ad_detections = filter_temporal_outliers(ad_detections)
-        
+
         # Build detection data structure
         detection_data = {
             "video_metadata": {
@@ -1085,7 +1154,7 @@ def process_video(
                 "test_mode": test_mode,
                 "grid_size": f"{grid_rows}x{grid_cols}",
                 "box_style": box_style,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             },
             "frame_detections": [
                 {
@@ -1095,23 +1164,34 @@ def process_video(
                         {
                             "keyword": kw,
                             "bbox": list(box),  # Convert numpy array to list if needed
-                            "track_id": track_id if len(detection) == 3 else None
+                            "track_id": track_id if len(detection) == 3 else None,
                         }
                         for detection in filtered_ad_detections.get(frame_num, [])
-                        for box, kw, *track_id in [detection]  # Unpack detection tuple, track_id will be empty list if not present
-                    ]
+                        for box, kw, *track_id in [
+                            detection
+                        ]  # Unpack detection tuple, track_id will be empty list if not present
+                    ],
                 }
-                for frame_num in range(props["frame_count"] if not test_mode else min(int(props["fps"] * test_duration), props["frame_count"]))
-            ]
+                for frame_num in range(
+                    props["frame_count"]
+                    if not test_mode
+                    else min(int(props["fps"] * test_duration), props["frame_count"])
+                )
+            ],
         }
-        
+
         # Save filtered data
-        outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
+        outputs_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "outputs"
+        )
         os.makedirs(outputs_dir, exist_ok=True)
         base_name = os.path.splitext(os.path.basename(video_path))[0]
-        json_path = os.path.join(outputs_dir, f"{box_style}_{target_object}_{base_name}_detections.json")
-        
+        json_path = os.path.join(
+            outputs_dir, f"{box_style}_{target_object}_{base_name}_detections.json"
+        )
+
         from persistence import save_detection_data
+
         if not save_detection_data(detection_data, json_path):
             print("Warning: Failed to save detection data")
 
@@ -1134,10 +1214,11 @@ def process_video(
         print(f"\nOutput saved to: {output_path}")
         print(f"Detection data saved to: {json_path}")
         return output_path
-        
+
     except Exception as e:
         print(f"Error processing video: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return None
 
@@ -1154,7 +1235,7 @@ def main():
         "--test-duration",
         type=int,
         default=DEFAULT_TEST_MODE_DURATION,
-        help=f"Number of seconds to process in test mode (default: {DEFAULT_TEST_MODE_DURATION})"
+        help=f"Number of seconds to process in test mode (default: {DEFAULT_TEST_MODE_DURATION})",
     )
     parser.add_argument(
         "--preset",
@@ -1182,8 +1263,17 @@ def main():
     )
     parser.add_argument(
         "--box-style",
-        choices=["censor", "bounding-box", "hitmarker", "sam", "sam-fast", "fuzzy-blur", 
-                "pixelated-blur", "intense-pixelated-blur", "obfuscated-pixel"],
+        choices=[
+            "censor",
+            "bounding-box",
+            "hitmarker",
+            "sam",
+            "sam-fast",
+            "fuzzy-blur",
+            "pixelated-blur",
+            "intense-pixelated-blur",
+            "obfuscated-pixel",
+        ],
         default="censor",
         help="Style of detection visualization (default: censor)",
     )
