@@ -13,11 +13,12 @@ from ..torch.weights import load_weights_into_model
 from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
 from ..torch.text import _produce_hidden, _lm_head, TextConfig
 
-# This is a intended to be a basic starting point. Your optimal hyperparams and data may be different.
+# This is a intended to be a basic starting point for fine-tuning the text encoder.
+# Your optimal hyperparams and data may be different.
 MODEL_PATH = ""
 # Your data should end with the eos token. Here is the textual representation.
 ANSWER_EOS = "<|endoftext|>"
-LR = 5e-6
+LR = 3e-6
 EPOCHS = 3
 GRAD_ACCUM_STEPS = 128
 
@@ -108,25 +109,23 @@ def main():
             i += 1
             with torch.no_grad():
                 img_emb = model._run_vision_encoder(sample["image"])
-                bos_emb = text_encoder(
-                    torch.tensor(
-                        [[model.config.tokenizer.bos_id]], device=model.device
-                    ),
-                    model.text,
-                )
-                question_tokens = model.tokenizer.encode(sample["qa"]["question"]).ids
-                question_emb = text_encoder(
-                    torch.tensor([[question_tokens]], device=model.device),
-                    model.text,
-                ).squeeze(0)
-                answer_tokens = model.tokenizer.encode(sample["qa"]["answer"]).ids
-                answer_emb = text_encoder(
-                    torch.tensor([[answer_tokens]], device=model.device),
-                    model.text,
-                ).squeeze(0)
-                inputs_embeds = torch.cat(
-                    [bos_emb, img_emb[None], question_emb, answer_emb], dim=1
-                )
+            bos_emb = text_encoder(
+                torch.tensor([[model.config.tokenizer.bos_id]], device=model.device),
+                model.text,
+            )
+            question_tokens = model.tokenizer.encode(sample["qa"]["question"]).ids
+            question_emb = text_encoder(
+                torch.tensor([[question_tokens]], device=model.device),
+                model.text,
+            ).squeeze(0)
+            answer_tokens = model.tokenizer.encode(sample["qa"]["answer"]).ids
+            answer_emb = text_encoder(
+                torch.tensor([[answer_tokens]], device=model.device),
+                model.text,
+            ).squeeze(0)
+            inputs_embeds = torch.cat(
+                [bos_emb, img_emb[None], question_emb, answer_emb], dim=1
+            )
             loss = text_loss(
                 inputs_embeds=inputs_embeds,
                 w=model.text,
@@ -152,7 +151,7 @@ def main():
     # Add save path: ex. home/model.safetensors
     save_file(
         model.state_dict(),
-        "",
+        "moondream_finetune.safetensors",
     )
 
 
