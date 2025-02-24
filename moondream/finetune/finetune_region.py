@@ -1,5 +1,3 @@
-import json
-import os
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
@@ -7,11 +5,9 @@ import math
 from safetensors.torch import save_file
 import datasets
 
-from PIL import Image
 from tqdm import tqdm
 from bitsandbytes.optim import AdamW
 import wandb
-import random
 
 from ..torch.weights import load_weights_into_model
 from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
