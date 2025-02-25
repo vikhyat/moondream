@@ -77,7 +77,7 @@ This will return the caption of the image.
 
 ```bash
 # Remember to update the paths
-python -m moondream.torch.sample --model [FINETUNED_MODEL_PATH] --image "[DATASET_DIRECTORY]/test/[IMAGE_NAME]" --prompt "\n\nQuestion: Describe this image.\n\nAnswer:" --endpoint query
+python -m moondream.torch.sample --model [FINETUNED_MODEL_PATH] --image "[DATASET_DIRECTORY]/test/[IMAGE_NAME]" --prompt "\n\nQuestion: Describe this image.\n\nAnswer:"
 ```
 
 ## Finetuning the Region Encoder
@@ -94,18 +94,13 @@ We are returned the coordinates of a detected crack in the following format:
 
 ### Setup Dataset Dependencies
 
-1. Visit https://universe.roboflow.com/waste-detection-l4m9b/waste-detection-ttdir
-2. Download dataset in COCO JSON format into relevant directory (ex: `datasets`).
-3. Update path to `annotation_file` (line 175) & `img_dir` (line 176) in `finetune_region.py` to point at the dataset.
-- `annotation_file` should point to `<dataset_directory>/train/_annotations.coco.json`.
-- `img_dir` should point to `<dataset_directory>/train/`.
-4. Double check that you've updated MODEL_PATH to point to the base moondream model.
+1. Update MODEL_PATH to point to the base moondream model.
 5. Double check that the save path ends in `.safetensors`, otherwise the run will fail.
-> Navigate to line 287 in `moondream/finetune/finetune_region.py`.
+> Navigate to line 244 in `moondream/finetune/finetune_region.py`.
 ``` # Add save path
     save_file(
         model.state_dict(),
-        "moondream_finetune.safetensors", // update this line ex: "models/moondream_region_finetuned.safetensors"
+        "moondream_finetune.safetensors", // update this line
     )
 ```
 

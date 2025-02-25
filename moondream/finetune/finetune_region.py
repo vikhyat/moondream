@@ -1,16 +1,13 @@
-import json
-import os
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 import math
 from safetensors.torch import save_file
+import datasets
 
-from PIL import Image
 from tqdm import tqdm
-from bitsandbytes.optim import AdamW8bit
+from bitsandbytes.optim import AdamW
 import wandb
-import random
 
 from ..torch.weights import load_weights_into_model
 from ..torch.moondream import MoondreamModel, MoondreamConfig, text_encoder
@@ -28,8 +25,6 @@ MODEL_PATH = ""
 LR = 3e-5
 EPOCHS = 1
 GRAD_ACCUM_STEPS = 64
-
-random.seed(111)
 
 
 def lr_schedule(step, max_steps):
@@ -69,78 +64,41 @@ def region_loss(
     return c_loss + s_loss
 
 
-class CocoDataset(Dataset):
-    """
-    Dataset class for COCO type data.
-    Make sure to use COCO JSON format.
-    """
-
-    def __init__(self, annotation_file, img_dir, transform=None):
-        self.annotation_file = annotation_file
-        self.img_dir = img_dir
-        self.transform = transform
-
-        with open(self.annotation_file, "r") as f:
-            data = json.load(f)
-
-        self.images = data["images"]
-        self.annotations = data["annotations"]
-        self.categories = data.get("categories", [])
-        self.class_id_to_name = {cat["id"]: cat["name"] for cat in self.categories}
-
-        self.img_id_to_anns = {}
-        for ann in self.annotations:
-            img_id = ann["image_id"]
-            if img_id not in self.img_id_to_anns:
-                self.img_id_to_anns[img_id] = []
-            self.img_id_to_anns[img_id].append(ann)
-
-        self.ids = []
-        self.id_to_img = {}
-        for img_info in self.images:
-            img_id = img_info["id"]
-            if img_id in self.img_id_to_anns and len(self.img_id_to_anns[img_id]) > 0:
-                self.ids.append(img_id)
-                self.id_to_img[img_id] = img_info
-        random.shuffle(self.ids)
+class WasteDetection(Dataset):
+    def __init__(self, split: str = "train"):
+        self.dataset: datasets.Dataset = datasets.load_dataset(
+            "moondream/waste_detection", split=split
+        )
+        self.dataset = self.dataset.shuffle(seed=111)
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
-        image_id = self.ids[idx]
-        img_info = self.id_to_img[image_id]
+        row = self.dataset[idx]
+        image = row["image"]
+        boxes = row["boxes"]
+        labels = row["labels"]
 
-        file_name = img_info["file_name"]
-        height = img_info["height"]
-        width = img_info["width"]
-        img_path = os.path.join(self.img_dir, file_name)
-        image = Image.open(img_path).convert("RGB")
+        objects = {}
+        for box, label in zip(boxes, labels):
+            objects.setdefault(label, []).append(box)
 
-        ann_list = self.img_id_to_anns[image_id]
-
-        boxes = []
+        flat_boxes = []
         class_names = []
-        for ann in ann_list:
-            bbox = ann["bbox"]
-            boxes.append(
-                [
-                    (bbox[0] + (bbox[2] / 2)) / width,
-                    (bbox[1] + (bbox[3] / 2)) / height,
-                    bbox[2] / width,
-                    bbox[3] / height,
-                ]
-            )
-            category_id = ann.get("category_id")
-            class_names.append(self.class_id_to_name.get(category_id, "unknown"))
+        for label, box_list in objects.items():
+            for b in box_list:
+                flat_boxes.append(b)
+                class_names.append(label)
 
-        boxes = torch.as_tensor(boxes, dtype=torch.float16)
+        flat_boxes = torch.as_tensor(flat_boxes, dtype=torch.float16)
+        image_id = torch.tensor([idx], dtype=torch.int64)
 
         return {
             "image": image,
-            "boxes": boxes,
-            "image_id": torch.tensor([image_id], dtype=torch.int64),
+            "boxes": flat_boxes,
             "class_names": class_names,
+            "image_id": image_id,
         }
 
 
@@ -163,18 +121,15 @@ def main():
     model = MoondreamModel(config)
     load_weights_into_model(MODEL_PATH, model)
 
-    optimizer = AdamW8bit(
+    # If you are struggling with GPU memory, try AdamW8Bit
+    optimizer = AdamW(
         [{"params": model.region.parameters()}],
         lr=LR,
         betas=(0.9, 0.95),
         eps=1e-6,
     )
 
-    # Add path to annotation file and img dir
-    dataset = CocoDataset(
-        annotation_file="",
-        img_dir="",
-    )
+    dataset = WasteDetection()
 
     total_steps = EPOCHS * len(dataset) // GRAD_ACCUM_STEPS
     pbar = tqdm(total=total_steps)
@@ -293,8 +248,7 @@ if __name__ == "__main__":
     Replace paths with your appropriate paths.
     To run: python -m moondream.finetune.finetune_region
 
-    1 epoch of fine-tuning on the example 'Waste Detection' dataset results in a
-    2 percentage point increase in mAP.
-    Dataset: https://universe.roboflow.com/waste-detection-l4m9b/waste-detection-ttdir
+    1 epoch of fine-tuning on the example 'Waste Detection' dataset results in an
+    increase in mAP from 61.82 to 69.82.
     """
     main()
