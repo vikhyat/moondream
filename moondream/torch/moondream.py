@@ -314,7 +314,6 @@ class MoondreamModel(nn.Module):
         else:
             return {"answer": "".join(list(generator()))}
 
-
     def _text_query(
         self,
         question: str,
@@ -323,7 +322,6 @@ class MoondreamModel(nn.Module):
     ):
         if self.config.tokenizer.templates["query"] is None:
             raise NotImplementedError("Model does not support querying.")
-
 
         prompt_tokens = torch.tensor(
             [
@@ -337,7 +335,7 @@ class MoondreamModel(nn.Module):
         max_tokens = DEFAULT_MAX_TOKENS
         if settings:
             max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
-        
+
         pos = 0
 
         def generator():
