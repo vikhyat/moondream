@@ -128,7 +128,7 @@ def eval_shopping_map(model, iou_threshold=0.5, debug=False):
     total = 0
     aps = []
 
-    pbar = tqdm(dataset, desc="COCO mAP")
+    pbar = tqdm(dataset, desc="Shopping mAP")
     for data in pbar:
         image = data["image"]
         width = data["width"]
