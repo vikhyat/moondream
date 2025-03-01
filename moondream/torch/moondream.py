@@ -475,7 +475,7 @@ class MoondreamModel(nn.Module):
         hidden = hidden[:, -1:, :]
 
         objects = self._generate_points(
-            hidden, next_token, pos, include_size=False, max_points=500
+            hidden, next_token, pos, include_size=False, max_points=50
         )
 
         return {"points": objects}
