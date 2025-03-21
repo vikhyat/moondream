@@ -374,6 +374,7 @@ class OnnxVL(VLM):
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
+        max_points: int = 50
     ) -> PointOutput:
         if not (
             hasattr(self, "coord_decoder")
@@ -395,7 +396,7 @@ class OnnxVL(VLM):
 
         points = []
         pos = encoded_image.pos
-        max_points = 50
+        
 
         while len(points) < max_points:
             logits, hidden = run_decoder(self.text_decoder, hidden, kv_cache, pos)
