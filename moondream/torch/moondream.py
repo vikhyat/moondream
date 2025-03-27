@@ -235,10 +235,40 @@ class MoondreamModel(nn.Module):
             pos_ids = torch.tensor([pos], device=self.device, dtype=torch.long)
             generated_tokens = 0
 
+            # For properly handling token streaming with Unicode
+            token_cache = []
+            print_len = 0
+
             while (
                 next_token_id := next_token.item()
             ) != self.config.tokenizer.eos_id and generated_tokens < max_tokens:
-                yield self.tokenizer.decode([next_token_id])
+                # Add token to our cache
+                token_cache.append(next_token_id)
+
+                # Decode all tokens collected so far
+                text = self.tokenizer.decode(token_cache)
+
+                # After a newline, we flush the cache completely
+                if text.endswith("\n"):
+                    printable_text = text[print_len:]
+                    token_cache = []
+                    print_len = 0
+                    if printable_text:
+                        yield printable_text
+                # If the last token is a CJK character, we can safely print it
+                elif len(text) > 0 and _is_cjk_char(ord(text[-1])):
+                    printable_text = text[print_len:]
+                    print_len += len(printable_text)
+                    if printable_text:
+                        yield printable_text
+                # Otherwise, only print up to the last space to avoid cutting words
+                else:
+                    last_space_idx = text.rfind(" ", print_len)
+                    if last_space_idx >= print_len:
+                        printable_text = text[print_len : last_space_idx + 1]
+                        print_len += len(printable_text)
+                        if printable_text:
+                            yield printable_text
 
                 with torch.inference_mode():
                     next_emb = text_encoder(next_token, self.text)
@@ -247,6 +277,13 @@ class MoondreamModel(nn.Module):
                     pos += 1
                     next_token = torch.argmax(logits, dim=-1)
                     generated_tokens += 1
+
+            # Flush any remaining text in the cache
+            if token_cache:
+                text = self.tokenizer.decode(token_cache)
+                printable_text = text[print_len:]
+                if printable_text:
+                    yield printable_text
 
         return generator(next_token, pos)
 
@@ -602,3 +639,16 @@ class MoondreamModel(nn.Module):
             )
 
             return {"gaze": {"x": mean_gaze[0], "y": mean_gaze[1]}}
+
+
+def _is_cjk_char(cp):
+    """Checks whether CP is the codepoint of a CJK character."""
+    # This defines a "chinese character" as anything in the CJK Unicode block:
+    # https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
+    if (
+        (cp >= 0x4E00 and cp <= 0x9FFF)
+        or (cp >= 0x3400 and cp <= 0x4DBF)
+        or (cp >= 0x2F800 and cp <= 0x2FA1F)
+    ):
+        return True
+    return False
