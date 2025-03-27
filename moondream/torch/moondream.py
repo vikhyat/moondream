@@ -21,38 +21,7 @@ SamplingSettings = TypedDict(
     total=False,
 )
 
-DEFAULT_MAX_TOKENS = 512
-
-
-def _min_p_sampler(
-    logits: torch.Tensor,
-    min_p: float = 0.1,
-    filter_value: float = 0,
-    min_tokens_to_keep: int = 1,
-    temp=0.5,
-) -> torch.Tensor:
-    """
-    Min-p sampler adapted from https://github.com/oobabooga/text-generation-webui/blob/3146124ec01f02c8fb1650a6517cf1b60b537aaf/modules/sampler_hijack.py#L16C17-L16C17
-    https://arxiv.org/pdf/2407.01082
-    """
-    logits = logits / temp
-    probs = torch.softmax(logits, dim=-1)
-    top_probs, _ = probs.max(dim=-1, keepdim=True)
-    scaled_min_p = min_p * top_probs
-    tokens_to_remove = probs < scaled_min_p
-    sorted_indices = torch.argsort(logits, descending=True, dim=-1)
-    sorted_indices_to_remove = torch.gather(
-        tokens_to_remove, dim=-1, index=sorted_indices
-    )
-    if min_tokens_to_keep > 1:
-        sorted_indices_to_remove[..., :min_tokens_to_keep] = False
-
-    indices_to_remove = sorted_indices_to_remove.scatter(
-        1, sorted_indices, sorted_indices_to_remove
-    )
-    logits = logits.masked_fill(indices_to_remove, filter_value)
-    token = torch.multinomial(logits, num_samples=1)
-    return token.squeeze(0)
+DEFAULT_MAX_TOKENS = 768
 
 
 @dataclass(frozen=True)
@@ -62,9 +31,10 @@ class EncodedImage:
 
 
 class KVCache(nn.Module):
-    def __init__(self, n_heads, max_context, dim, device, dtype):
+
+    def __init__(self, n_heads, n_kv_heads, max_context, dim, device, dtype):
         super().__init__()
-        cache_shape = (1, n_heads, max_context, dim // n_heads)
+        cache_shape = (1, n_kv_heads, max_context, dim // n_heads)
         self.register_buffer(
             "k_cache", torch.zeros(*cache_shape, device=device, dtype=dtype)
         )
@@ -85,7 +55,7 @@ class MoondreamModel(nn.Module):
         self.config = config
 
         self.tokenizer = Tokenizer.from_pretrained(
-            "vikhyatk/moondream2", revision="2024-08-26"
+            "vikhyatk/moondream2", revision="2025-01-09"
         )
         self.vision = build_vision_model(config.vision, dtype)
         self.text = build_text_model(config.text, dtype)
@@ -151,6 +121,7 @@ class MoondreamModel(nn.Module):
         for b in self.text.blocks:
             b.kv_cache = KVCache(
                 c.n_heads,
+                c.n_kv_heads,
                 c.max_context,
                 c.dim,
                 device=self.device,
@@ -295,7 +266,7 @@ class MoondreamModel(nn.Module):
         prompt_tokens = torch.tensor(
             [
                 self.config.tokenizer.templates["query"]["prefix"]
-                + self.tokenizer.encode(question).ids
+                + self.tokenizer.encode(" " + question).ids
                 + self.config.tokenizer.templates["query"]["suffix"]
             ],
             device=self.device,
@@ -322,7 +293,7 @@ class MoondreamModel(nn.Module):
     def caption(
         self,
         image: Union[Image.Image, EncodedImage],
-        length: Literal["normal", "short"] = "normal",
+        length: Literal["normal", "short", "long"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ):
@@ -391,8 +362,16 @@ class MoondreamModel(nn.Module):
                     logits, hidden = self._decode_one_tok(next_emb, mask, pos_ids)
                     pos += 1
                     size_logits = decode_size(hidden, self.region)
-                    w = torch.argmax(size_logits[0], dim=-1) / size_logits.size(-1)
-                    h = torch.argmax(size_logits[1], dim=-1) / size_logits.size(-1)
+
+                    # Get bin indices from the logits
+                    w_bin = torch.argmax(size_logits[0], dim=-1)
+                    h_bin = torch.argmax(size_logits[1], dim=-1)
+
+                    # Convert from bin indices to actual size values using the inverse of the log-scale mapping
+                    # Formula: size = 2^((bin / 1023.0) * 10.0 - 10.0)
+                    w = torch.pow(2.0, (w_bin.float() / 1023.0) * 10.0 - 10.0)
+                    h = torch.pow(2.0, (h_bin.float() / 1023.0) * 10.0 - 10.0)
+
                     next_emb = encode_size(
                         torch.tensor(
                             [w, h], device=self.device, dtype=size_logits.dtype
@@ -435,7 +414,7 @@ class MoondreamModel(nn.Module):
         prompt_tokens = torch.tensor(
             [
                 self.config.tokenizer.templates["detect"]["prefix"]
-                + self.tokenizer.encode(object).ids
+                + self.tokenizer.encode(" " + object).ids
                 + self.config.tokenizer.templates["detect"]["suffix"]
             ],
             device=self.device,
@@ -465,7 +444,7 @@ class MoondreamModel(nn.Module):
         prompt_tokens = torch.tensor(
             [
                 self.config.tokenizer.templates["point"]["prefix"]
-                + self.tokenizer.encode(object).ids
+                + self.tokenizer.encode(" " + object).ids
                 + self.config.tokenizer.templates["point"]["suffix"]
             ],
             device=self.device,

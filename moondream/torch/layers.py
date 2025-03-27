@@ -37,9 +37,9 @@ class MLPWeights:
 
 
 def mlp(x: torch.Tensor, w: MLPWeights) -> torch.Tensor:
-    x = linear(x, w.fc1)
+    x = w.fc1(x)
     x = gelu_approx(x)
-    x = linear(x, w.fc2)
+    x = w.fc2(x)
     return x
 
 

@@ -183,6 +183,25 @@ def main():
                     )
                     c_idx.extend([l_cs, l_cs + 1])
                     s_idx.append(l_cs + 2)
+
+                    # Create coordinate bin labels - unchanged
+                    coord_labels = [
+                        min(max(torch.round(p * 1023), 0), 1023) for p in bb[:2]
+                    ]
+
+                    # Create size bin labels using log-scale mapping
+                    s_log2_bins = []
+                    for s_val in bb[2:4]:
+                        s_val = float(s_val)
+                        s_clamped = max(s_val, 1 / 1024)
+                        s_log2 = math.log2(s_clamped)
+                        mapped = (s_log2 + 10.0) / 10.0 * 1023.0
+                        s_bin = int(round(mapped))
+                        s_bin = max(min(s_bin, 1023), 0)
+                        s_log2_bins.append(s_bin)
+
+                    # Combine coordinate and size bin labels
+                    cs_labels.extend(coord_labels + s_log2_bins)
                     cs_labels.extend(
                         [
                             int(torch.clamp(torch.round(p * 1023), 0, 1023).item())

@@ -10,6 +10,7 @@ class TextConfig:
     vocab_size: int = 51200
     max_context: int = 2048
     n_heads: int = 32
+    n_kv_heads: int = 32
     prefix_attn: int = 730
 
 
@@ -47,6 +48,7 @@ class TokenizerConfig:
             "caption": {
                 "short": [198, 198, 16438, 8305, 25],
                 "normal": [198, 198, 24334, 1159, 25],
+                "long": [198, 198, 14617, 8305, 25],
             },
             "query": {"prefix": [198, 198, 24361, 25], "suffix": [198, 198, 33706, 25]},
             "detect": {"prefix": [198, 198, 47504, 25], "suffix": [628]},

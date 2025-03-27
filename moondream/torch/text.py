@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from torch.nn import functional as F
 
-from .layers import layer_norm, linear, mlp
+from .layers import layer_norm, mlp
 from .rope import apply_rotary_emb, precompute_freqs_cis
 from .config import TextConfig
 
@@ -19,30 +19,39 @@ def attn(
     kv_cache: nn.Module,
     attn_mask: torch.Tensor,
     n_heads: int,
+    n_kv_heads: int,
     position_ids: torch.Tensor,
 ):
     bsz, q_len, d_model = x.shape
     head_dim = d_model // n_heads
 
-    q, k, v = [
-        t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-        for t in linear(x, w.qkv).chunk(3, dim=-1)
-    ]
+    qkv_out = w.qkv(x)  # shape: (bsz, q_len, (n_heads + 2*n_kv_heads)*head_dim)
+    q_dim = n_heads * head_dim
+    kv_dim = n_kv_heads * head_dim
+
+    q = qkv_out[..., :q_dim].view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
+    k = (
+        qkv_out[..., q_dim : q_dim + kv_dim]
+        .view(bsz, q_len, n_kv_heads, head_dim)
+        .transpose(1, 2)
+    )
+    v = (
+        qkv_out[..., q_dim + kv_dim :]
+        .view(bsz, q_len, n_kv_heads, head_dim)
+        .transpose(1, 2)
+    )
 
     q = apply_rotary_emb(q, freqs_cis, position_ids, n_heads)
-    k = apply_rotary_emb(k, freqs_cis, position_ids, n_heads)
+    k = apply_rotary_emb(k, freqs_cis, position_ids, n_kv_heads)
 
     if kv_cache is not None:
         k, v = kv_cache.update(position_ids, k, v)
 
-    out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask).to(
-        # This type conversion isn't needed when running in PyTorch directly, but the
-        # ONNX export runs attention in float32 because the attention mask is cast to
-        # float32.
-        x.dtype
+    out = F.scaled_dot_product_attention(
+        q, k, v, attn_mask=attn_mask, enable_gqa=n_heads != n_kv_heads
     )
     out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
-    out = linear(out, w.proj)
+    out = w.proj(out)
     return out
 
 
@@ -52,20 +61,36 @@ def _attn(
     freqs_cis: torch.Tensor,
     attn_mask: torch.Tensor,
     n_heads: int,
+    n_kv_heads: int,
 ):
     bsz, q_len, d_model = x.shape
     head_dim = d_model // n_heads
     pos = 0
-    q, k, v = [
-        t.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-        for t in w.qkv(x).chunk(3, dim=-1)
-    ]
+
+    qkv_out = w.qkv(x)  # shape: (bsz, q_len, (n_heads + 2*n_kv_heads)*head_dim)
+    q_dim = n_heads * head_dim
+    kv_dim = n_kv_heads * head_dim
+
+    q = qkv_out[..., :q_dim].view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
+    k = (
+        qkv_out[..., q_dim : q_dim + kv_dim]
+        .view(bsz, q_len, n_kv_heads, head_dim)
+        .transpose(1, 2)
+    )
+    v = (
+        qkv_out[..., q_dim + kv_dim :]
+        .view(bsz, q_len, n_kv_heads, head_dim)
+        .transpose(1, 2)
+    )
+
     position_ids = torch.arange(pos, pos + q_len, dtype=torch.long)
     q = apply_rotary_emb(q, freqs_cis, position_ids, n_heads)
-    k = apply_rotary_emb(k, freqs_cis, position_ids, n_heads)
-    out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
+    k = apply_rotary_emb(k, freqs_cis, position_ids, n_kv_heads)
+    out = F.scaled_dot_product_attention(
+        q, k, v, attn_mask=attn_mask, enable_gqa=n_heads != n_kv_heads
+    )
     out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
-    out = linear(out, w.proj)
+    out = w.proj(out)
     return out
 
 
@@ -87,6 +112,7 @@ def _produce_hidden(inputs_embeds: torch.Tensor, w: nn.Module, config: TextConfi
             freqs_cis=w.freqs_cis,
             attn_mask=attn_mask,
             n_heads=config.n_heads,
+            n_kv_heads=config.n_kv_heads,
         )
         l_mlp = mlp(l_in, block.mlp)
         hidden_BTC = hidden_BTC + l_attn + l_mlp
@@ -110,6 +136,7 @@ def text_decoder(
             kv_cache=block.kv_cache,
             attn_mask=attn_mask,
             n_heads=config.n_heads,
+            n_kv_heads=config.n_kv_heads,
             position_ids=position_ids,
         )
         l_mlp = mlp(l_in, block.mlp)
@@ -121,17 +148,19 @@ def text_decoder(
 def lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     hidden_BC = hidden_BTC[:, -1, :]
     hidden_BC = layer_norm(hidden_BC, w.post_ln)
-    logits = linear(hidden_BC, w.lm_head)
+    logits = w.lm_head(hidden_BC)
     return logits
 
 
 def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     hidden_BTC = layer_norm(hidden_BTC, w.post_ln)
-    logits = linear(hidden_BTC, w.lm_head)
+    logits = w.lm_head(hidden_BTC)
     return logits
 
 
 def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
+    qkv_dim = int(config.dim * (1 + 2 * config.n_kv_heads / config.n_heads))
+
     text = nn.ModuleDict(
         {
             "blocks": nn.ModuleList(
@@ -141,9 +170,7 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
                             "ln": nn.LayerNorm(config.dim, dtype=dtype),
                             "attn": nn.ModuleDict(
                                 {
-                                    "qkv": nn.Linear(
-                                        config.dim, 3 * config.dim, dtype=dtype
-                                    ),
+                                    "qkv": nn.Linear(config.dim, qkv_dim, dtype=dtype),
                                     "proj": nn.Linear(
                                         config.dim, config.dim, dtype=dtype
                                     ),
