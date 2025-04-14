@@ -15,8 +15,8 @@ from .region import decode_coordinate, encode_coordinate, decode_size, encode_si
 from .utils import remove_outlier_points
 
 
-SamplingSettings = TypedDict(
-    "SamplingSettings",
+TextSamplingSettings = TypedDict(
+    "TextSamplingSettings",
     {
         "max_tokens": int,
         "temperature": float,
@@ -25,9 +25,16 @@ SamplingSettings = TypedDict(
     total=False,
 )
 
+ObjectSamplingSettings = TypedDict(
+    "ObjectSamplingSettings",
+    {"max_objects": int},
+    total=False,
+)
+
 DEFAULT_MAX_TOKENS = 768
 DEFAULT_TEMPERATURE = 0.5
 DEFAULT_TOP_P = 0.3
+DEFAULT_MAX_OBJECTS = 50
 
 
 @dataclass(frozen=True)
@@ -250,7 +257,7 @@ class MoondreamModel(nn.Module):
         self,
         prompt_tokens: torch.Tensor,
         pos: int,
-        settings: Optional[SamplingSettings] = None,
+        settings: Optional[TextSamplingSettings] = None,
     ):
         max_tokens = (
             settings.get("max_tokens", DEFAULT_MAX_TOKENS)
@@ -338,7 +345,7 @@ class MoondreamModel(nn.Module):
         image: Union[Image.Image, EncodedImage],
         question: str,
         stream: bool = False,
-        settings: Optional[SamplingSettings] = None,
+        settings: Optional[TextSamplingSettings] = None,
     ):
         if self.config.tokenizer.templates["query"] is None:
             raise NotImplementedError("Model does not support querying.")
@@ -374,7 +381,7 @@ class MoondreamModel(nn.Module):
         image: Union[Image.Image, EncodedImage],
         length: Literal["normal", "short", "long"] = "normal",
         stream: bool = False,
-        settings: Optional[SamplingSettings] = None,
+        settings: Optional[TextSamplingSettings] = None,
     ):
         if self.config.tokenizer.templates["caption"] is None:
             raise NotImplementedError("Model does not support captioning.")
@@ -403,7 +410,7 @@ class MoondreamModel(nn.Module):
         next_token: torch.Tensor,
         pos: int,
         include_size: bool = True,
-        max_points: int = 50,
+        max_objects: int = DEFAULT_MAX_OBJECTS,
     ):
         out = []
         mask = torch.zeros(1, 1, 2048, device=self.device, dtype=torch.bool)
@@ -413,7 +420,7 @@ class MoondreamModel(nn.Module):
         with torch.inference_mode():
             while (
                 next_token.item() != self.config.tokenizer.eos_id
-                and len(out) < max_points
+                and len(out) < max_objects
             ):
                 x_logits = decode_coordinate(hidden, self.region)
                 x_center = torch.argmax(x_logits, dim=-1) / x_logits.size(-1)
@@ -482,7 +489,7 @@ class MoondreamModel(nn.Module):
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
-        settings: Optional[SamplingSettings] = None,
+        settings: Optional[ObjectSamplingSettings] = None,
     ):
         if self.config.tokenizer.templates["detect"] is None:
             raise NotImplementedError("Model does not support object detection.")
@@ -504,8 +511,13 @@ class MoondreamModel(nn.Module):
         )
         hidden = hidden[:, -1:, :]
 
+        max_objects = (
+            settings.get("max_objects", DEFAULT_MAX_OBJECTS)
+            if settings
+            else DEFAULT_MAX_OBJECTS
+        )
         objects = self._generate_points(
-            hidden, next_token, pos, include_size=True, max_points=50
+            hidden, next_token, pos, include_size=True, max_objects=max_objects
         )
 
         return {"objects": objects}
@@ -514,7 +526,7 @@ class MoondreamModel(nn.Module):
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
-        settings: Optional[SamplingSettings] = None,
+        settings: Optional[ObjectSamplingSettings] = None,
     ):
         if self.config.tokenizer.templates["point"] is None:
             raise NotImplementedError("Model does not support pointing.")
@@ -536,8 +548,13 @@ class MoondreamModel(nn.Module):
         )
         hidden = hidden[:, -1:, :]
 
+        max_objects = (
+            settings.get("max_objects", DEFAULT_MAX_OBJECTS)
+            if settings
+            else DEFAULT_MAX_OBJECTS
+        )
         objects = self._generate_points(
-            hidden, next_token, pos, include_size=False, max_points=50
+            hidden, next_token, pos, include_size=False, max_objects=max_objects
         )
 
         return {"points": objects}
@@ -591,7 +608,7 @@ class MoondreamModel(nn.Module):
                 return None
 
             gaze = self._generate_points(
-                hidden, next_token, pos, include_size=False, max_points=1
+                hidden, next_token, pos, include_size=False, max_objects=1
             )
             return gaze[0]
 
