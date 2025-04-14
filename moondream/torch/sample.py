@@ -25,8 +25,6 @@ if __name__ == "__main__":
     elif torch.backends.mps.is_available():
         torch.set_default_device("mps")
 
-    # Load config.
-
     # Load model.
     if args.config is not None:
         with open(args.config, "r") as f:

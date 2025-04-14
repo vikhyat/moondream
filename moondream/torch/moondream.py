@@ -17,11 +17,17 @@ from .utils import remove_outlier_points
 
 SamplingSettings = TypedDict(
     "SamplingSettings",
-    {"max_tokens": int},
+    {
+        "max_tokens": int,
+        "temperature": float,
+        "top_p": float,
+    },
     total=False,
 )
 
 DEFAULT_MAX_TOKENS = 768
+DEFAULT_TEMPERATURE = 0.5
+DEFAULT_TOP_P = 0.3
 
 
 @dataclass(frozen=True)
@@ -144,7 +150,7 @@ class MoondreamModel(nn.Module):
     def _decode_one_tok(
         self, x: torch.Tensor, attn_mask: torch.Tensor, pos_ids: torch.Tensor
     ):
-        hidden = text_decoder(x[None], self.text, attn_mask, pos_ids, self.config.text)
+        hidden = text_decoder(x, self.text, attn_mask, pos_ids, self.config.text)
         logits = lm_head(hidden, self.text)
         return logits, hidden
 
@@ -209,7 +215,19 @@ class MoondreamModel(nn.Module):
             ],
         )
 
-    def _prefill_prompt(self, prompt_tokens: torch.Tensor, pos: int):
+    def _apply_top_p(self, probs: torch.Tensor, top_p: float):
+        probs_sort, probs_idx = torch.sort(probs, dim=-1, descending=True)
+        probs_sum = torch.cumsum(probs_sort, dim=-1)
+        mask = probs_sum - probs_sort > top_p
+        probs_sort[mask] = 0.0
+        probs_sort.div_(probs_sort.sum(dim=-1, keepdim=True))
+        next_probs = torch.zeros_like(probs)
+        next_probs.scatter_(dim=-1, index=probs_idx, src=probs_sort)
+        return next_probs
+
+    def _prefill_prompt(
+        self, prompt_tokens: torch.Tensor, pos: int, temperature: float, top_p: float
+    ):
         with torch.inference_mode():
             prompt_emb = text_encoder(prompt_tokens, self.text)
             torch._dynamo.mark_dynamic(prompt_emb, 1)
@@ -217,7 +235,14 @@ class MoondreamModel(nn.Module):
             pos_ids = torch.arange(pos, pos + prompt_emb.size(1), dtype=torch.long)
             hidden = self._prefill(prompt_emb, mask, pos_ids)
             logits = lm_head(hidden, self.text)
-            next_token = torch.argmax(logits, dim=-1)
+
+            if temperature == 0:
+                next_token = torch.argmax(logits, dim=-1).unsqueeze(1)
+            else:
+                probs = torch.softmax(logits / temperature, dim=-1)
+                probs = self._apply_top_p(probs, top_p)
+                next_token = torch.multinomial(probs, num_samples=1)
+
         pos = pos + prompt_emb.size(1)
         return logits, hidden, next_token, pos
 
@@ -225,9 +250,23 @@ class MoondreamModel(nn.Module):
         self,
         prompt_tokens: torch.Tensor,
         pos: int,
-        max_tokens: int,
+        settings: Optional[SamplingSettings] = None,
     ):
-        _, _, next_token, pos = self._prefill_prompt(prompt_tokens, pos)
+        max_tokens = (
+            settings.get("max_tokens", DEFAULT_MAX_TOKENS)
+            if settings
+            else DEFAULT_MAX_TOKENS
+        )
+        temperature = (
+            settings.get("temperature", DEFAULT_TEMPERATURE)
+            if settings
+            else DEFAULT_TEMPERATURE
+        )
+        top_p = settings.get("top_p", DEFAULT_TOP_P) if settings else DEFAULT_TOP_P
+
+        _, _, next_token, pos = self._prefill_prompt(
+            prompt_tokens, pos, temperature, top_p
+        )
 
         def generator(next_token, pos):
             mask = torch.zeros(1, 1, 2048, device=self.device, dtype=torch.bool)
@@ -275,7 +314,14 @@ class MoondreamModel(nn.Module):
                     mask[:, :, pos], pos_ids[0] = 1, pos
                     logits, _ = self._decode_one_tok(next_emb, mask, pos_ids)
                     pos += 1
-                    next_token = torch.argmax(logits, dim=-1)
+
+                    if temperature == 0:
+                        next_token = torch.argmax(logits, dim=-1).unsqueeze(1)  # (1, 1)
+                    else:
+                        probs = torch.softmax(logits / temperature, dim=-1)  # (1, V)
+                        probs = self._apply_top_p(probs, top_p)
+                        next_token = torch.multinomial(probs, num_samples=1)  # (1, 1)
+
                     generated_tokens += 1
 
             # Flush any remaining text in the cache
@@ -309,12 +355,8 @@ class MoondreamModel(nn.Module):
             device=self.device,
         )
 
-        max_tokens = DEFAULT_MAX_TOKENS
-        if settings:
-            max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
-
         def generator():
-            for token in self._generate_text(prompt_tokens, image.pos, max_tokens):
+            for token in self._generate_text(prompt_tokens, image.pos, settings):
                 yield token
 
         if stream:
@@ -346,12 +388,8 @@ class MoondreamModel(nn.Module):
             [self.config.tokenizer.templates["caption"][length]], device=self.device
         )
 
-        max_tokens = DEFAULT_MAX_TOKENS
-        if settings:
-            max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
-
         def generator():
-            for token in self._generate_text(prompt_tokens, image.pos, max_tokens):
+            for token in self._generate_text(prompt_tokens, image.pos, settings):
                 yield token
 
         if stream:
@@ -381,7 +419,7 @@ class MoondreamModel(nn.Module):
                 x_center = torch.argmax(x_logits, dim=-1) / x_logits.size(-1)
                 next_emb = encode_coordinate(
                     x_center.to(dtype=x_logits.dtype), self.region
-                )
+                ).unsqueeze(0)
 
                 # Decode y-coordinate
                 mask[:, :, pos], pos_ids[0] = 1, pos
@@ -391,7 +429,7 @@ class MoondreamModel(nn.Module):
                 y_center = torch.argmax(y_logits, dim=-1) / y_logits.size(-1)
                 next_emb = encode_coordinate(
                     y_center.to(dtype=y_logits.dtype), self.region
-                )
+                ).unsqueeze(0)
 
                 # Decode size
                 if include_size:
@@ -409,12 +447,16 @@ class MoondreamModel(nn.Module):
                     w = torch.pow(2.0, (w_bin.float() / 1023.0) * 10.0 - 10.0)
                     h = torch.pow(2.0, (h_bin.float() / 1023.0) * 10.0 - 10.0)
 
-                    next_emb = encode_size(
-                        torch.tensor(
-                            [w, h], device=self.device, dtype=size_logits.dtype
-                        ),
-                        self.region,
-                    )[None]
+                    next_emb = (
+                        encode_size(
+                            torch.tensor(
+                                [w, h], device=self.device, dtype=size_logits.dtype
+                            ),
+                            self.region,
+                        )
+                        .unsqueeze(0)
+                        .unsqueeze(0)
+                    )
 
                     # Add object
                     out.append(
@@ -457,7 +499,9 @@ class MoondreamModel(nn.Module):
             device=self.device,
         )
 
-        _, hidden, next_token, pos = self._prefill_prompt(prompt_tokens, image.pos)
+        _, hidden, next_token, pos = self._prefill_prompt(
+            prompt_tokens, image.pos, temperature=0, top_p=0
+        )
         hidden = hidden[:, -1:, :]
 
         objects = self._generate_points(
@@ -487,7 +531,9 @@ class MoondreamModel(nn.Module):
             device=self.device,
         )
 
-        _, hidden, next_token, pos = self._prefill_prompt(prompt_tokens, image.pos)
+        _, hidden, next_token, pos = self._prefill_prompt(
+            prompt_tokens, image.pos, temperature=0, top_p=0
+        )
         hidden = hidden[:, -1:, :]
 
         objects = self._generate_points(
