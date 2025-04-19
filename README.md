@@ -63,6 +63,7 @@ print("Answer:", answer)
 ```
 
 ⚠️ Note: The Python client currently only supports CPU inference. CUDA (GPU) and MPS (Apple Silicon) optimization is coming soon. For GPU support, use the Hugging Face transformers implementation below.
+Note: If you want to use version 0.0.5 as in this example: pip install onnxruntime==1.19.2 ... because an automatic install may download a more recent version, such as 1.21.1, which seems to be incompatible; onnx==1.17.0
 
 For complete documentation of the Python client, including cloud API usage and additional features, see the [Python Client README](clients/python/README.md).
 
