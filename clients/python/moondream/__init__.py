@@ -38,5 +38,8 @@ def vl(
             raise ValueError("An api_key is required for cloud inference.")
 
         return CloudVL(api_url=api_url)
+    
+    if api_url:
+        return CloudVL(api_url=api_url) 
 
     raise ValueError("At least one of `model`, `api_key`, or `api_url` is required.")
