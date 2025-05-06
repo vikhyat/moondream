@@ -218,7 +218,7 @@ def main():
                 hidden = _produce_hidden(
                     inputs_embeds=inputs_embeds, w=model.text, config=config.text
                 )
-                
+
                 loss = region_loss(
                     hidden_states=hidden,
                     w=model.region,

@@ -21,11 +21,7 @@ def iou(a: Box, b: Box) -> float:
     x2, y2 = min(a[2], b[2]), min(a[3], b[3])
     inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
 
-    union = (
-        (a[2] - a[0]) * (a[3] - a[1]) +
-        (b[2] - b[0]) * (b[3] - b[1]) -
-        inter
-    )
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
     return inter / union if union else 0.0
 
 
@@ -63,17 +59,20 @@ class WasteDetection(torch.utils.data.Dataset):
         return len(self.ds)
 
     def __getitem__(self, idx: int) -> Dict:
-        s   = self.ds[idx]
-        img = s["image"] if isinstance(s["image"], Image.Image) else Image.fromarray(s["image"])
+        s = self.ds[idx]
+        img = (
+            s["image"]
+            if isinstance(s["image"], Image.Image)
+            else Image.fromarray(s["image"])
+        )
         W, H = float(s.get("width", img.width)), float(s.get("height", img.height))
 
-        
         lbl_to_boxes = defaultdict(list)
         for (xc, yc, bw, bh), lbl in zip(s["boxes"], s["labels"]):
-            x1 = (xc - bw / 2)
-            y1 = (yc - bh / 2)
-            x2 = (xc + bw / 2)
-            y2 = (yc + bh / 2)
+            x1 = xc - bw / 2
+            y1 = yc - bh / 2
+            x2 = xc + bw / 2
+            y2 = yc + bh / 2
             lbl_to_boxes[lbl].append((x1, y1, x2, y2))
 
         return {"image": img, "gt": lbl_to_boxes, "W": W, "H": H}
@@ -107,9 +106,10 @@ def evaluate(
             FN += fn
 
     prec = TP / (TP + FP) if TP + FP else 0.0
-    rec  = TP / (TP + FN) if TP + FN else 0.0
-    f1   = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
+    rec = TP / (TP + FN) if TP + FN else 0.0
+    f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
     return dict(precision=prec, recall=rec, f1=f1, tp=TP, fp=FP, fn=FN)
+
 
 def load_model(path: str, device: torch.device) -> MoondreamModel:
     cfg = MoondreamConfig()
