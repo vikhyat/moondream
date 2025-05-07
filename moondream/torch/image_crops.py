@@ -135,12 +135,15 @@ def overlap_crop_image(
         global_vips = vips_image.resize(scale_x, vscale=scale_y)
         crops[0] = global_vips.numpy()
     else:
+        # Fallback to PIL
         pil_img = Image.fromarray(image)
         resized = pil_img.resize(
             (int(target_size[1]), int(target_size[0])),
             resample=Image.Resampling.LANCZOS,
         )
         image = np.asarray(resized)
+
+        # Create global crop
         global_pil = pil_img.resize(
             (int(base_size[1]), int(base_size[0])), resample=Image.Resampling.LANCZOS
         )
