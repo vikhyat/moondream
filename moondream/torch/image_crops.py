@@ -8,12 +8,10 @@ try:
     import pyvips
 
     HAS_VIPS = True
-    print("using vips")
 except:
     from PIL import Image
 
     HAS_VIPS = False
-    print("using fallback")
 
 
 def select_tiling(
