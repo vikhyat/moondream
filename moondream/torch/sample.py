@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
         # Detect gaze
         model.detect_gaze(encoded_image, (0.5, 0.5))
-    else:
+    elif model.device.type != "mps":
         torch._dynamo.reset()
         model.compile()
 
@@ -142,3 +142,5 @@ if __name__ == "__main__":
         print(f"  Mean: {sum(query_speeds)/len(query_speeds):.2f}")
         print(f"  Min:  {min(query_speeds):.2f}")
         print(f"  Max:  {max(query_speeds):.2f}")
+    else:
+        raise ValueError("To run benchmarks, make sure you are on a CUDA device")
