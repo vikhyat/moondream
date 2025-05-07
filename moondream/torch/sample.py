@@ -34,7 +34,7 @@ if __name__ == "__main__":
         config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
-    model = model.to("mps")
+    model = model.to(device)
 
     # Encode image.
     image_path = args.image
