@@ -21,9 +21,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if torch.cuda.is_available():
-        torch.set_default_device("cuda")
+        device = "cuda"
     elif torch.backends.mps.is_available():
-        torch.set_default_device("mps")
+        device = "mps"
 
     # Load model.
     if args.config is not None:
@@ -34,6 +34,7 @@ if __name__ == "__main__":
         config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
+    model = model.to("mps")
 
     # Encode image.
     image_path = args.image
