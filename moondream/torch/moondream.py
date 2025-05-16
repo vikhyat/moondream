@@ -171,6 +171,7 @@ class MoondreamModel(nn.Module):
 
     def _run_vision_encoder(self, image: Image.Image) -> torch.Tensor:
         all_crops, tiling = prepare_crops(image, self.config.vision, device=self.device)
+
         torch._dynamo.mark_dynamic(all_crops, 0)
 
         outputs = self._vis_enc(all_crops)
@@ -238,6 +239,7 @@ class MoondreamModel(nn.Module):
         with torch.inference_mode():
             prompt_emb = text_encoder(prompt_tokens, self.text)
             torch._dynamo.mark_dynamic(prompt_emb, 1)
+
             mask = self.attn_mask[:, :, pos : pos + prompt_emb.size(1), :]
             pos_ids = torch.arange(pos, pos + prompt_emb.size(1), dtype=torch.long)
             hidden = self._prefill(prompt_emb, mask, pos_ids)

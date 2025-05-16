@@ -21,9 +21,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if torch.cuda.is_available():
-        torch.set_default_device("cuda")
+        device = "cuda"
     elif torch.backends.mps.is_available():
-        torch.set_default_device("mps")
+        device = "mps"
 
     # Load model.
     if args.config is not None:
@@ -34,6 +34,7 @@ if __name__ == "__main__":
         config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
+    model = model.to(device)
 
     # Encode image.
     image_path = args.image
@@ -95,7 +96,7 @@ if __name__ == "__main__":
 
         # Detect gaze
         model.detect_gaze(encoded_image, (0.5, 0.5))
-    else:
+    elif model.device.type != "mps":
         torch._dynamo.reset()
         model.compile()
 
@@ -142,3 +143,5 @@ if __name__ == "__main__":
         print(f"  Mean: {sum(query_speeds)/len(query_speeds):.2f}")
         print(f"  Min:  {min(query_speeds):.2f}")
         print(f"  Max:  {max(query_speeds):.2f}")
+    else:
+        raise ValueError("To run benchmarks, make sure you are on a CUDA device")
