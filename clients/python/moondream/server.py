@@ -151,6 +151,8 @@ class MoondreamHandler(server.BaseHTTPRequestHandler):
                 except Exception as e:
                     logger.error("Object pointing error", exc_info=True)
                     self.send_error_response("Object pointing failed.")
+            else:
+                self.send_error_response("Endpoint not found", status=404)
 
         except Exception as e:
             logger.error("Unexpected error in request handling", exc_info=True)
