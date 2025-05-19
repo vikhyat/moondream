@@ -5,25 +5,30 @@ import torch
 
 from PIL import Image, ImageDraw
 from tqdm import tqdm
+import logging
+import bitblas
+bitblas.logger.setLevel('FATAL')
 
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig
+import time
 
 if __name__ == "__main__":
+    start = time.time()
     parser = argparse.ArgumentParser()
     parser.add_argument("--image", "-i", type=str, required=True)
     parser.add_argument("--prompt", "-p", type=str, required=True)
     parser.add_argument("--model", "-m", type=str, required=True)
     parser.add_argument("--config", "-c", type=str, default=None)
-    parser.add_argument("--max-tokens", "-t", type=int, default=200)
+    parser.add_argument("--max-tokens", "-t", type=int, default=100)
     parser.add_argument("--sampler", "-s", type=str, default="greedy")
     parser.add_argument("--benchmark", "-b", action="store_true")
     args = parser.parse_args()
 
     if torch.cuda.is_available():
-        device = "cuda"
+        torch.set_default_device("cuda")
     elif torch.backends.mps.is_available():
-        device = "mps"
+        torch.set_default_device("mps")
 
     # Load model.
     if args.config is not None:
@@ -32,9 +37,9 @@ if __name__ == "__main__":
         config = MoondreamConfig.from_dict(config)
     else:
         config = MoondreamConfig()
+    
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
-    model = model.to(device)
 
     # Encode image.
     image_path = args.image
@@ -43,6 +48,8 @@ if __name__ == "__main__":
     image = Image.open(image_path)
 
     if not args.benchmark:
+
+        model.compile()
         encoded_image = model.encode_image(image)
 
         # Short caption
@@ -96,7 +103,7 @@ if __name__ == "__main__":
 
         # Detect gaze
         model.detect_gaze(encoded_image, (0.5, 0.5))
-    elif model.device.type != "mps":
+    else:
         torch._dynamo.reset()
         model.compile()
 
@@ -143,5 +150,3 @@ if __name__ == "__main__":
         print(f"  Mean: {sum(query_speeds)/len(query_speeds):.2f}")
         print(f"  Min:  {min(query_speeds):.2f}")
         print(f"  Max:  {max(query_speeds):.2f}")
-    else:
-        raise ValueError("To run benchmarks, make sure you are on a CUDA device")

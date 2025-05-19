@@ -7,4 +7,5 @@ poetry.lock
 dist
 clients/python/moondream/torch
 wandb/
+bitblas_cache/
 moondream_finetune.safetensors
