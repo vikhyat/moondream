@@ -66,12 +66,16 @@ class MoondreamModel(nn.Module):
     def __init__(self, config: MoondreamConfig, dtype=torch.float16, setup_caches=True):
         super().__init__()
         self.config = config
+        self.dtype = dtype
+        self.setup_caches_flag = setup_caches
 
         self.tokenizer = Tokenizer.from_pretrained(
             "vikhyatk/moondream2", revision="2025-01-09"
         )
+
         self.vision = build_vision_model(config.vision, dtype)
-        self.text = build_text_model(config.text, dtype)
+
+        self.text = None
 
         # Region Model
         self.region = nn.ModuleDict(
@@ -125,11 +129,11 @@ class MoondreamModel(nn.Module):
         attn_mask[..., :prefix_attn_len, :prefix_attn_len] = 1
         self.register_buffer("attn_mask", attn_mask, persistent=False)
 
-        # Initialize KV caches.
-        if setup_caches:
-            self._setup_caches()
-
     def _setup_caches(self):
+        """Setup KV caches for the text model"""
+        if self.text is None:
+            return  # Can't set up caches without text model
+
         c = self.config.text
         for b in self.text.blocks:
             b.kv_cache = KVCache(
@@ -163,15 +167,14 @@ class MoondreamModel(nn.Module):
 
     def compile(self):
         # TODO: vision_projection is not being compiled
-        self._vis_enc = torch.compile(self._vis_enc, fullgraph=True)
-        self._prefill = torch.compile(self._prefill, fullgraph=True)
-        self._decode_one_tok = torch.compile(
-            self._decode_one_tok, fullgraph=True, mode="reduce-overhead"
+        self._vis_enc = torch.compile(
+            self._vis_enc, fullgraph=False, mode="reduce-overhead"
         )
+        # self._prefill = torch.compile(self._prefill)
+        # self._decode_one_tok = torch.compile(self._decode_one_tok)
 
     def _run_vision_encoder(self, image: Image.Image) -> torch.Tensor:
         all_crops, tiling = prepare_crops(image, self.config.vision, device=self.device)
-
         torch._dynamo.mark_dynamic(all_crops, 0)
 
         outputs = self._vis_enc(all_crops)
@@ -201,6 +204,7 @@ class MoondreamModel(nn.Module):
 
         # Run through text model in addition to the vision encoder, to minimize
         # re-computation if multiple queries are performed on this image.
+
         with torch.inference_mode():
             img_emb = self._run_vision_encoder(image)
             bos_emb = text_encoder(
@@ -236,10 +240,10 @@ class MoondreamModel(nn.Module):
     def _prefill_prompt(
         self, prompt_tokens: torch.Tensor, pos: int, temperature: float, top_p: float
     ):
+
         with torch.inference_mode():
             prompt_emb = text_encoder(prompt_tokens, self.text)
             torch._dynamo.mark_dynamic(prompt_emb, 1)
-
             mask = self.attn_mask[:, :, pos : pos + prompt_emb.size(1), :]
             pos_ids = torch.arange(pos, pos + prompt_emb.size(1), dtype=torch.long)
             hidden = self._prefill(prompt_emb, mask, pos_ids)

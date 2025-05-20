@@ -2,8 +2,9 @@ import torch
 import torch.nn as nn
 
 from torch.nn import functional as F
+from bitblas.cache import OperatorCache
 
-from .layers import layer_norm, mlp
+from .layers import layer_norm, mlp, Linear
 from .rope import apply_rotary_emb, precompute_freqs_cis
 from .config import TextConfig
 
@@ -26,6 +27,7 @@ def attn(
     head_dim = d_model // n_heads
 
     qkv_out = w.qkv(x)  # shape: (bsz, q_len, (n_heads + 2*n_kv_heads)*head_dim)
+
     q_dim = n_heads * head_dim
     kv_dim = n_kv_heads * head_dim
 
@@ -139,6 +141,7 @@ def text_decoder(
             n_kv_heads=config.n_kv_heads,
             position_ids=position_ids,
         )
+
         l_mlp = mlp(l_in, block.mlp)
         x = x + l_attn + l_mlp
 
@@ -158,8 +161,34 @@ def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     return logits
 
 
-def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
+def build_text_model(
+    config: TextConfig,
+    linear_dtype: torch.dtype = torch.float16,
+    layernorm_dtype: torch.dtype = torch.float16,
+) -> (
+    nn.Module
+):  # note : layernorm dtype is used for layernorm, lm_head and wte not just layernorm
     qkv_dim = int(config.dim * (1 + 2 * config.n_kv_heads / config.n_heads))
+
+    operator_cache = None
+    cache_dir = None
+    group_size = None
+    if linear_dtype == torch.int8:
+
+        operator_cache = OperatorCache()
+        cache_dir = config.cache_dir
+        group_size = config.group_size
+
+    def create_linear(in_features, out_features, dtype=linear_dtype):
+        # factory function for creating Linear layers so we dont have to pass everything again and again
+        return Linear(
+            in_features=in_features,
+            out_features=out_features,
+            dtype=dtype,
+            operator_cache=operator_cache,
+            cache_dir=cache_dir,
+            group_size=group_size,
+        )
 
     text = nn.ModuleDict(
         {
@@ -167,23 +196,17 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
                 [
                     nn.ModuleDict(
                         {
-                            "ln": nn.LayerNorm(config.dim, dtype=dtype),
+                            "ln": nn.LayerNorm(config.dim, dtype=layernorm_dtype),
                             "attn": nn.ModuleDict(
                                 {
-                                    "qkv": nn.Linear(config.dim, qkv_dim, dtype=dtype),
-                                    "proj": nn.Linear(
-                                        config.dim, config.dim, dtype=dtype
-                                    ),
+                                    "qkv": create_linear(config.dim, qkv_dim),
+                                    "proj": create_linear(config.dim, config.dim),
                                 }
                             ),
                             "mlp": nn.ModuleDict(
                                 {
-                                    "fc1": nn.Linear(
-                                        config.dim, config.ff_dim, dtype=dtype
-                                    ),
-                                    "fc2": nn.Linear(
-                                        config.ff_dim, config.dim, dtype=dtype
-                                    ),
+                                    "fc1": create_linear(config.dim, config.ff_dim),
+                                    "fc2": create_linear(config.ff_dim, config.dim),
                                 }
                             ),
                         }
@@ -191,11 +214,13 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
                     for _ in range(config.n_layers)
                 ]
             ),
-            "post_ln": nn.LayerNorm(config.dim, dtype=dtype),
-            "lm_head": nn.Linear(config.dim, config.vocab_size, dtype=dtype),
+            "post_ln": nn.LayerNorm(config.dim, dtype=layernorm_dtype),
+            "lm_head": nn.Linear(config.dim, config.vocab_size, dtype=layernorm_dtype),
         }
     )
-    text.wte = nn.Parameter(torch.empty(config.vocab_size, config.dim, dtype=dtype))
+    text.wte = nn.Parameter(
+        torch.empty(config.vocab_size, config.dim, dtype=layernorm_dtype)
+    )
     text.register_buffer(
         "freqs_cis",
         precompute_freqs_cis(config.dim // (2 * config.n_heads), config.max_context),
