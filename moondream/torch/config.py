@@ -12,6 +12,8 @@ class TextConfig:
     n_heads: int = 32
     n_kv_heads: int = 32
     prefix_attn: int = 730
+    group_size: int = 128
+    cache_dir: str = "./bitblas_cache"
 
 
 @dataclass(frozen=True)
