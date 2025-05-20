@@ -148,9 +148,16 @@ def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
         
         is_quantized = any('.qweight' in key or '_quantized' in key or 'quant.' in key for key in all_keys)
 
-        text_dtype = torch.int8 if is_quantized else torch.float16
+        
+        if "text_model.transformer.h.0.ln.weight" in all_keys:
+            layernorm_dtype = get_tensor("text_model.transformer.h.0.ln.weight").dtype
+        else:
+            layernorm_dtype = torch.float16
+
+        linear_dtype = torch.int8 if is_quantized else torch.float16
+
         model.text = build_text_model(
-            TextConfig, text_dtype
+            TextConfig, linear_dtype=linear_dtype, layernorm_dtype=layernorm_dtype
         )
         if model.setup_caches_flag:
             model._setup_caches()
@@ -174,18 +181,23 @@ def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
 
 def load_weights_from_pt(weights_file: str, model: nn.Module) -> None:
     """Load weights from a PyTorch file into a MoondreamModel instance."""
-    device = str(torch.empty(0).device)
     tensors = torch.load(weights_file, map_location='cpu', weights_only=True)
-    is_quantized = any('.qweight' in key or '_quantized' in key or 'quant.' in key for key in tensors.keys())
+    all_keys = tensors.keys()
+    is_quantized = any('.qweight' in key or '_quantized' in key or 'quant.' in key for key in all_keys)
 
-    text_dtype = torch.int8 if is_quantized else torch.float16
+    if "text.blocks.0.ln.weight" in all_keys:
+        layernorm_dtype = tensors["text.blocks.0.ln.weight"].dtype
+    else:
+        layernorm_dtype = torch.float16
+
+    linear_dtype = torch.int8 if is_quantized else torch.float16
     model.text = build_text_model(
-        TextConfig, text_dtype
+        TextConfig, linear_dtype=linear_dtype, layernorm_dtype=layernorm_dtype
     )
     if model.setup_caches_flag:
         model._setup_caches()
 
-    if "vision.blocks.0.attn.proj.bias" in tensors.keys():
+    if "vision.blocks.0.attn.proj.bias" in all_keys:
         model.load_state_dict(tensors, strict=False)
     else:
         tensors = {

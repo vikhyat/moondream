@@ -161,14 +161,13 @@ def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     return logits
 
 
-def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
+def build_text_model(config: TextConfig, linear_dtype: torch.dtype = torch.float16, layernorm_dtype:torch.dtype = torch.float16) -> nn.Module: # note : layernorm dtype is used for layernorm, lm_head and wte not just layernorm
     qkv_dim = int(config.dim * (1 + 2 * config.n_kv_heads / config.n_heads))
 
     operator_cache = None
     cache_dir = None
     group_size = None
-    layernorm_dtype = torch.float16
-    if dtype == torch.int8:
+    if linear_dtype == torch.int8:
 
         print("INITIALIZING QUANTIZED MODEL")
         operator_cache = OperatorCache()
@@ -176,7 +175,7 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
         group_size = config.group_size
 
 
-    def create_linear(in_features, out_features, dtype=dtype):
+    def create_linear(in_features, out_features, dtype=linear_dtype):
     # factory function for creating Linear layers so we dont have to pass everything again and again 
         return Linear(
             in_features=in_features,
