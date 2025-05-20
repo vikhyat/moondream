@@ -169,7 +169,6 @@ def build_text_model(config: TextConfig, linear_dtype: torch.dtype = torch.float
     group_size = None
     if linear_dtype == torch.int8:
 
-        print("INITIALIZING QUANTIZED MODEL")
         operator_cache = OperatorCache()
         cache_dir = config.cache_dir
         group_size = config.group_size
