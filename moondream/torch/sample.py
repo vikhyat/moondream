@@ -8,7 +8,7 @@ from tqdm import tqdm
 import logging
 import bitblas
 
-bitblas.logger.setLevel("INFO")
+bitblas.logger.setLevel("FATAL")
 
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--prompt", "-p", type=str, required=True)
     parser.add_argument("--model", "-m", type=str, required=True)
     parser.add_argument("--config", "-c", type=str, default=None)
-    parser.add_argument("--max-tokens", "-t", type=int, default=100)
+    parser.add_argument("--max-tokens", "-t", type=int, default=200)
     parser.add_argument("--sampler", "-s", type=str, default="greedy")
     parser.add_argument("--benchmark", "-b", action="store_true")
     args = parser.parse_args()
