@@ -133,7 +133,7 @@ class MoondreamModel(nn.Module):
         """Setup KV caches for the text model"""
         if self.text is None:
             return  # Can't set up caches without text model
-            
+
         c = self.config.text
         for b in self.text.blocks:
             b.kv_cache = KVCache(
@@ -167,7 +167,9 @@ class MoondreamModel(nn.Module):
 
     def compile(self):
         # TODO: vision_projection is not being compiled
-        self._vis_enc = torch.compile(self._vis_enc, fullgraph=False, mode="reduce-overhead")
+        self._vis_enc = torch.compile(
+            self._vis_enc, fullgraph=False, mode="reduce-overhead"
+        )
         # self._prefill = torch.compile(self._prefill)
         # self._decode_one_tok = torch.compile(self._decode_one_tok)
 
@@ -213,7 +215,7 @@ class MoondreamModel(nn.Module):
             mask = self.attn_mask[:, :, 0 : inputs_embeds.size(1), :]
             pos_ids = torch.arange(inputs_embeds.size(1), dtype=torch.long)
             self._prefill(inputs_embeds, mask, pos_ids)
-        
+
         return EncodedImage(
             pos=inputs_embeds.size(1),
             caches=[
@@ -237,8 +239,8 @@ class MoondreamModel(nn.Module):
 
     def _prefill_prompt(
         self, prompt_tokens: torch.Tensor, pos: int, temperature: float, top_p: float
-    ):  
-        
+    ):
+
         with torch.inference_mode():
             prompt_emb = text_encoder(prompt_tokens, self.text)
             torch._dynamo.mark_dynamic(prompt_emb, 1)

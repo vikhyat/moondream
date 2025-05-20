@@ -8,6 +8,7 @@ from typing import Callable, List
 from .text import build_text_model
 from .config import TextConfig
 
+
 @contextmanager
 def safetensors_open(safetensors_file: str):
     """
@@ -29,7 +30,11 @@ def safetensors_open(safetensors_file: str):
         yield get_tensor
 
 
-def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module, is_quantized:bool=False) -> None:
+def _load_weights(
+    get_tensor: Callable[[str], torch.Tensor],
+    model: nn.Module,
+    is_quantized: bool = False,
+) -> None:
     """Internal function to load weights using a tensor getter function."""
     model = model.to(dtype=torch.float16)
 
@@ -93,8 +98,7 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module, i
             }
         )
 
-
-    if not is_quantized: 
+    if not is_quantized:
         for i in range(len(model.text["blocks"])):
             prefix = f"text_model.transformer.h.{i}"
             blk = model.text["blocks"][i]
@@ -112,7 +116,7 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module, i
                     f"{prefix}.mlp.fc2.bias": blk["mlp"]["fc2"].bias,
                 }
             )
-    else: # add special quantized path. this is specific to how bitblas expects weights to be loaded (.qweight)
+    else:  # add special quantized path. this is specific to how bitblas expects weights to be loaded (.qweight)
         for i in range(len(model.text["blocks"])):
             prefix = f"text_model.transformer.h.{i}"
             blk = model.text["blocks"][i]
@@ -131,7 +135,6 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module, i
                 }
             )
 
-
     for key, tensor in weight_map.items():
         tensor.data.copy_(get_tensor(key))
 
@@ -145,10 +148,12 @@ def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
     """Load weights from a safetensors file into a MoondreamModel instance."""
     with safetensors_open(weights_file) as get_tensor:
         all_keys = get_tensor.keys()
-        
-        is_quantized = any('.qweight' in key or '_quantized' in key or 'quant.' in key for key in all_keys)
 
-        
+        is_quantized = any(
+            ".qweight" in key or "_quantized" in key or "quant." in key
+            for key in all_keys
+        )
+
         if "text_model.transformer.h.0.ln.weight" in all_keys:
             layernorm_dtype = get_tensor("text_model.transformer.h.0.ln.weight").dtype
         else:
@@ -167,23 +172,25 @@ def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
             or "model.vision.blocks.0.attn.proj.bias" in all_keys
         ):
             with safetensors_open(weights_file) as get_tensor:
-                tensors = {
-                    k.replace("model.", ""): get_tensor(k) for k in all_keys
-                }
+                tensors = {k.replace("model.", ""): get_tensor(k) for k in all_keys}
                 model.load_state_dict(tensors, strict=False)
         else:
             # Wrap the get_tensor function to handle key normalization
             name_map = {k.replace("._orig_mod", ""): k for k in all_keys}
             _load_weights(
-                lambda x: get_tensor(name_map[x]).to(dtype=torch.float16), model, is_quantized
+                lambda x: get_tensor(name_map[x]).to(dtype=torch.float16),
+                model,
+                is_quantized,
             )
 
 
 def load_weights_from_pt(weights_file: str, model: nn.Module) -> None:
     """Load weights from a PyTorch file into a MoondreamModel instance."""
-    tensors = torch.load(weights_file, map_location='cpu', weights_only=True)
+    tensors = torch.load(weights_file, map_location="cpu", weights_only=True)
     all_keys = tensors.keys()
-    is_quantized = any('.qweight' in key or '_quantized' in key or 'quant.' in key for key in all_keys)
+    is_quantized = any(
+        ".qweight" in key or "_quantized" in key or "quant." in key for key in all_keys
+    )
 
     if "text.blocks.0.ln.weight" in all_keys:
         layernorm_dtype = tensors["text.blocks.0.ln.weight"].dtype

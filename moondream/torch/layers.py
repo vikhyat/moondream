@@ -18,16 +18,26 @@ class LinearWeights:
     weight: torch.Tensor
     bias: torch.Tensor
 
+
 class Linear(nn.Module):
     """
     Linear layer with support for bitblas quantization.
     If dtype is torch.int8, it uses bitblas for quantization.
     Otherwise, it uses a standard nn.Linear layer.
     """
-    def __init__(self, in_features:int, out_features:int, bias: bool = True, 
-                 dtype:torch.dtype=None, operator_cache:OperatorCache=None, cache_dir:str=None, group_size:int=128):
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        dtype: torch.dtype = None,
+        operator_cache: OperatorCache = None,
+        cache_dir: str = None,
+        group_size: int = 128,
+    ):
         super().__init__()
-        
+
         if dtype == torch.int8:
             self.linear = bitblas.Linear(
                 in_features=in_features,
@@ -51,11 +61,12 @@ class Linear(nn.Module):
                 in_features=in_features,
                 out_features=out_features,
                 bias=bias,
-                dtype=torch.float16
-            )   
+                dtype=torch.float16,
+            )
+
     def forward(self, x):
         return self.linear(x)
-    
+
     @property
     def weight(self) -> torch.Tensor:
         try:
@@ -63,7 +74,6 @@ class Linear(nn.Module):
         except AttributeError:
             return self.linear.qweight
 
-    
     @property
     def bias(self) -> torch.Tensor:
         return self.linear.bias

@@ -7,7 +7,8 @@ from PIL import Image, ImageDraw
 from tqdm import tqdm
 import logging
 import bitblas
-bitblas.logger.setLevel('FATAL')
+
+bitblas.logger.setLevel("INFO")
 
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig
@@ -37,7 +38,7 @@ if __name__ == "__main__":
         config = MoondreamConfig.from_dict(config)
     else:
         config = MoondreamConfig()
-    
+
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
 
@@ -150,5 +151,5 @@ if __name__ == "__main__":
         print("\nQuery Speed (tokens/sec):")
         print(f"  Mean: {sum(query_speeds)/len(query_speeds):.2f}")
         print(f"  Min:  {min(query_speeds):.2f}")
-    else:   
+    else:
         raise ValueError("To run benchmarks, make sure you are on a CUDA device")

@@ -161,7 +161,13 @@ def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     return logits
 
 
-def build_text_model(config: TextConfig, linear_dtype: torch.dtype = torch.float16, layernorm_dtype:torch.dtype = torch.float16) -> nn.Module: # note : layernorm dtype is used for layernorm, lm_head and wte not just layernorm
+def build_text_model(
+    config: TextConfig,
+    linear_dtype: torch.dtype = torch.float16,
+    layernorm_dtype: torch.dtype = torch.float16,
+) -> (
+    nn.Module
+):  # note : layernorm dtype is used for layernorm, lm_head and wte not just layernorm
     qkv_dim = int(config.dim * (1 + 2 * config.n_kv_heads / config.n_heads))
 
     operator_cache = None
@@ -173,9 +179,8 @@ def build_text_model(config: TextConfig, linear_dtype: torch.dtype = torch.float
         cache_dir = config.cache_dir
         group_size = config.group_size
 
-
     def create_linear(in_features, out_features, dtype=linear_dtype):
-    # factory function for creating Linear layers so we dont have to pass everything again and again 
+        # factory function for creating Linear layers so we dont have to pass everything again and again
         return Linear(
             in_features=in_features,
             out_features=out_features,
@@ -184,7 +189,6 @@ def build_text_model(config: TextConfig, linear_dtype: torch.dtype = torch.float
             cache_dir=cache_dir,
             group_size=group_size,
         )
-    
 
     text = nn.ModuleDict(
         {
@@ -196,16 +200,13 @@ def build_text_model(config: TextConfig, linear_dtype: torch.dtype = torch.float
                             "attn": nn.ModuleDict(
                                 {
                                     "qkv": create_linear(config.dim, qkv_dim),
-                                    "proj": create_linear(
-                                        config.dim, config.dim)
+                                    "proj": create_linear(config.dim, config.dim),
                                 }
                             ),
                             "mlp": nn.ModuleDict(
                                 {
-                                    "fc1": create_linear(
-                                        config.dim, config.ff_dim),
-                                    "fc2": create_linear(
-                                        config.ff_dim, config.dim)
+                                    "fc1": create_linear(config.dim, config.ff_dim),
+                                    "fc2": create_linear(config.ff_dim, config.dim),
                                 }
                             ),
                         }
@@ -214,12 +215,12 @@ def build_text_model(config: TextConfig, linear_dtype: torch.dtype = torch.float
                 ]
             ),
             "post_ln": nn.LayerNorm(config.dim, dtype=layernorm_dtype),
-            "lm_head": nn.Linear(
-                config.dim, config.vocab_size, dtype=layernorm_dtype
-            ),
+            "lm_head": nn.Linear(config.dim, config.vocab_size, dtype=layernorm_dtype),
         }
     )
-    text.wte = nn.Parameter(torch.empty(config.vocab_size, config.dim, dtype=layernorm_dtype))
+    text.wte = nn.Parameter(
+        torch.empty(config.vocab_size, config.dim, dtype=layernorm_dtype)
+    )
     text.register_buffer(
         "freqs_cis",
         precompute_freqs_cis(config.dim // (2 * config.n_heads), config.max_context),
