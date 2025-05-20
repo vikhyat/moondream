@@ -54,7 +54,6 @@ def attn(
     )
     out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
     out = w.proj(out)
-    # print("out", out[:5, :5, :5])
     return out
 
 
@@ -162,17 +161,19 @@ def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
     return logits
 
 
-def build_text_model(config: TextConfig, dtype: torch.dtype, group_size: int = 128) -> nn.Module:
+def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
     qkv_dim = int(config.dim * (1 + 2 * config.n_kv_heads / config.n_heads))
 
     operator_cache = None
     cache_dir = None
+    group_size = None
     layernorm_dtype = torch.float16
     if dtype == torch.int8:
 
         print("INITIALIZING QUANTIZED MODEL")
         operator_cache = OperatorCache()
         cache_dir = config.cache_dir
+        group_size = config.group_size
 
 
     def create_linear(in_features, out_features, dtype=dtype):

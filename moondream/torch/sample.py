@@ -26,9 +26,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if torch.cuda.is_available():
-        torch.set_default_device("cuda")
+        device = "cuda"
     elif torch.backends.mps.is_available():
-        torch.set_default_device("mps")
+        device = "mps"
 
     # Load model.
     if args.config is not None:
@@ -46,10 +46,11 @@ if __name__ == "__main__":
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found at {image_path}")
     image = Image.open(image_path)
+    model = model.to(device)
 
     if not args.benchmark:
 
-        model.compile()
+        # model.compile()
         encoded_image = model.encode_image(image)
 
         # Short caption
@@ -103,7 +104,7 @@ if __name__ == "__main__":
 
         # Detect gaze
         model.detect_gaze(encoded_image, (0.5, 0.5))
-    else:
+    elif model.device.type != "mps":
         torch._dynamo.reset()
         model.compile()
 
@@ -149,4 +150,5 @@ if __name__ == "__main__":
         print("\nQuery Speed (tokens/sec):")
         print(f"  Mean: {sum(query_speeds)/len(query_speeds):.2f}")
         print(f"  Min:  {min(query_speeds):.2f}")
-        print(f"  Max:  {max(query_speeds):.2f}")
+    else:   
+        raise ValueError("To run benchmarks, make sure you are on a CUDA device")
