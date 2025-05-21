@@ -24,6 +24,7 @@ if __name__ == "__main__":
         device = "cuda"
     elif torch.backends.mps.is_available():
         device = "mps"
+    print(f"Using device: {device}")
 
     # Load model.
     if args.config is not None:
@@ -34,6 +35,7 @@ if __name__ == "__main__":
         config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
+    model.to(device)
 
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()

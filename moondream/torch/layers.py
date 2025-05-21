@@ -43,7 +43,10 @@ class QuantizedLinear(nn.Module):
                     ),
                     requires_grad=False,
                 ),
-                "scales": nn.Parameter(
+                "scale": nn.Parameter(
+                    torch.empty(out_features, in_features // 128), requires_grad=False
+                ),
+                "zero_point": nn.Parameter(
                     torch.empty(out_features, in_features // 128), requires_grad=False
                 ),
             }
@@ -55,7 +58,8 @@ class QuantizedLinear(nn.Module):
         self.weight = nn.Parameter(
             dequantize_tensor(
                 self.weight["packed"],
-                self.weight["scales"],
+                self.weight["scale"],
+                self.weight["zero_point"],
                 (self.weight["packed"].shape[0], self.weight["packed"].shape[1] * 128),
                 128,
                 torch.bfloat16,
