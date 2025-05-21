@@ -5,10 +5,6 @@ import torch
 
 from PIL import Image, ImageDraw
 from tqdm import tqdm
-import logging
-import bitblas
-
-bitblas.logger.setLevel("FATAL")
 
 from .weights import load_weights_into_model
 from .moondream import MoondreamModel, MoondreamConfig
