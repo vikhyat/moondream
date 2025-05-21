@@ -1,12 +1,25 @@
 import safetensors
 import torch
 import torch.nn as nn
+import re
 
 from contextlib import contextmanager
 from typing import Callable, List
 
 from .text import build_text_model
 from .config import TextConfig
+
+
+# Our custom linear has an module named linear, so we add linear to the name
+def add_linear_to_key(k: str) -> str:
+    k = k.replace("model.", "")
+    if k.startswith("text.") and ".linear." not in k:
+        k = re.sub(
+            r"(attn\.(?:qkv|proj)|mlp\.fc[12])\.(weight|bias)$",
+            r"\1.linear.\2",
+            k,
+        )
+    return k
 
 
 @contextmanager
@@ -172,7 +185,7 @@ def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
             or "model.vision.blocks.0.attn.proj.bias" in all_keys
         ):
             with safetensors_open(weights_file) as get_tensor:
-                tensors = {k.replace("model.", ""): get_tensor(k) for k in all_keys}
+                tensors = {add_linear_to_key(k): get_tensor(k) for k in all_keys}
                 model.load_state_dict(tensors, strict=False)
         else:
             # Wrap the get_tensor function to handle key normalization
@@ -204,7 +217,11 @@ def load_weights_from_pt(weights_file: str, model: nn.Module) -> None:
     if model.setup_caches_flag:
         model._setup_caches()
 
-    if "vision.blocks.0.attn.proj.bias" in all_keys:
+    if (
+        "vision.blocks.0.attn.proj.bias" in all_keys
+        or "model.vision.blocks.0.attn.proj.bias" in all_keys
+    ):
+        tensors = {add_linear_to_key(k): v for k, v in tensors.items()}
         model.load_state_dict(tensors, strict=False)
     else:
         tensors = {
