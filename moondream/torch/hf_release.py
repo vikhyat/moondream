@@ -13,6 +13,5 @@ if __name__ == "__main__":
     config = HfConfig()
     model = HfMoondream(config)
     load_weights_into_model(args.ckpt, model.model)
-    model = model.to(dtype=torch.float16)
 
     model.push_to_hub(args.model_name, config=config)

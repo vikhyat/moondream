@@ -34,7 +34,10 @@ if __name__ == "__main__":
         config = MoondreamConfig()
     model = MoondreamModel(config)
     load_weights_into_model(args.model, model)
-    model = model.to(device)
+
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+    torch.cuda.reset_accumulated_memory_stats()
 
     # Encode image.
     image_path = args.image
@@ -143,5 +146,5 @@ if __name__ == "__main__":
         print(f"  Mean: {sum(query_speeds)/len(query_speeds):.2f}")
         print(f"  Min:  {min(query_speeds):.2f}")
         print(f"  Max:  {max(query_speeds):.2f}")
-    else:
-        raise ValueError("To run benchmarks, make sure you are on a CUDA device")
+
+        print(torch.cuda.memory_summary(abbreviated=False))

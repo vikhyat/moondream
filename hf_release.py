@@ -22,6 +22,6 @@ model.vision_encoder.encoder.load_state_dict(get_ckpt("vision_encoder.final.pt")
 model.vision_encoder.projection.load_state_dict(get_ckpt("vision_projection.final.pt"))
 model.text_model.load_state_dict(get_ckpt("text_model.final.pt"))
 model.region_model.load_state_dict(get_ckpt("region_model.final.pt"))
-model = model.to(dtype=torch.float16)
+model = model.to(dtype=torch.bfloat16)
 
 model.push_to_hub(OUT_MODEL, config=config)

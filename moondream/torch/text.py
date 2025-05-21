@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from torch.nn import functional as F
 
-from .layers import layer_norm, mlp
+from .layers import layer_norm, mlp, QuantizedLinear
 from .rope import apply_rotary_emb, precompute_freqs_cis
 from .config import TextConfig
 
@@ -28,18 +28,12 @@ def attn(
     qkv_out = w.qkv(x)  # shape: (bsz, q_len, (n_heads + 2*n_kv_heads)*head_dim)
     q_dim = n_heads * head_dim
     kv_dim = n_kv_heads * head_dim
+    q, k, v = qkv_out.split([q_dim, kv_dim, kv_dim], dim=-1)
+    del qkv_out
 
-    q = qkv_out[..., :q_dim].view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
-    k = (
-        qkv_out[..., q_dim : q_dim + kv_dim]
-        .view(bsz, q_len, n_kv_heads, head_dim)
-        .transpose(1, 2)
-    )
-    v = (
-        qkv_out[..., q_dim + kv_dim :]
-        .view(bsz, q_len, n_kv_heads, head_dim)
-        .transpose(1, 2)
-    )
+    q = q.view(bsz, q_len, n_heads, head_dim).transpose(1, 2)
+    k = k.view(bsz, q_len, n_kv_heads, head_dim).transpose(1, 2)
+    v = v.view(bsz, q_len, n_kv_heads, head_dim).transpose(1, 2)
 
     q = apply_rotary_emb(q, freqs_cis, position_ids, n_heads)
     k = apply_rotary_emb(k, freqs_cis, position_ids, n_kv_heads)
@@ -160,6 +154,7 @@ def _lm_head(hidden_BTC: torch.Tensor, w: nn.Module):
 
 def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
     qkv_dim = int(config.dim * (1 + 2 * config.n_kv_heads / config.n_heads))
+    linear_cls = QuantizedLinear if config.group_size is not None else nn.Linear
 
     text = nn.ModuleDict(
         {
@@ -170,18 +165,18 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
                             "ln": nn.LayerNorm(config.dim, dtype=dtype),
                             "attn": nn.ModuleDict(
                                 {
-                                    "qkv": nn.Linear(config.dim, qkv_dim, dtype=dtype),
-                                    "proj": nn.Linear(
+                                    "qkv": linear_cls(config.dim, qkv_dim, dtype=dtype),
+                                    "proj": linear_cls(
                                         config.dim, config.dim, dtype=dtype
                                     ),
                                 }
                             ),
                             "mlp": nn.ModuleDict(
                                 {
-                                    "fc1": nn.Linear(
+                                    "fc1": linear_cls(
                                         config.dim, config.ff_dim, dtype=dtype
                                     ),
-                                    "fc2": nn.Linear(
+                                    "fc2": linear_cls(
                                         config.ff_dim, config.dim, dtype=dtype
                                     ),
                                 }
@@ -192,7 +187,7 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
                 ]
             ),
             "post_ln": nn.LayerNorm(config.dim, dtype=dtype),
-            "lm_head": nn.Linear(config.dim, config.vocab_size, dtype=dtype),
+            "lm_head": linear_cls(config.dim, config.vocab_size, dtype=dtype),
         }
     )
     text.wte = nn.Parameter(torch.empty(config.vocab_size, config.dim, dtype=dtype))

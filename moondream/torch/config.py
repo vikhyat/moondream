@@ -12,6 +12,7 @@ class TextConfig:
     n_heads: int = 32
     n_kv_heads: int = 32
     prefix_attn: int = 730
+    group_size: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -37,7 +38,7 @@ class RegionConfig:
     size_feat_dim: int = 512
     size_out_dim: int = 2048
     inner_dim: int = 8192
-
+    group_size: Optional[int] = None
 
 @dataclass(frozen=True)
 class TokenizerConfig:
