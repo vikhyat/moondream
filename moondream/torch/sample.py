@@ -147,5 +147,6 @@ if __name__ == "__main__":
         print("\nQuery Speed (tokens/sec):")
         print(f"  Mean: {sum(query_speeds)/len(query_speeds):.2f}")
         print(f"  Min:  {min(query_speeds):.2f}")
+        print(f"  Max:  {max(query_speeds):.2f}")
     else:
         raise ValueError("To run benchmarks, make sure you are on a CUDA device")
