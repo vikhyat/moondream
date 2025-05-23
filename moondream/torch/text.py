@@ -187,7 +187,7 @@ def build_text_model(config: TextConfig, dtype: torch.dtype) -> nn.Module:
                 ]
             ),
             "post_ln": nn.LayerNorm(config.dim, dtype=dtype),
-            "lm_head": linear_cls(config.dim, config.vocab_size, dtype=dtype),
+            "lm_head": nn.Linear(config.dim, config.vocab_size, dtype=dtype),
         }
     )
     text.wte = nn.Parameter(torch.empty(config.vocab_size, config.dim, dtype=dtype))

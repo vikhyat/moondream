@@ -7,8 +7,6 @@ from typing import Literal
 from torchao import quantize_
 from torchao.quantization import int4_weight_only
 
-from .packing import dequantize_tensor
-
 
 def gelu_approx(x):
     return F.gelu(x, approximate="tanh")
@@ -22,6 +20,15 @@ class LinearWeights:
 
 def linear(x: torch.Tensor, w: LinearWeights) -> torch.Tensor:
     return F.linear(x, w.weight, w.bias)
+
+
+def dequantize_tensor(W_q, scale, zero, orig_shape, dtype=torch.bfloat16):
+    _step = W_q.shape[0]
+    W_r = torch.empty([2 * _step, W_q.shape[1]], dtype=dtype, device=W_q.device)
+    W_r[:_step] = (W_q & 0b11110000) >> 4
+    W_r[_step:] = W_q & 0b00001111
+    W_r.sub_(zero).mul_(scale)
+    return W_r.reshape(orig_shape)
 
 
 class QuantizedLinear(nn.Module):
@@ -39,15 +46,17 @@ class QuantizedLinear(nn.Module):
             {
                 "packed": nn.Parameter(
                     torch.empty(
-                        out_features, in_features // 128, 64, dtype=torch.uint8
+                        out_features * in_features // (128 * 2), 128, dtype=torch.uint8
                     ),
                     requires_grad=False,
                 ),
                 "scale": nn.Parameter(
-                    torch.empty(out_features, in_features // 128), requires_grad=False
+                    torch.empty(out_features * in_features // 128, 1),
+                    requires_grad=False,
                 ),
                 "zero_point": nn.Parameter(
-                    torch.empty(out_features, in_features // 128), requires_grad=False
+                    torch.empty(out_features * in_features // 128, 1),
+                    requires_grad=False,
                 ),
             }
         )
@@ -55,13 +64,15 @@ class QuantizedLinear(nn.Module):
         self.unpacked = False
 
     def unpack(self):
+        if self.unpacked:
+            return
+
         self.weight = nn.Parameter(
             dequantize_tensor(
                 self.weight["packed"],
                 self.weight["scale"],
                 self.weight["zero_point"],
-                (self.weight["packed"].shape[0], self.weight["packed"].shape[1] * 128),
-                128,
+                (self.out_features, self.in_features),
                 torch.bfloat16,
             )
         )
@@ -73,10 +84,11 @@ class QuantizedLinear(nn.Module):
         self.linear.bias = nn.Parameter(
             self.bias.to(torch.bfloat16), requires_grad=False
         )
+
         del self.weight, self.bias
         quantize_(self, int4_weight_only(group_size=128))
-        torch.cuda.empty_cache()
         self.unpacked = True
+        torch.cuda.empty_cache()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not self.unpacked:
