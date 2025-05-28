@@ -135,8 +135,49 @@ class HfMoondream(PreTrainedModel):
 
         return [answer]
 
-    def get_input_embeddings(self):
-        return super().get_input_embeddings()
+    def _build_input_embedding(self) -> nn.Embedding:
+        """
+        Wrap the raw parameter `self.model.text.wte` in a real
+        `nn.Embedding` layer so that Transformers’ mixins recognise it.
+        The weights are *shared* – no copy is made.
+        """
+        emb_layer = nn.Embedding.from_pretrained(
+            self.model.text.wte,             # the parameter created in text.py
+            freeze=True                      # change to False if you want to train it
+        )
+        return emb_layer
 
-    def input_embeds(self, *args, **kwargs):
-        self._unsupported_exception()
+    def get_input_embeddings(self) -> nn.Embedding:        # ← called by HF internals
+        if not hasattr(self, "_input_embeddings"):
+            self._input_embeddings = self._build_input_embedding()
+        return self._input_embeddings
+
+    def set_input_embeddings(self, value: Union[nn.Embedding, nn.Module]) -> None:
+        """
+        Lets HF functions (e.g. `resize_token_embeddings`) replace or resize the
+        embeddings and keeps everything tied to `self.model.text.wte`.
+        """
+        # 1. point the low-level parameter to the new weight matrix
+        self.model.text.wte = value.weight
+        # 2. keep a reference for get_input_embeddings()
+        self._input_embeddings = value
+
+    def input_embeds(
+        self,
+        input_ids: Union[torch.LongTensor, list, tuple],
+        *,
+        device: torch.device | None = None
+    ) -> torch.FloatTensor:
+        """
+        Back-compat wrapper that turns token IDs into embeddings.
+
+        Example:
+            ids = torch.tensor([[1, 2, 3]])
+            embeds = model.input_embeds(ids)      # (1, 3, hidden_dim)
+        """
+        if not torch.is_tensor(input_ids):
+            input_ids = torch.as_tensor(input_ids)
+        if device is not None:
+            input_ids = input_ids.to(device)
+
+        return self.get_input_embeddings()(input_ids)
