@@ -135,21 +135,17 @@ class HfMoondream(PreTrainedModel):
 
         return [answer]
 
-    def _build_input_embedding(self) -> nn.Embedding:
+    def get_input_embeddings(self) -> nn.Embedding:
         """
-        Wrap the raw parameter `self.model.text.wte` in a real
-        `nn.Embedding` layer so that Transformers’ mixins recognise it.
-        The weights are *shared* – no copy is made.
+        Lazily wrap the raw parameter `self.model.text.wte` in a real
+        `nn.Embedding` layer so that HF mix-ins recognise it.  The wrapper
+        **shares** the weight tensor—no copy is made.
         """
-        emb_layer = nn.Embedding.from_pretrained(
-            self.model.text.wte,             # the parameter created in text.py
-            freeze=True                      # change to False if you want to train it
-        )
-        return emb_layer
-
-    def get_input_embeddings(self) -> nn.Embedding:        # ← called by HF internals
         if not hasattr(self, "_input_embeddings"):
-            self._input_embeddings = self._build_input_embedding()
+            self._input_embeddings = nn.Embedding.from_pretrained(
+                self.model.text.wte,   # tensor created in text.py
+                freeze=True            # set to False if you need it trainable
+            )
         return self._input_embeddings
 
     def set_input_embeddings(self, value: Union[nn.Embedding, nn.Module]) -> None:
