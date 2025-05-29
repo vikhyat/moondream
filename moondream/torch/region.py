@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 
-from .layers import linear, mlp
+from .layers import mlp
 
 
 def fourier_features(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
@@ -36,7 +36,7 @@ def encode_coordinate(coord: torch.Tensor, w: nn.Module) -> torch.Tensor:
     Returns:
         Encoded hidden states tensor for input to text model
     """
-    return linear(fourier_features(coord, w.coord_features), w.coord_encoder)
+    return w.coord_encoder(fourier_features(coord, w.coord_features))
 
 
 def decode_coordinate(hidden_state: torch.Tensor, w: nn.Module) -> torch.Tensor:
@@ -64,7 +64,7 @@ def encode_size(size: torch.Tensor, w: nn.Module) -> torch.Tensor:
     Returns:
         Encoded hidden states tensor for input to text model
     """
-    return linear(fourier_features(size, w.size_features), w.size_encoder)
+    return w.size_encoder(fourier_features(size, w.size_features))
 
 
 def decode_size(hidden_state: torch.Tensor, w: nn.Module) -> torch.Tensor:

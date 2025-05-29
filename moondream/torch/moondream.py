@@ -12,6 +12,7 @@ from .image_crops import reconstruct_from_crops
 from .vision import vision_encoder, vision_projection, prepare_crops, build_vision_model
 from .text import build_text_model, text_encoder, lm_head, text_decoder
 from .region import decode_coordinate, encode_coordinate, decode_size, encode_size
+from .layers import QuantizedLinear
 from .utils import remove_outlier_points
 
 
@@ -63,7 +64,10 @@ class KVCache(nn.Module):
 
 
 class MoondreamModel(nn.Module):
-    def __init__(self, config: MoondreamConfig, dtype=torch.float16, setup_caches=True):
+
+    def __init__(
+        self, config: MoondreamConfig, dtype=torch.bfloat16, setup_caches=True
+    ):
         super().__init__()
         self.config = config
 
@@ -74,32 +78,35 @@ class MoondreamModel(nn.Module):
         self.text = build_text_model(config.text, dtype)
 
         # Region Model
+        linear_cls = (
+            QuantizedLinear if config.region.group_size is not None else nn.Linear
+        )
         self.region = nn.ModuleDict(
             {
-                "coord_encoder": nn.Linear(
+                "coord_encoder": linear_cls(
                     config.region.coord_feat_dim, config.region.dim, dtype=dtype
                 ),
                 "coord_decoder": nn.ModuleDict(
                     {
-                        "fc1": nn.Linear(
+                        "fc1": linear_cls(
                             config.region.dim, config.region.inner_dim, dtype=dtype
                         ),
-                        "fc2": nn.Linear(
+                        "fc2": linear_cls(
                             config.region.inner_dim,
                             config.region.coord_out_dim,
                             dtype=dtype,
                         ),
                     }
                 ),
-                "size_encoder": nn.Linear(
+                "size_encoder": linear_cls(
                     config.region.size_feat_dim, config.region.dim, dtype=dtype
                 ),
                 "size_decoder": nn.ModuleDict(
                     {
-                        "fc1": nn.Linear(
+                        "fc1": linear_cls(
                             config.region.dim, config.region.inner_dim, dtype=dtype
                         ),
-                        "fc2": nn.Linear(
+                        "fc2": linear_cls(
                             config.region.inner_dim,
                             config.region.size_out_dim,
                             dtype=dtype,
@@ -162,6 +169,10 @@ class MoondreamModel(nn.Module):
         return logits, hidden
 
     def compile(self):
+        for module in self.modules():
+            if isinstance(module, QuantizedLinear):
+                module.unpack()
+
         # TODO: vision_projection is not being compiled
         self._vis_enc = torch.compile(self._vis_enc, fullgraph=True)
         self._prefill = torch.compile(self._prefill, fullgraph=True)
@@ -581,11 +592,11 @@ class MoondreamModel(nn.Module):
                 self.text,
             )
             x_emb = encode_coordinate(
-                torch.tensor([[[source[0]]]], device=self.device, dtype=torch.float16),
+                torch.tensor([[[source[0]]]], device=self.device, dtype=torch.bfloat16),
                 self.region,
             )
             y_emb = encode_coordinate(
-                torch.tensor([[[source[1]]]], device=self.device, dtype=torch.float16),
+                torch.tensor([[[source[1]]]], device=self.device, dtype=torch.bfloat16),
                 self.region,
             )
 

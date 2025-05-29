@@ -29,7 +29,7 @@ def safetensors_open(safetensors_file: str):
 
 def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module) -> None:
     """Internal function to load weights using a tensor getter function."""
-    model = model.to(dtype=torch.float16)
+    model = model.to(dtype=torch.bfloat16)
 
     vision = model.vision
     region = model.region
@@ -108,9 +108,6 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module) -
             }
         )
 
-    for key, tensor in weight_map.items():
-        tensor.data.copy_(get_tensor(key))
-
     region.coord_features.data.copy_(
         get_tensor("region_model.coordinate_features.weight").T
     )
@@ -133,7 +130,7 @@ def load_weights_from_safetensors(weights_file: str, model: nn.Module) -> None:
             # Wrap the get_tensor function to handle key normalization
             name_map = {k.replace("._orig_mod", ""): k for k in get_tensor.keys()}
             _load_weights(
-                lambda x: get_tensor(name_map[x]).to(dtype=torch.float16), model
+                lambda x: get_tensor(name_map[x]).to(dtype=torch.bfloat16), model
             )
 
 
@@ -142,10 +139,12 @@ def load_weights_from_pt(weights_file: str, model: nn.Module) -> None:
     device = str(torch.empty(0).device)
     tensors = torch.load(weights_file, map_location=device, weights_only=True)
     if "vision.blocks.0.attn.proj.bias" in tensors.keys():
-        model.load_state_dict(tensors, strict=False)
+        missing_keys, unexpected_keys = model.load_state_dict(tensors, strict=False)
+        print("Missing keys:", missing_keys)
+        print("Unexpected keys:", unexpected_keys)
     else:
         tensors = {
-            k.replace("._orig_mod", ""): v.to(dtype=torch.float16)
+            k.replace("._orig_mod", ""): v.to(dtype=torch.bfloat16)
             for k, v in tensors.items()
         }
         _load_weights(lambda x: tensors[x], model)

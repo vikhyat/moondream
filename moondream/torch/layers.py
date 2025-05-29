@@ -1,8 +1,11 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 from dataclasses import dataclass
 from typing import Literal
-
-import torch
-from torch.nn import functional as F
+from torchao import quantize_
+from torchao.quantization import int4_weight_only
 
 
 def gelu_approx(x):
@@ -17,6 +20,80 @@ class LinearWeights:
 
 def linear(x: torch.Tensor, w: LinearWeights) -> torch.Tensor:
     return F.linear(x, w.weight, w.bias)
+
+
+def dequantize_tensor(W_q, scale, zero, orig_shape, dtype=torch.bfloat16):
+    _step = W_q.shape[0]
+    W_r = torch.empty([2 * _step, W_q.shape[1]], dtype=dtype, device=W_q.device)
+    W_r[:_step] = (W_q & 0b11110000) >> 4
+    W_r[_step:] = W_q & 0b00001111
+    W_r.sub_(zero).mul_(scale)
+    return W_r.reshape(orig_shape)
+
+
+class QuantizedLinear(nn.Module):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        dtype: torch.dtype,
+    ):
+        # TODO: Take group_size as an input instead of hardcoding it here.
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = nn.ParameterDict(
+            {
+                "packed": nn.Parameter(
+                    torch.empty(
+                        out_features * in_features // (128 * 2), 128, dtype=torch.uint8
+                    ),
+                    requires_grad=False,
+                ),
+                "scale": nn.Parameter(
+                    torch.empty(out_features * in_features // 128, 1),
+                    requires_grad=False,
+                ),
+                "zero_point": nn.Parameter(
+                    torch.empty(out_features * in_features // 128, 1),
+                    requires_grad=False,
+                ),
+            }
+        )
+        self.bias = nn.Parameter(torch.empty(out_features), requires_grad=False)
+        self.unpacked = False
+
+    def unpack(self):
+        if self.unpacked:
+            return
+
+        self.weight = nn.Parameter(
+            dequantize_tensor(
+                self.weight["packed"],
+                self.weight["scale"],
+                self.weight["zero_point"],
+                (self.out_features, self.in_features),
+                torch.bfloat16,
+            )
+        )
+        with torch.device("meta"):
+            self.linear = nn.Linear(
+                self.in_features, self.out_features, dtype=torch.bfloat16
+            )
+        self.linear.weight = self.weight
+        self.linear.bias = nn.Parameter(
+            self.bias.to(torch.bfloat16), requires_grad=False
+        )
+
+        del self.weight, self.bias
+        quantize_(self, int4_weight_only(group_size=128))
+        self.unpacked = True
+        torch.cuda.empty_cache()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if not self.unpacked:
+            self.unpack()
+        return self.linear(x)
 
 
 @dataclass

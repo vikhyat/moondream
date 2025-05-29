@@ -20,79 +20,10 @@ The project offers two model variants:
 - **Moondream 2B**: The primary model with 2 billion parameters, offering robust performance for general-purpose image understanding tasks including captioning, visual question answering, and object detection.
 - **Moondream 0.5B**: A compact 500 million parameter model specifically optimized as a distillation target for edge devices, enabling efficient deployment on resource-constrained hardware while maintaining impressive capabilities.
 
-## Getting Started
+## How to use
 
-### Latest Model Checkpoints
+Moondream can be run locally, or in the cloud. Please refer to the [Getting Started](https://moondream.ai/c/docs/quickstart) page for details.
 
-These are the latest bleeding-edge versions of both models, with all new features and improvements:
+## Special thanks
 
-| Model          | Precision | Download Size | Memory Usage | Best For                   | Download Link                                                                                                                                   |
-| -------------- | --------- | ------------- | ------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Moondream 2B   | int8      | 1,733 MiB     | 2,624 MiB    | General use, best quality  | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/9dddae84d54db4ac56fe37817aeaeb502ed083e2/moondream-2b-int8.mf.gz?download=true)   |
-| Moondream 0.5B | int8      | 593 MiB       | 996 MiB      | Edge devices, faster speed | [Download](https://huggingface.co/vikhyatk/moondream2/resolve/9dddae84d54db4ac56fe37817aeaeb502ed083e2/moondream-0_5b-int8.mf.gz?download=true) |
-
-### Python Client Library
-
-First, install the client library:
-
-```bash
-pip install moondream==0.0.5
-```
-
-The recommended way to use the latest version of Moondream is through our Python client library:
-
-```python
-import moondream as md
-from PIL import Image
-
-# Initialize with local model path. Can also read .mf.gz files, but we recommend decompressing
-# up-front to avoid decompression overhead every time the model is initialized.
-model = md.vl(model="path/to/moondream-2b-int8.mf")
-
-# Load and process image
-image = Image.open("path/to/image.jpg")
-encoded_image = model.encode_image(image)
-
-# Generate caption
-caption = model.caption(encoded_image)["caption"]
-print("Caption:", caption)
-
-# Ask questions
-answer = model.query(encoded_image, "What's in this image?")["answer"]
-print("Answer:", answer)
-```
-
-⚠️ Note: The Python client currently only supports CPU inference. CUDA (GPU) and MPS (Apple Silicon) optimization is coming soon. For GPU support, use the Hugging Face transformers implementation below.
-
-For complete documentation of the Python client, including cloud API usage and additional features, see the [Python Client README](clients/python/README.md).
-
-### Node.js Client Library
-
-For JavaScript/TypeScript developers, we offer a full-featured Node.js client library. See the [Node.js Client README](https://github.com/rohan-kulkarni-25/moondream/blob/main/clients/node/README.MD) for installation and usage instructions.
-
-### Hugging Face Transformers Integration
-
-The Hugging Face hub version tracks the last official release of the 2B model. While more stable, it doesn't include the latest features or support for the 0.5B model. Use this if you need GPU acceleration or prefer the transformers ecosystem:
-
-First, install the required packages:
-
-```bash
-pip install transformers torch einops
-```
-
-```python
-from transformers import AutoModelForCausalLM
-from PIL import Image
-
-model = AutoModelForCausalLM.from_pretrained(
-    "vikhyatk/moondream2",
-    revision="2025-01-09",
-    trust_remote_code=True,
-    # Uncomment to run on GPU.
-    # device_map={"": "cuda"}
-)
-
-image = Image.open('<IMAGE_PATH>')
-enc_image = model.encode_image(image)
-print(model.query(enc_image, "Describe this image."))
-```
+* [Modal](https://modal.com/?utm_source=github&utm_medium=github&utm_campaign=moondream) - Modal lets you run jobs in the cloud, by just writing a few lines of Python. Here's an [example of how to run Moondream on Modal](https://github.com/magnitudedev/magnitude/blob/main/infra/moondream.py).
