@@ -108,6 +108,9 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module) -
             }
         )
 
+    for key, tensor in weight_map.items():
+        tensor.data.copy_(get_tensor(key))
+
     region.coord_features.data.copy_(
         get_tensor("region_model.coordinate_features.weight").T
     )

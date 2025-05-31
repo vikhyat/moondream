@@ -121,7 +121,7 @@ def text_decoder(
     position_ids: torch.Tensor,
     config: TextConfig,
 ):
-    for i, block in enumerate(w.blocks):
+    for block in w.blocks:
         l_in = layer_norm(x, block.ln)
         l_attn = attn(
             l_in,

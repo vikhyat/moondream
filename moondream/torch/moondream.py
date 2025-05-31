@@ -11,7 +11,14 @@ from .config import MoondreamConfig
 from .image_crops import reconstruct_from_crops
 from .vision import vision_encoder, vision_projection, prepare_crops, build_vision_model
 from .text import build_text_model, text_encoder, lm_head, text_decoder
-from .region import decode_coordinate, encode_coordinate, decode_size, encode_size
+from .region import (
+    decode_coordinate,
+    encode_coordinate,
+    decode_size,
+    encode_size,
+    encode_spatial_refs,
+    SpatialRefs,
+)
 from .layers import QuantizedLinear
 from .utils import remove_outlier_points
 
@@ -31,6 +38,7 @@ ObjectSamplingSettings = TypedDict(
     {"max_objects": int},
     total=False,
 )
+
 
 DEFAULT_MAX_TOKENS = 768
 DEFAULT_TEMPERATURE = 0.5
@@ -71,9 +79,7 @@ class MoondreamModel(nn.Module):
         super().__init__()
         self.config = config
 
-        self.tokenizer = Tokenizer.from_pretrained(
-            "vikhyatk/moondream2", revision="2025-01-09"
-        )
+        self.tokenizer = Tokenizer.from_pretrained("moondream/starmie-v1")
         self.vision = build_vision_model(config.vision, dtype)
         self.text = build_text_model(config.text, dtype)
 
@@ -245,10 +251,26 @@ class MoondreamModel(nn.Module):
         return next_probs
 
     def _prefill_prompt(
-        self, prompt_tokens: torch.Tensor, pos: int, temperature: float, top_p: float
+        self,
+        prompt_tokens: torch.Tensor,
+        pos: int,
+        temperature: float,
+        top_p: float,
+        spatial_refs: Optional[SpatialRefs] = None,
     ):
         with torch.inference_mode():
             prompt_emb = text_encoder(prompt_tokens, self.text)
+
+            if spatial_refs:
+                encoded_refs = encode_spatial_refs(spatial_refs, self.region)
+                prompt_emb[prompt_tokens == self.config.tokenizer.coord_id] = (
+                    encoded_refs["coords"]
+                )
+                if encoded_refs["sizes"] is not None:
+                    prompt_emb[prompt_tokens == self.config.tokenizer.size_id] = (
+                        encoded_refs["sizes"]
+                    )
+
             torch._dynamo.mark_dynamic(prompt_emb, 1)
 
             mask = self.attn_mask[:, :, pos : pos + prompt_emb.size(1), :]
@@ -271,6 +293,7 @@ class MoondreamModel(nn.Module):
         prompt_tokens: torch.Tensor,
         pos: int,
         settings: Optional[TextSamplingSettings] = None,
+        spatial_refs: Optional[SpatialRefs] = None,
     ):
         max_tokens = (
             settings.get("max_tokens", DEFAULT_MAX_TOKENS)
@@ -285,7 +308,7 @@ class MoondreamModel(nn.Module):
         top_p = settings.get("top_p", DEFAULT_TOP_P) if settings else DEFAULT_TOP_P
 
         _, _, next_token, pos = self._prefill_prompt(
-            prompt_tokens, pos, temperature, top_p
+            prompt_tokens, pos, temperature, top_p, spatial_refs
         )
 
         def generator(next_token, pos):
@@ -357,6 +380,7 @@ class MoondreamModel(nn.Module):
         self,
         image: Union[Image.Image, EncodedImage],
         question: str,
+        spatial_refs: Optional[SpatialRefs] = None,
         stream: bool = False,
         settings: Optional[TextSamplingSettings] = None,
     ):
@@ -366,17 +390,30 @@ class MoondreamModel(nn.Module):
         image = self.encode_image(image)
         self.load_encoded_image(image)
 
+        spatial_toks = []
+        if spatial_refs:
+            for ref in spatial_refs:
+                coord_id = self.config.tokenizer.coord_id
+                size_id = self.config.tokenizer.size_id
+                if len(ref) == 2:
+                    spatial_toks.extend([coord_id, coord_id])
+                else:
+                    spatial_toks.extend([coord_id, coord_id, size_id])
+
         prompt_tokens = torch.tensor(
             [
                 self.config.tokenizer.templates["query"]["prefix"]
-                + self.tokenizer.encode(" " + question).ids
+                + spatial_toks
+                + self.tokenizer.encode(question).ids
                 + self.config.tokenizer.templates["query"]["suffix"]
             ],
             device=self.device,
         )
 
         def generator():
-            for token in self._generate_text(prompt_tokens, image.pos, settings):
+            for token in self._generate_text(
+                prompt_tokens, image.pos, settings, spatial_refs
+            ):
                 yield token
 
         if stream:

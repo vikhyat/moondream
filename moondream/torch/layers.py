@@ -4,8 +4,21 @@ import torch.nn.functional as F
 
 from dataclasses import dataclass
 from typing import Literal
-from torchao import quantize_
-from torchao.quantization import int4_weight_only
+
+try:
+    from torchao import quantize_
+    from torchao.quantization import int4_weight_only
+except ImportError:
+
+    def quantize_(model, quant_mode):
+        raise ImportError(
+            "torchao is not installed. Please install it with `pip install torchao`."
+        )
+
+    def int4_weight_only(group_size):
+        raise ImportError(
+            "torchao is not installed. Please install it with `pip install torchao`."
+        )
 
 
 def gelu_approx(x):
