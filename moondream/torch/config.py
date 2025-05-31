@@ -40,20 +40,23 @@ class RegionConfig:
     inner_dim: int = 8192
     group_size: Optional[int] = None
 
+
 @dataclass(frozen=True)
 class TokenizerConfig:
-    bos_id: int = 50256
-    eos_id: int = 50256
+    bos_id: int = 0
+    eos_id: int = 0
+    coord_id: int = 5
+    size_id: int = 6
     templates: Dict[str, Optional[Dict[str, List[int]]]] = field(
         default_factory=lambda: {
             "caption": {
-                "short": [198, 198, 16438, 8305, 25],
-                "normal": [198, 198, 24334, 1159, 25],
-                "long": [198, 198, 14617, 8305, 25],
+                "short": [1, 32708, 2, 12492, 3],
+                "normal": [1, 32708, 2, 6382, 3],
+                "long": [1, 32708, 2, 4059, 3],
             },
-            "query": {"prefix": [198, 198, 24361, 25], "suffix": [198, 198, 33706, 25]},
-            "detect": {"prefix": [198, 198, 47504, 25], "suffix": [628]},
-            "point": {"prefix": [198, 198, 12727, 25], "suffix": [628]},
+            "query": {"prefix": [1, 15381, 2], "suffix": [3]},
+            "detect": {"prefix": [1, 7235, 476, 2], "suffix": [3]},
+            "point": {"prefix": [1, 2581, 2], "suffix": [3]},
         }
     )
 

@@ -2,7 +2,11 @@ import torch
 import torch.nn as nn
 import math
 
+from typing import List, Tuple, Union
+
 from .layers import mlp
+
+SpatialRefs = List[Union[Tuple[float, float], Tuple[float, float, float, float]]]
 
 
 def fourier_features(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
@@ -87,3 +91,46 @@ def decode_size(hidden_state: torch.Tensor, w: nn.Module) -> torch.Tensor:
         Shape is (2, 1024) where the first dimension corresponds to width and height.
     """
     return mlp(hidden_state, w.size_decoder).view(2, -1)
+
+
+def encode_spatial_refs(spatial_refs: SpatialRefs, w: nn.Module) -> torch.Tensor:
+    """
+    Takes a list of spatial references (points or regions) and encodes them into
+    hidden states for input to the text model.
+
+    Args:
+        spatial_refs: List of spatial references (points or boxes)
+            - Points are represented as normalized (x, y) tuples
+            - Boxes are represented as normalized (x_min, y_min, x_max, y_max) tuples
+
+    Returns:
+        {"coords": torch.Tensor, "sizes": Optional[torch.Tensor]}
+    """
+    coords, sizes = [], []
+    for ref in spatial_refs:
+        if len(ref) == 2:
+            coords.append(ref[0])
+            coords.append(ref[1])
+        else:
+            x_c = (ref[0] + ref[2]) / 2
+            y_c = (ref[1] + ref[3]) / 2
+            width = ref[2] - ref[0]
+            height = ref[3] - ref[1]
+            coords.append(x_c)
+            coords.append(y_c)
+            sizes.append([width, height])
+
+    coords = torch.tensor(
+        coords, device=w.coord_features.device, dtype=w.coord_features.dtype
+    ).view(-1, 1)
+    coords = encode_coordinate(coords, w)
+
+    if sizes:
+        sizes = torch.tensor(
+            sizes, device=w.size_features.device, dtype=w.size_features.dtype
+        )
+        sizes = encode_size(sizes, w)
+    else:
+        sizes = None
+
+    return {"coords": coords, "sizes": sizes}

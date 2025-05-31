@@ -88,6 +88,23 @@ if __name__ == "__main__":
             draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
         image.save("detect.jpg")
 
+        # Spatial query
+        print("Spatial query: What is this?")
+        for t in model.query(
+            encoded_image,
+            "What is this?",
+            spatial_refs=[
+                [
+                    (obj["x_min"], obj["y_min"], obj["x_max"], obj["y_max"])
+                    for obj in objs
+                ][0]
+            ],
+            stream=True,
+        )["answer"]:
+            print(t, end="", flush=True)
+        print()
+        print()
+
         # Point
         obj = "ear"
         print(f"Point: {obj}")
@@ -98,6 +115,29 @@ if __name__ == "__main__":
             x, y = point["x"] * image.width, point["y"] * image.height
             draw.ellipse([x - 5, y - 5, x + 5, y + 5], fill="red")
         image.save("point.jpg")
+        print()
+        print()
+
+        # Spatial query
+        for o in ["hand", "ear", "face"]:
+            for k in [(objs, "hand"), (points, "ear")]:
+                print(f"Spatial query: Is this a {o}? ({k[1]})")
+                for t in model.query(
+                    encoded_image,
+                    f"Is this a {o}?",
+                    spatial_refs=[
+                        [
+                            (
+                                (obj["x_min"], obj["y_min"], obj["x_max"], obj["y_max"])
+                                if "x_min" in obj
+                                else (obj["x"], obj["y"])
+                            )
+                            for obj in k[0]
+                        ][0]
+                    ],
+                )["answer"]:
+                    print(t, end="", flush=True)
+                print()
 
         # Detect gaze
         model.detect_gaze(encoded_image, (0.5, 0.5))
