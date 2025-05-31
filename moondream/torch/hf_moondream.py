@@ -143,8 +143,8 @@ class HfMoondream(PreTrainedModel):
         """
         if not hasattr(self, "_input_embeddings"):
             self._input_embeddings = nn.Embedding.from_pretrained(
-                self.model.text.wte,   # tensor created in text.py
-                freeze=True            # set to False if you need it trainable
+                self.model.text.wte,  # tensor created in text.py
+                freeze=True,  # set to False if you need it trainable
             )
         return self._input_embeddings
 
