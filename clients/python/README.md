@@ -42,14 +42,21 @@ pip install moondream[gpu]
 
 To use Moondream's cloud API, you'll first need an API key. Sign up for a free
 account at [console.moondream.ai](https://console.moondream.ai) to get your key.
-Once you have your key, you can use it to initialize the client as shown below.
+
+**Recommended:** Set your API key as an environment variable for security and convenience. Set it in your shell or use a secret manager:
+
+```bash
+export MOONDREAM_API_KEY=your-api-key
+```
+
+The client will automatically use this variable if you do not pass `api_key` directly.
 
 ```python
 import moondream as md
 from PIL import Image
 
-# Initialize with API key
-model = md.vl(api_key="your-api-key")
+# Initialize (api_key will be read from MOONDREAM_API_KEY if not provided)
+model = md.vl()
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -66,6 +73,10 @@ print("Answer:", answer)
 for chunk in model.caption(image, stream=True)["caption"]:
     print(chunk, end="", flush=True)
 ```
+
+#### Security Considerations
+- **Never commit your real API key to version control.**
+- Use environment variables or secret managers to keep your API key secure.
 
 ### Using Local Inference
 
