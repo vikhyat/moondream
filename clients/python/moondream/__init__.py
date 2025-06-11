@@ -1,4 +1,5 @@
 from typing import Optional
+import os
 
 from .cloud_vl import CloudVL
 from .types import VLM
@@ -12,6 +13,9 @@ def vl(
     api_key: Optional[str] = None,
     api_url: Optional[str] = None,
 ) -> VLM:
+    if api_key is None:
+        api_key = os.getenv("MOONDREAM_API_KEY")
+
     if model:
         model_filetype = model.split(".")[-1]
         if model_filetype == "safetensors":
