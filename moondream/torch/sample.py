@@ -71,6 +71,16 @@ if __name__ == "__main__":
         print()
         print()
 
+        # Query (reasoning)
+        reasoning_prompt = "How many sesame seeds are on the burger?"
+        print("Query (reasoning):", reasoning_prompt)
+        resp = model.query(encoded_image, reasoning_prompt, reasoning=True, stream=True)
+        print("Reasoning:", resp["reasoning"])
+        for t in resp["answer"]:
+            print(t, end="", flush=True)
+        print()
+        print()
+
         # Detect
         obj = "hand"
         print(f"Detect: {obj}")

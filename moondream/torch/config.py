@@ -49,6 +49,8 @@ class TokenizerConfig:
     thinking_id: int = 4
     coord_id: int = 5
     size_id: int = 6
+    start_ground_points_id: int = 7
+    end_ground_id: int = 9
     templates: Dict[str, Optional[Dict[str, List[int]]]] = field(
         default_factory=lambda: {
             "caption": {

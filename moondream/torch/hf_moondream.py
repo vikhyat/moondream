@@ -1,4 +1,8 @@
+import torch
+import torch.nn as nn
+
 from transformers import PreTrainedModel, PretrainedConfig
+from typing import Union
 
 from .config import MoondreamConfig
 from .moondream import MoondreamModel
@@ -123,7 +127,7 @@ class HfMoondream(PreTrainedModel):
             )
 
             def generator():
-                for token in self.model._generate_text(
+                for token in self.model._generate_answer(
                     prompt_tokens,
                     image_embeds.kv_cache,
                     image_embeds.pos,
@@ -143,8 +147,8 @@ class HfMoondream(PreTrainedModel):
         """
         if not hasattr(self, "_input_embeddings"):
             self._input_embeddings = nn.Embedding.from_pretrained(
-                self.model.text.wte,   # tensor created in text.py
-                freeze=True            # set to False if you need it trainable
+                self.model.text.wte,  # tensor created in text.py
+                freeze=True,  # set to False if you need it trainable
             )
         return self._input_embeddings
 
