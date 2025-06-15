@@ -45,6 +45,8 @@ class RegionConfig:
 class TokenizerConfig:
     bos_id: int = 0
     eos_id: int = 0
+    answer_id: int = 3
+    thinking_id: int = 4
     coord_id: int = 5
     size_id: int = 6
     templates: Dict[str, Optional[Dict[str, List[int]]]] = field(

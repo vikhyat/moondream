@@ -257,6 +257,7 @@ class MoondreamModel(nn.Module):
         temperature: float,
         top_p: float,
         spatial_refs: Optional[SpatialRefs] = None,
+        attn_mask: Optional[torch.Tensor] = None,
     ):
         with torch.inference_mode():
             prompt_emb = text_encoder(prompt_tokens, self.text)
@@ -273,7 +274,10 @@ class MoondreamModel(nn.Module):
 
             torch._dynamo.mark_dynamic(prompt_emb, 1)
 
-            mask = self.attn_mask[:, :, pos : pos + prompt_emb.size(1), :]
+            if attn_mask is None:
+                attn_mask = self.attn_mask
+
+            mask = attn_mask[:, :, pos : pos + prompt_emb.size(1), :]
             pos_ids = torch.arange(pos, pos + prompt_emb.size(1), dtype=torch.long)
             hidden = self._prefill(prompt_emb, mask, pos_ids)
             logits = lm_head(hidden, self.text)
@@ -294,6 +298,8 @@ class MoondreamModel(nn.Module):
         pos: int,
         settings: Optional[TextSamplingSettings] = None,
         spatial_refs: Optional[SpatialRefs] = None,
+        eos_id: Optional[int] = None,
+        attn_mask: Optional[torch.Tensor] = None,
     ):
         max_tokens = (
             settings.get("max_tokens", DEFAULT_MAX_TOKENS)
@@ -306,9 +312,10 @@ class MoondreamModel(nn.Module):
             else DEFAULT_TEMPERATURE
         )
         top_p = settings.get("top_p", DEFAULT_TOP_P) if settings else DEFAULT_TOP_P
+        eos_id = eos_id if eos_id is not None else self.config.tokenizer.eos_id
 
         _, _, next_token, pos = self._prefill_prompt(
-            prompt_tokens, pos, temperature, top_p, spatial_refs
+            prompt_tokens, pos, temperature, top_p, spatial_refs, attn_mask=attn_mask
         )
 
         def generator(next_token, pos):
@@ -323,7 +330,7 @@ class MoondreamModel(nn.Module):
 
             while (
                 next_token_id := next_token.item()
-            ) != self.config.tokenizer.eos_id and generated_tokens < max_tokens:
+            ) != eos_id and generated_tokens < max_tokens:
                 # Add token to our cache
                 token_cache.append(next_token_id)
 
@@ -378,8 +385,8 @@ class MoondreamModel(nn.Module):
 
     def query(
         self,
-        image: Union[Image.Image, EncodedImage],
-        question: str,
+        image: Optional[Union[Image.Image, EncodedImage]] = None,
+        question: str = None,
         spatial_refs: Optional[SpatialRefs] = None,
         stream: bool = False,
         settings: Optional[TextSamplingSettings] = None,
@@ -387,8 +394,28 @@ class MoondreamModel(nn.Module):
         if self.config.tokenizer.templates["query"] is None:
             raise NotImplementedError("Model does not support querying.")
 
-        image = self.encode_image(image)
-        self.load_encoded_image(image)
+        if question is None:
+            raise ValueError("question must be provided.")
+
+        if spatial_refs and image is None:
+            raise ValueError("spatial_refs can only be used with an image.")
+
+        attn_mask = self.attn_mask
+        if image is not None:
+            image = self.encode_image(image)
+            self.load_encoded_image(image)
+            pos = image.pos
+            prompt_toks = self.config.tokenizer.templates["query"]["prefix"]
+        else:
+            self._setup_caches()
+            pos = 0
+            prompt_toks = [
+                self.config.tokenizer.bos_id
+            ] + self.config.tokenizer.templates["query"]["prefix"]
+            max_context = self.config.text.max_context
+            attn_mask = torch.tril(
+                torch.ones(1, 1, max_context, max_context, dtype=torch.bool)
+            ).to(self.device)
 
         spatial_toks = []
         if spatial_refs:
@@ -402,7 +429,7 @@ class MoondreamModel(nn.Module):
 
         prompt_tokens = torch.tensor(
             [
-                self.config.tokenizer.templates["query"]["prefix"]
+                prompt_toks
                 + spatial_toks
                 + self.tokenizer.encode(question).ids
                 + self.config.tokenizer.templates["query"]["suffix"]
@@ -412,7 +439,7 @@ class MoondreamModel(nn.Module):
 
         def generator():
             for token in self._generate_text(
-                prompt_tokens, image.pos, settings, spatial_refs
+                prompt_tokens, pos, settings, spatial_refs, attn_mask=attn_mask
             ):
                 yield token
 
