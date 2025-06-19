@@ -135,7 +135,7 @@ class HfMoondream(PreTrainedModel):
             )
 
             def generator():
-                for token in self.model._generate_answer(
+                for token in self.model._generate_text(
                     prompt_tokens,
                     image_embeds.kv_cache,
                     image_embeds.pos,
