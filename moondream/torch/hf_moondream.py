@@ -13,7 +13,7 @@ from .vision import *
 from .text import *
 from .region import *
 from .utils import *
-from .lora import setup_lora
+from .f_lora import replace_with_lora_linear, LoRAPool
 
 
 def extract_question(text):
@@ -47,11 +47,18 @@ class HfMoondream(PreTrainedModel):
         self._is_kv_cache_setup = False
 
     @classmethod
-    def from_pretrained(cls, *args, lora_id: str | None = None, **kwargs):
+    def from_pretrained(cls, *args, **kwargs):
         model = super().from_pretrained(*args, **kwargs)
-        if lora_id:
-            setup_lora(model.model, lora_id)
+        replace_with_lora_linear(model.model.text)
+        model._lora_pool = LoRAPool(model.model.text, device=model.device)
         return model.to(torch.bfloat16)
+
+    def _run(self, fn, *a, lora_id=None, **kwargs):
+        self._lora_pool.activate(lora_id)
+        try:
+            return fn(*a, **kwargs)
+        finally:
+            self._lora_pool.activate(None)
 
     def _setup_caches(self):
         if not self._is_kv_cache_setup:
@@ -63,25 +70,21 @@ class HfMoondream(PreTrainedModel):
         self._setup_caches()
         return self.model.encode_image
 
-    @property
-    def query(self):
+    def query(self, *a, variant_id=None, **kwargs):
         self._setup_caches()
-        return self.model.query
+        return self._run(self.model.query, *a, lora_id=variant_id, **kwargs)
 
-    @property
-    def caption(self):
+    def caption(self, *a, variant_id=None, **kwargs):
         self._setup_caches()
-        return self.model.caption
+        return self._run(self.model.caption, *a, lora_id=variant_id, **kwargs)
 
-    @property
-    def detect(self):
+    def detect(self, *a, variant_id=None, **kwargs):
         self._setup_caches()
-        return self.model.detect
+        return self._run(self.model.detect, *a, lora_id=variant_id, **kwargs)
 
-    @property
-    def point(self):
+    def point(self, *a, variant_id=None, **kwargs):
         self._setup_caches()
-        return self.model.point
+        return self._run(self.model.point, *a, lora_id=variant_id, **kwargs)
 
     @property
     def detect_gaze(self):

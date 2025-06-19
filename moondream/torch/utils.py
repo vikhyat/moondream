@@ -45,7 +45,6 @@ def remove_outlier_points(points_tuples, k_nearest=2, threshold=2.0):
 
 def hf_hub_dir() -> Path:
     """Return the HuggingFace hub cache directory."""
-
     directory = os.getenv("HF_HUB_CACHE")
     if not directory:
         directory = (
@@ -56,12 +55,12 @@ def hf_hub_dir() -> Path:
 
 def rename_state_dict(state_dict: dict) -> dict:
     """Rename raw weights name for HF."""
-
     rename_rules = [
-        ("text_model.transformer.h", "text.blocks"),
+        ("text_model.transformer.h", "blocks"),
         (".mixer", ".attn"),
         (".out_proj", ".proj"),
         (".Wqkv", ".qkv"),
+        (".parametrizations.weight.0", ""),
     ]
 
     new_state_dict = {}
