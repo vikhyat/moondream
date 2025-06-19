@@ -1,5 +1,6 @@
 import numpy as np
-
+from pathlib import Path
+import os
 
 def remove_outlier_points(points_tuples, k_nearest=2, threshold=2.0):
     """
@@ -39,3 +40,33 @@ def remove_outlier_points(points_tuples, k_nearest=2, threshold=2.0):
     # Return filtered tuples and mask
     filtered_tuples = [t for t, m in zip(points_tuples, mask) if m]
     return filtered_tuples
+
+
+def hf_hub_dir() -> Path:
+    """Return the HuggingFace hub cache directory."""
+
+    directory = os.getenv("HF_HUB_CACHE")
+    if not directory:
+        directory = Path(os.getenv("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+    return directory
+
+
+def rename_state_dict(state_dict: dict) -> dict:
+    """Rename raw weights name for HF."""
+    
+    rename_rules = [
+        ("text_model.transformer.h", "text.blocks"),
+        (".mixer", ".attn"),
+        (".out_proj", ".proj"),
+        (".Wqkv", ".qkv"),
+    ]
+
+    new_state_dict = {}
+    for key, tensor in state_dict.items():
+        new_key = key
+        for old, new in rename_rules:
+            if old in new_key:
+                new_key = new_key.replace(old, new)
+        new_state_dict[new_key] = tensor
+
+    return new_state_dict

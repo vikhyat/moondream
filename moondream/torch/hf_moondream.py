@@ -1,4 +1,8 @@
+import torch
+import torch.nn as nn
+
 from transformers import PreTrainedModel, PretrainedConfig
+from typing import Union
 
 from .config import MoondreamConfig
 from .moondream import MoondreamModel
@@ -9,6 +13,7 @@ from .vision import *
 from .text import *
 from .region import *
 from .utils import *
+from .lora import setup_lora
 
 
 def extract_question(text):
@@ -40,6 +45,13 @@ class HfMoondream(PreTrainedModel):
             MoondreamConfig.from_dict(config.config), setup_caches=False
         )
         self._is_kv_cache_setup = False
+
+    @classmethod
+    def from_pretrained(cls, *args, lora_id: str | None = None, **kwargs):
+        model = super().from_pretrained(*args, **kwargs)
+        if lora_id:
+            setup_lora(model.model, lora_id)
+        return model.to(torch.bfloat16)
 
     def _setup_caches(self):
         if not self._is_kv_cache_setup:
@@ -123,7 +135,7 @@ class HfMoondream(PreTrainedModel):
             )
 
             def generator():
-                for token in self.model._generate_text(
+                for token in self.model._generate_answer(
                     prompt_tokens,
                     image_embeds.kv_cache,
                     image_embeds.pos,
