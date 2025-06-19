@@ -57,15 +57,14 @@ def setup_lora(model, lora_id: str):
     """Downloads lora, adds parametrization, and then loads the lora weights."""
 
     lora_dest = download_lora(lora_id)
-    add_lora(model.text, keywords=LORA_KEYWORDS, r=R, alpha = ALPHA)
-
+    add_lora(model.text, keywords=LORA_KEYWORDS, r=R, alpha=ALPHA)
     sd = torch.load(lora_dest, map_location="cpu")
     model.load_state_dict(rename_state_dict(sd), strict=False, assign=True)
 
 
 def download_lora(lora_id: str):
     """Download LoRA file to HF_HUB_CACHE/moondream_lora"""
-    
+
     cache_dir = hf_hub_dir() / "moondream_lora" / lora_id
     cache_dir.mkdir(parents=True, exist_ok=True)
     dest = cache_dir / "lora.pt"
