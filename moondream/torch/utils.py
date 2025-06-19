@@ -2,6 +2,7 @@ import numpy as np
 from pathlib import Path
 import os
 
+
 def remove_outlier_points(points_tuples, k_nearest=2, threshold=2.0):
     """
     Robust outlier detection for list of (x,y) tuples.
@@ -47,13 +48,15 @@ def hf_hub_dir() -> Path:
 
     directory = os.getenv("HF_HUB_CACHE")
     if not directory:
-        directory = Path(os.getenv("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+        directory = (
+            Path(os.getenv("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+        )
     return directory
 
 
 def rename_state_dict(state_dict: dict) -> dict:
     """Rename raw weights name for HF."""
-    
+
     rename_rules = [
         ("text_model.transformer.h", "text.blocks"),
         (".mixer", ".attn"),
