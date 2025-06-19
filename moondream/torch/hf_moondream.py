@@ -1,4 +1,8 @@
+import torch
+import torch.nn as nn
+
 from transformers import PreTrainedModel, PretrainedConfig
+from typing import Union
 
 from .config import MoondreamConfig
 from .moondream import MoondreamModel
@@ -123,7 +127,7 @@ class HfMoondream(PreTrainedModel):
             )
 
             def generator():
-                for token in self.model._generate_text(
+                for token in self.model._generate_answer(
                     prompt_tokens,
                     image_embeds.kv_cache,
                     image_embeds.pos,

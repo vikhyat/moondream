@@ -45,8 +45,12 @@ class RegionConfig:
 class TokenizerConfig:
     bos_id: int = 0
     eos_id: int = 0
+    answer_id: int = 3
+    thinking_id: int = 4
     coord_id: int = 5
     size_id: int = 6
+    start_ground_points_id: int = 7
+    end_ground_id: int = 9
     templates: Dict[str, Optional[Dict[str, List[int]]]] = field(
         default_factory=lambda: {
             "caption": {
