@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional
 
 try:
     from torchao import quantize_
@@ -126,10 +126,23 @@ class MLPWeights:
     act: Literal["gelu_approx"] = "gelu_approx"
 
 
-def mlp(x: torch.Tensor, w: MLPWeights) -> torch.Tensor:
-    x = w.fc1(x)
+def mlp(x: torch.Tensor, w: MLPWeights, lora: Optional[dict] = None) -> torch.Tensor:
+    x0 = w.fc1(x)
+    if lora is not None:
+        x1 = F.linear(F.linear(x, lora["fc1"]["A"]), lora["fc1"]["B"])
+        x = x0 + x1
+    else:
+        x = x0
+
     x = gelu_approx(x)
-    x = w.fc2(x)
+
+    x0 = w.fc2(x)
+    if lora is not None:
+        x1 = F.linear(F.linear(x, lora["fc2"]["A"]), lora["fc2"]["B"])
+        x = x0 + x1
+    else:
+        x = x0
+
     return x
 
 
