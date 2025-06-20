@@ -617,6 +617,39 @@ class MoondreamModel(nn.Module):
         else:
             return {**reasoning_dict, "answer": "".join(list(generator()))}
 
+    def _text_query(
+        self,
+        question: str,
+        stream: bool = False,
+        settings: Optional[SamplingSettings] = None,
+    ):
+        if self.config.tokenizer.templates["query"] is None:
+            raise NotImplementedError("Model does not support querying.")
+
+        prompt_tokens = torch.tensor(
+            [
+                self.config.tokenizer.templates["query"]["prefix"]
+                + self.tokenizer.encode(question).ids
+                + self.config.tokenizer.templates["query"]["suffix"]
+            ],
+            device=self.device,
+        )
+
+        max_tokens = DEFAULT_MAX_TOKENS
+        if settings:
+            max_tokens = settings.get("max_tokens", DEFAULT_MAX_TOKENS)
+
+        pos = 0
+
+        def generator():
+            for token in self._generate_text(prompt_tokens, pos, max_tokens):
+                yield token
+
+        if stream:
+            return {"answer": generator()}
+        else:
+            return {"answer": "".join(list(generator()))}
+
     def load_encoded_image(self, encoded_image: EncodedImage):
         for b, (k, v) in zip(self.text.blocks, encoded_image.caches):
             b.kv_cache.k_cache[:, :, : k.size(2), :] = k
