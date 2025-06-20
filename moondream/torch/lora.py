@@ -21,9 +21,12 @@ def variant_cache_dir():
 
 
 def cached_variant_path(variant_id: str):
-    cache_dir = variant_cache_dir() / variant_id
+    variant, *rest = variant_id.split("/", 1)
+    step = rest[0] if rest else "final"
+
+    cache_dir = variant_cache_dir() / variant
     os.makedirs(cache_dir, exist_ok=True)
-    dest = cache_dir / "final.pt"
+    dest = cache_dir / f"{step}.pt"
     if dest.exists():
         return dest
 
