@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from torch.nn import functional as F
+from typing import Optional
 
 from .layers import layer_norm, mlp, QuantizedLinear
 from .rope import apply_rotary_emb, precompute_freqs_cis
@@ -21,11 +22,14 @@ def attn(
     n_heads: int,
     n_kv_heads: int,
     position_ids: torch.Tensor,
+    lora: Optional[dict],
 ):
     bsz, q_len, d_model = x.shape
     head_dim = d_model // n_heads
 
     qkv_out = w.qkv(x)  # shape: (bsz, q_len, (n_heads + 2*n_kv_heads)*head_dim)
+    if lora is not None:
+        qkv_out += F.linear(F.linear(x, lora["qkv"]["A"]), lora["qkv"]["B"])
     q_dim = n_heads * head_dim
     kv_dim = n_kv_heads * head_dim
     q, k, v = qkv_out.split([q_dim, kv_dim, kv_dim], dim=-1)
@@ -45,7 +49,14 @@ def attn(
         q, k, v, attn_mask=attn_mask, enable_gqa=n_heads != n_kv_heads
     )
     out = out.transpose(1, 2).reshape(bsz, q_len, d_model)
-    out = w.proj(out)
+
+    out0 = w.proj(out)
+    if lora is not None:
+        out1 = F.linear(F.linear(x, lora["proj"]["A"]), lora["proj"]["B"])
+        out = out0 + out1
+    else:
+        out = out0
+
     return out
 
 
@@ -120,8 +131,17 @@ def text_decoder(
     attn_mask: torch.Tensor,
     position_ids: torch.Tensor,
     config: TextConfig,
+    lora: Optional[dict],
 ):
-    for block in w.blocks:
+    for i, block in enumerate(w.blocks):
+        if lora is not None:
+            layer_lora = lora["text"]["blocks"][str(i)]
+            mlp_lora = layer_lora["mlp"]
+            attn_lora = layer_lora["attn"]
+        else:
+            mlp_lora = None
+            attn_lora = None
+
         l_in = layer_norm(x, block.ln)
         l_attn = attn(
             l_in,
@@ -132,8 +152,9 @@ def text_decoder(
             n_heads=config.n_heads,
             n_kv_heads=config.n_kv_heads,
             position_ids=position_ids,
+            lora=attn_lora,
         )
-        l_mlp = mlp(l_in, block.mlp)
+        l_mlp = mlp(l_in, block.mlp, lora=mlp_lora)
         x = x + l_attn + l_mlp
 
     return x

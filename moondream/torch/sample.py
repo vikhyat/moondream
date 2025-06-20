@@ -66,7 +66,12 @@ if __name__ == "__main__":
 
         # Query
         print("Query:", args.prompt)
-        for t in model.query(encoded_image, args.prompt, stream=True)["answer"]:
+        for t in model.query(
+            encoded_image,
+            args.prompt,
+            stream=True,
+            settings={"variant": "geoguesser_lora_only"},
+        )["answer"]:
             print(t, end="", flush=True)
         print()
         print()
