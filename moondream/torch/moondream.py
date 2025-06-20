@@ -754,7 +754,7 @@ class MoondreamModel(nn.Module):
         )
 
         lora = (
-            variant_state_dict(settings["variant"])
+            variant_state_dict(settings["variant"], device=self.device)
             if settings is not None and "variant" in settings
             else None
         )
@@ -802,7 +802,7 @@ class MoondreamModel(nn.Module):
         )
 
         lora = (
-            variant_state_dict(settings["variant"])
+            variant_state_dict(settings["variant"], device=self.device)
             if settings is not None and "variant" in settings
             else None
         )

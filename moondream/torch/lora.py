@@ -5,6 +5,7 @@ import torch
 
 from pathlib import Path
 from urllib.request import Request, urlopen
+from typing import Optional
 
 
 def variant_cache_dir():
@@ -51,7 +52,10 @@ def nest(flat):
 
 
 @functools.lru_cache(maxsize=5)
-def variant_state_dict(variant_id: str, device: str = "cpu"):
+def variant_state_dict(variant_id: Optional[str] = None, device: str = "cpu"):
+    if variant_id is None:
+        return None
+
     state_dict = torch.load(
         cached_variant_path(variant_id), map_location=device, weights_only=True
     )
