@@ -671,6 +671,7 @@ class MoondreamModel(nn.Module):
             reasoning_dict = {
                 "reasoning": {"text": reasoning_text, "grounding": reasoning_grounding}
             }
+            spatial_refs = None
         else:
             prompt_tokens[0] += self.config.tokenizer.templates["query"]["suffix"]
             reasoning_dict = {}
