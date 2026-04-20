@@ -1,0 +1,15 @@
+{
+  "name": "moondream-examples-quickstart",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "run": "node main.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "moondream": "^0.0.5"
+  }
+}
