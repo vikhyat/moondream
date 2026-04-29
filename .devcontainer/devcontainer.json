@@ -1,0 +1,36 @@
+{
+  "name": "moondream-dev",
+  "image": "mcr.microsoft.com/devcontainers/python:3.10-bookworm",
+
+  "workspaceFolder": "/workspaces/moondream",
+
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
+
+  "forwardPorts": [7860],
+
+  "portsAttributes": {
+    "7860": {
+      "label": "Gradio UI",
+      "onAutoForward": "openBrowser"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.autoImportCompletions": true
+      }
+    }
+  },
+
+  "remoteUser": "vscode"
+}
