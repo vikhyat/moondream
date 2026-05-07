@@ -101,7 +101,12 @@ class QuantizedLinear(nn.Module):
         del self.weight, self.bias
         quantize_(self, int4_weight_only(group_size=128))
         self.unpacked = True
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        elif hasattr(torch, "xpu") and torch.xpu.is_available():
+            torch.xpu.empty_cache()
+        elif hasattr(torch, "mps") and torch.mps.is_available():
+            torch.mps.empty_cache()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not self.unpacked:
