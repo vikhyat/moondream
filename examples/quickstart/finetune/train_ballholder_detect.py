@@ -1,6 +1,6 @@
 """Simple detect finetuning example for ball-holder detection.
 
-Dataset: maxs-m87/Ball-Holder-splits-v1
+Dataset: moondream/basketball_holder_lens_tutorial
 
 Requires:
     pip install datasets pillow
@@ -22,7 +22,7 @@ from PIL import Image
 
 import moondream as md
 
-DATASET_NAME = "maxs-m87/Ball-Holder-splits-v1"
+DATASET_NAME = "moondream/basketball_holder_lens_tutorial"
 OBJECT_NAME = "player with the ball"
 
 STEPS = 100
