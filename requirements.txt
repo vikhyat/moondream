@@ -1,6 +1,7 @@
 torch==2.8.0
 Pillow-SIMD==9.5.0.post2
 transformers==4.56.1
+huggingface_hub>=0.20.0
 pyvips-binary==8.16.0
 pyvips==2.2.3
 accelerate==1.10.1
