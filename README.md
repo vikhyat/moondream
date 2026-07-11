@@ -24,6 +24,8 @@ The project offers two model variants:
 
 Moondream can be run locally, or in the cloud. Please refer to the [Getting Started](https://moondream.ai/c/docs/quickstart) page for details.
 
+> **Pro Tip:** For local development, ensure you have at least 8GB RAM. On macOS, use `--mlx` flag with the mlx-lm library for optimized inference.
+
 ## Special thanks
 
 * [Modal](https://modal.com/?utm_source=github&utm_medium=github&utm_campaign=moondream) - Modal lets you run jobs in the cloud, by just writing a few lines of Python. Here's an [example of how to run Moondream on Modal](https://github.com/m87-labs/moondream-examples/tree/main/quickstart/modal).
