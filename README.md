@@ -20,6 +20,23 @@ The project offers two model variants:
 - **Moondream 2B**: The primary model with 2 billion parameters, offering robust performance for general-purpose image understanding tasks including captioning, visual question answering, and object detection.
 - **Moondream 0.5B**: A compact 500 million parameter model specifically optimized as a distillation target for edge devices, enabling efficient deployment on resource-constrained hardware while maintaining impressive capabilities.
 
+## Requirements
+
+Moondream runs anywhere Python runs. There are no proprietary dependencies or closed-source components.
+
+**Software:**
+
+- Python 3.9 or later (CI covers 3.9–3.12)
+- PyTorch and the other pinned dependencies in [`requirements.txt`](requirements.txt)
+
+**Hardware:**
+
+- **CPU only**: Moondream 0.5B runs comfortably on a modern CPU. Moondream 2B runs on CPU too, but is noticeably slower than on a GPU.
+- **GPU**: A CUDA-compatible NVIDIA GPU (or a ROCm AMD GPU) with at least 4 GB of VRAM is recommended for Moondream 2B. The model is distributed in `bfloat16`/`float16`, so any GPU that supports half-precision will work.
+- **macOS**: Apple Silicon (M-series) Macs work well thanks to native Metal/`mps` PyTorch support.
+
+If you are not sure whether your machine is up to the task, the hosted [playground](https://moondream.ai/playground) lets you try the model without installing anything.
+
 ## How to use
 
 Moondream can be run locally, or in the cloud. Please refer to the [Getting Started](https://moondream.ai/c/docs/quickstart) page for details.
