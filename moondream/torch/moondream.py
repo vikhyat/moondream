@@ -93,7 +93,11 @@ def get_mask_mod(mask_mod, offset):
 class MoondreamModel(nn.Module):
 
     def __init__(
-        self, config: MoondreamConfig, dtype=torch.bfloat16, setup_caches=True
+        self,
+        config: MoondreamConfig,
+        dtype=torch.bfloat16,
+        setup_caches=True,
+        use_flex_decoding=True,
     ):
         super().__init__()
         self.config = config
@@ -139,7 +143,7 @@ class MoondreamModel(nn.Module):
         attn_mask[..., :prefix_attn_len, :prefix_attn_len] = 1
         self.register_buffer("attn_mask", attn_mask, persistent=False)
 
-        self.use_flex_decoding = True
+        self.use_flex_decoding = use_flex_decoding
         self._causal_block_mask = None
         self._point_gen_indices = None
 
@@ -235,7 +239,8 @@ class MoondreamModel(nn.Module):
                 module.unpack()
 
         # Initialize lazy properties to avoid first-call overhead
-        self.causal_block_mask
+        if self.use_flex_decoding:
+            self.causal_block_mask
         self.point_gen_indices
 
         # TODO: vision_projection and _prefill is not being compiled
