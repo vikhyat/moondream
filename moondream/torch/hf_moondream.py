@@ -38,10 +38,12 @@ class HfMoondream(PreTrainedModel):
     _auto_class = "AutoModelForCausalLM"
     config_class = HfConfig
 
-    def __init__(self, config):
+    def __init__(self, config, use_flex_decoding=True):
         super().__init__(config)
         self.model = MoondreamModel(
-            MoondreamConfig.from_dict(config.config), setup_caches=False
+            MoondreamConfig.from_dict(config.config),
+            setup_caches=False,
+            use_flex_decoding=use_flex_decoding,
         )
         self._is_kv_cache_setup = False
 
