@@ -1,0 +1,16 @@
+# Citing Moondream
+
+If you use Moondream in your research, please cite the model:
+
+```bibtex
+@misc {vik_2024,
+  author = { {Vikhyat Korrapati} },
+  title = { moondream2 (Revision 92d3d73) },
+  year = 2024,
+  url = { https://moondream.ai/ },
+  doi = { 10.57967/hf/3219 },
+  publisher = { Hugging Face }
+}
+```
+
+See the [Moondream model card](https://huggingface.co/vikhyatk/moondream2) for the latest model revisions and metadata.
