@@ -23,7 +23,7 @@ def eval_tallyqa(model, debug=False):
     correct = 0
     correct_simple = 0
 
-    for row in tqdm(dataset, disable=args.debug):
+    for row in tqdm(dataset, disable=debug):
         image = row["image"]
         encoded_image = model.encode_image(image)
 
@@ -37,7 +37,7 @@ def eval_tallyqa(model, debug=False):
             total += 1
             if model_answer.strip().lower() == answer.strip().lower():
                 correct += 1
-            elif args.debug:
+            elif debug:
                 print(f"Question: {qa['question']}")
                 print(f"Answer: {answer}")
                 print(f"Model Answer: {model_answer}")
@@ -47,7 +47,7 @@ def eval_tallyqa(model, debug=False):
                 if model_answer.strip().lower() == answer.strip().lower():
                     correct_simple += 1
 
-            if args.debug:
+            if debug:
                 print(f"Simple - Correct: {correct_simple}, Total: {total_simple}")
                 print(f"Simple Accuracy: {correct_simple * 100 / total_simple:.2f}")
                 print(f"All - Correct: {correct}, Total: {total}")
