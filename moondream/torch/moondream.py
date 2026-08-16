@@ -212,7 +212,8 @@ class MoondreamModel(nn.Module):
             torch._assert(pos_ids.shape[-1] == 1, "Invalid position ID shape")
             block_index = pos_ids // self.causal_block_mask.BLOCK_SIZE[0]
             mask = self.causal_block_mask[:, :, block_index]
-            mask.seq_lengths = (1, mask.seq_lengths[1])
+            if hasattr(mask, "seq_lengths"):
+                mask.seq_lengths = (1, mask.seq_lengths[1])
             mask.mask_mod = get_mask_mod(self.causal_block_mask.mask_mod, pos_ids[0])
         else:
             mask = None
