@@ -5,7 +5,7 @@ from transformers import PreTrainedModel, PretrainedConfig
 from typing import Union
 
 from .config import MoondreamConfig
-from .moondream import MoondreamModel
+from .moondream import EncodedImage, MoondreamModel
 
 # Files sometimes don't get loaded without these...
 from .image_crops import *
@@ -114,28 +114,28 @@ class HfMoondream(PreTrainedModel):
         Function definition remains unchanged for backwards compatibility.
         Be aware that tokenizer, max_new_takens, and kwargs are ignored.
         """
+        self._setup_caches()
         prompt_extracted = extract_question(prompt)
         if prompt_extracted is not None:
             answer = self.model.query(
                 image=image_embeds, question=prompt_extracted, stream=False
             )["answer"]
         else:
-            image_embeds = self.encode_image(image_embeds)
+            if not isinstance(image_embeds, EncodedImage):
+                image_embeds = self.encode_image(image_embeds)
+            self.model.load_encoded_image(image_embeds)
             prompt_tokens = torch.tensor(
                 [self.model.tokenizer.encode(prompt).ids],
                 device=self.device,
             )
-
-            def generator():
-                for token in self.model._generate_answer(
-                    prompt_tokens,
-                    image_embeds.kv_cache,
-                    image_embeds.pos,
-                    max_new_tokens,
-                ):
-                    yield token
-
-            answer = "".join(list(generator()))
+            settings = {"max_tokens": max_new_tokens}
+            if "settings" in kwargs:
+                settings.update(kwargs["settings"])
+            answer = "".join(
+                self.model._generate_answer(
+                    prompt_tokens, image_embeds.pos, settings=settings
+                )
+            )
 
         return [answer]
 

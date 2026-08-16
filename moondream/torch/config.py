@@ -46,6 +46,7 @@ class RegionConfig:
     coord_out_dim: int = 1024
     size_feat_dim: int = 512
     size_out_dim: int = 2048
+    inner_dim: int = 8192
     group_size: Optional[int] = None
 
 

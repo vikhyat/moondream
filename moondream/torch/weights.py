@@ -52,15 +52,21 @@ def _load_weights(get_tensor: Callable[[str], torch.Tensor], model: nn.Module) -
         "text_model.lm_head.ln.bias": model.text["post_ln"].bias,
         "text_model.lm_head.linear.weight": model.text["lm_head"].weight,
         "text_model.lm_head.linear.bias": model.text["lm_head"].bias,
-        "region_model.coordinate_encoder.weight": region["coord_encoder"].weight,
-        "region_model.coordinate_encoder.bias": region["coord_encoder"].bias,
-        "region_model.coordinate_head.weight": region["coord_decoder"].weight,
-        "region_model.coordinate_head.bias": region["coord_decoder"].bias,
-        "region_model.size_encoder.weight": region["size_encoder"].weight,
-        "region_model.size_encoder.bias": region["size_encoder"].bias,
-        "region_model.size_head.weight": region["size_decoder"].weight,
-        "region_model.size_head.bias": region["size_decoder"].bias,
     }
+    if hasattr(region["coord_decoder"], "weight"):
+        weight_map.update(
+            {
+                "region_model.coordinate_encoder.weight": region["coord_encoder"]
+                .weight,
+                "region_model.coordinate_encoder.bias": region["coord_encoder"].bias,
+                "region_model.coordinate_head.weight": region["coord_decoder"].weight,
+                "region_model.coordinate_head.bias": region["coord_decoder"].bias,
+                "region_model.size_encoder.weight": region["size_encoder"].weight,
+                "region_model.size_encoder.bias": region["size_encoder"].bias,
+                "region_model.size_head.weight": region["size_decoder"].weight,
+                "region_model.size_head.bias": region["size_decoder"].bias,
+            }
+        )
 
     for i in range(len(model.vision["blocks"])):
         prefix = f"vision_encoder.encoder.model.visual.blocks.{i}"

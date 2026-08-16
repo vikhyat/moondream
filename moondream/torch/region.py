@@ -4,6 +4,8 @@ import math
 
 from typing import List, Tuple, Union
 
+from .layers import mlp
+
 SpatialRefs = List[Union[Tuple[float, float], Tuple[float, float, float, float]]]
 
 
@@ -52,7 +54,7 @@ def decode_coordinate(hidden_state: torch.Tensor, w: nn.Module) -> torch.Tensor:
     Returns:
         A single logit representing the predicted coordinate value (x or y)
     """
-    return w.coord_decoder(hidden_state)
+    return mlp(hidden_state, w.coord_decoder)
 
 
 def encode_size(size: torch.Tensor, w: nn.Module) -> torch.Tensor:
@@ -88,7 +90,7 @@ def decode_size(hidden_state: torch.Tensor, w: nn.Module) -> torch.Tensor:
         A tensor containing logits for 1024 bins for width and height.
         Shape is (2, 1024) where the first dimension corresponds to width and height.
     """
-    return w.size_decoder(hidden_state).view(2, -1)
+    return mlp(hidden_state, w.size_decoder).view(2, -1)
 
 
 def encode_spatial_refs(spatial_refs: SpatialRefs, w: nn.Module) -> torch.Tensor:
