@@ -111,14 +111,32 @@ class MoondreamModel(nn.Module):
                 "coord_encoder": linear_cls(
                     config.region.coord_feat_dim, config.region.dim, dtype=dtype
                 ),
-                "coord_decoder": linear_cls(
-                    config.region.dim, config.region.coord_out_dim, dtype=dtype
+                "coord_decoder": nn.ModuleDict(
+                    {
+                        "fc1": linear_cls(
+                            config.region.dim, config.region.inner_dim, dtype=dtype
+                        ),
+                        "fc2": linear_cls(
+                            config.region.inner_dim,
+                            config.region.coord_out_dim,
+                            dtype=dtype,
+                        ),
+                    }
                 ),
                 "size_encoder": linear_cls(
                     config.region.size_feat_dim, config.region.dim, dtype=dtype
                 ),
-                "size_decoder": linear_cls(
-                    config.region.dim, config.region.size_out_dim, dtype=dtype
+                "size_decoder": nn.ModuleDict(
+                    {
+                        "fc1": linear_cls(
+                            config.region.dim, config.region.inner_dim, dtype=dtype
+                        ),
+                        "fc2": linear_cls(
+                            config.region.inner_dim,
+                            config.region.size_out_dim,
+                            dtype=dtype,
+                        ),
+                    }
                 ),
             }
         )
