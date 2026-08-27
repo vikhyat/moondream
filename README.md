@@ -22,7 +22,7 @@ The project offers two model variants:
 
 ## How to use
 
-Moondream can be run locally, or in the cloud. Please refer to the [Getting Started](https://moondream.ai/c/docs/quickstart) page for details.
+Moondream can be run locally or in the cloud. Please refer to the [Getting Started](https://moondream.ai/c/docs/quickstart) page for details.
 
 ## Special thanks
 
