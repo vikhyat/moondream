@@ -13,7 +13,7 @@ a tiny vision language model that kicks ass and runs anywhere
 
 ## About
 
-Moondream is a highly efficient open-source vision language model that combines powerful image understanding capabilities with a remarkably small footprint. It's designed to be versatile and accessible, capable of running on a wide range of devices and platforms.
+Moondream is a highly efficient open-source vision-language model that combines powerful image-understanding capabilities with a remarkably small footprint. It's designed to be versatile and accessible, capable of running on a wide range of devices and platforms.
 
 The project offers two model variants:
 
