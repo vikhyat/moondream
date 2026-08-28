@@ -1,6 +1,6 @@
 # 🌔 moondream
 
-a tiny vision language model that kicks ass and runs anywhere
+A tiny vision-language model that kicks ass and runs anywhere
 
 [Website](https://moondream.ai/) | [Demo](https://moondream.ai/playground)
 
