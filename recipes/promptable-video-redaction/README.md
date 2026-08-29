@@ -13,7 +13,7 @@ accuracy. Some key features:
 - Only 2B parameters
 - Fast inference with minimal resource requirements
 - Supports CPU and GPU execution
-- Open source and free to use
+- Open-source and free to use
 - Can detect almost anything you can describe in natural language
 
 Links:
