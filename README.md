@@ -24,6 +24,18 @@ The project offers two model variants:
 
 Moondream can be run locally, or in the cloud. Please refer to the [Getting Started](https://moondream.ai/c/docs/quickstart) page for details.
 
+## Finetuning
+
+Runnable finetuning examples live in [`examples/quickstart/finetune/`](examples/quickstart/finetune/)
+(detect and query variants, e.g. `train_ballholder_detect.py`). They need
+`pip install datasets pillow`, a `MOONDREAM_API_KEY`, and optionally `HF_TOKEN`:
+
+```shell
+MOONDREAM_API_KEY="<your-api-key>" python examples/quickstart/finetune/train_ballholder_detect.py
+```
+
+See the [Finetuning guide](https://moondream.ai/c/docs/finetuning) for details.
+
 ## Special thanks
 
 * [Modal](https://modal.com/?utm_source=github&utm_medium=github&utm_campaign=moondream) - Modal lets you run jobs in the cloud, by just writing a few lines of Python. Here's an [example of how to run Moondream on Modal](https://github.com/m87-labs/moondream-examples/tree/main/quickstart/modal).
