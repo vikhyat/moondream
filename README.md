@@ -24,6 +24,33 @@ The project offers two model variants:
 
 Moondream can be run locally, or in the cloud. Please refer to the [Getting Started](https://moondream.ai/c/docs/quickstart) page for details.
 
+## Configuration
+
+Set your Moondream API key via the `MOONDREAM_API_KEY` environment variable
+instead of hardcoding it:
+
+```shell
+export MOONDREAM_API_KEY="<your-api-key>"
+```
+
+```python
+import moondream as md
+import os
+
+# For Moondream Cloud, the client reads MOONDREAM_API_KEY from the environment:
+model = md.vl(api_key=os.environ.get("MOONDREAM_API_KEY"))
+```
+
+To point at a custom endpoint (e.g. a local server), set `MOONDREAM_ENDPOINT`
+(defaults to `https://api.moondream.ai`):
+
+```shell
+export MOONDREAM_ENDPOINT="http://localhost:2020/v1"
+```
+
+> Never commit API keys to version control. Use environment variables or your
+> platform's secrets manager, and scope keys to the minimum access needed.
+
 ## Special thanks
 
 * [Modal](https://modal.com/?utm_source=github&utm_medium=github&utm_campaign=moondream) - Modal lets you run jobs in the cloud, by just writing a few lines of Python. Here's an [example of how to run Moondream on Modal](https://github.com/m87-labs/moondream-examples/tree/main/quickstart/modal).
