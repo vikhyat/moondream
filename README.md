@@ -24,6 +24,26 @@ The project offers two model variants:
 
 Moondream can be run locally, or in the cloud. Please refer to the [Getting Started](https://moondream.ai/c/docs/quickstart) page for details.
 
+## Object detection
+
+Locate objects with bounding boxes via the Moondream Cloud SDK
+(`pip install moondream`):
+
+```python
+import moondream as md
+from PIL import Image
+import os
+
+model = md.vl(api_key=os.environ.get("MOONDREAM_API_KEY"))
+image = Image.open("path/to/image.jpg")
+
+result = model.detect(image, "car")
+for obj in result["objects"]:
+    print(f"Bounds: ({obj['x_min']}, {obj['y_min']}) to ({obj['x_max']}, {obj['y_max']})")
+```
+
+See the [Detect skill docs](https://moondream.ai/c/docs/skills/detect) for details.
+
 ## Special thanks
 
 * [Modal](https://modal.com/?utm_source=github&utm_medium=github&utm_campaign=moondream) - Modal lets you run jobs in the cloud, by just writing a few lines of Python. Here's an [example of how to run Moondream on Modal](https://github.com/m87-labs/moondream-examples/tree/main/quickstart/modal).
