@@ -30,3 +30,32 @@ Get started with Moondream's vision AI in Python in minutes.
    ```bash
    jupyter notebook detect_cars.ipynb
    ```
+
+## Note: 0.x vs 1.x client API
+
+If you see `TypeError: ... got an unexpected keyword argument 'model'`,
+you are running a 1.x `moondream` package with a pre-1.0 snippet.
+Version 0.x loaded a local model file directly:
+
+```python
+# moondream 0.x only (no longer supported)
+model = md.vl(model="<path-to-model-file>")
+```
+
+Since 1.0, `md.vl()` is endpoint-based — pass an API key and/or an
+endpoint instead (see `main.py`):
+
+```python
+import moondream as md
+
+# Local Station (see https://moondream.ai/station)
+model = md.vl(endpoint="http://localhost:2020/v1")
+
+# Cloud (see https://moondream.ai/c/cloud/api-keys)
+# model = md.vl(api_key="<your-api-key>")
+```
+
+To run weights directly without Station, use the
+[Hugging Face Transformers implementation](https://huggingface.co/vikhyatk/moondream2)
+(`vikhyatk/moondream2`, see `sample.py`) or
+[Moondream Server](https://moondream.ai/moondream-server).
