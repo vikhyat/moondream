@@ -20,5 +20,5 @@ Get started with Moondream's vision AI in Node in minutes.
 4. Run the examples to see Moondream in action!
 
    ```bash
-   node main.py
+   node main.js
    ```
