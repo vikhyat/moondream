@@ -101,7 +101,7 @@ You will need to install the required libraries first:
 pip install moondream pillow
 ```
 
-Then, you can use the call the python client. Here's an example of what that may look like:
+Then, you can call the Python client. Here's an example of what that may look like:
 
 ```python
 # modal_infer.py
