@@ -54,7 +54,8 @@ Links:
 1. Clone this repository and create a new virtual environment
 
 ```bash
-git clone https://github.com/vikhyat/moondream/blob/main/recipes/promptable-video-redaction
+git clone https://github.com/m87-labs/moondream.git
+cd moondream/recipes/promptable-video-redaction
 python -m venv .venv
 source .venv/bin/activate
 ```
