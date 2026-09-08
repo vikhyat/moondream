@@ -83,7 +83,7 @@ Windows setup requires a few additional steps for proper GPU support and libvips
 1. Clone the repository:
 
    ```bash
-   git clone [repository-url]
+   git clone https://github.com/m87-labs/moondream.git
    cd moondream/recipes/gaze-detection-video
    ```
 
