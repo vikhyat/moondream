@@ -14,7 +14,7 @@ image = modal.Image.from_registry("ubuntu:22.04", add_python="3.11").run_command
 
 @app.function(
     image=image,
-    memory=4096,  # Change your alloted memory here.
+    memory=4096,  # Change your allotted memory here.
     gpu="L4",  # Change your GPU here.
     timeout=86400,
     # Scaling parameters.
