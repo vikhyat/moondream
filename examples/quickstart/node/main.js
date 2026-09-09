@@ -8,7 +8,7 @@ const model = new vl({ endpoint: "http://localhost:2020/v1" });
 // const model = new vl({ apiKey: "<your-api-key>" });
 
 // read the image we're going to use
-const image = fs.readFileSync("../images/frieren.jpg");
+const image = fs.readFileSync("../../../assets/demo-1.jpg");
 
 async function main() {
   // let's generate a caption for the image

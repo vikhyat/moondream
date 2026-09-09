@@ -6,7 +6,7 @@ from PIL import Image
 # Replace <username> with your actual username on modal labs.
 model = md.vl(endpoint="https://<username>--moondream-server.modal.run/v1")
 
-image = Image.open("../../images/frieren.jpg")
+image = Image.open("../../../assets/demo-1.jpg")
 
 # Query
 print("Query:")

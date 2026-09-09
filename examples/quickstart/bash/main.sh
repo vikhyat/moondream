@@ -4,7 +4,7 @@
 curl --location "http://localhost:2020/v1/{endpoint}" \
   --header 'Content-Type: application/json' \
   --data '{
-    "image_url": "data:image/jpeg;base64,${cat ../images/frieren.jpg | base64}",
+    "image_url": "data:image/jpeg;base64,${cat ../../../assets/demo-1.jpg | base64}",
     "stream": false
   }'
 
@@ -13,6 +13,6 @@ curl --location "http://localhost:2020/v1/{endpoint}" \
 #   --header 'X-Moondream-Auth: ${MOONDREAM_API_KEY}' \
 #   --header 'Content-Type: application/json' \
 #   --data '{
-#     "image_url": "data:image/jpeg;base64,${cat ../images/frieren.jpg | base64}",
+#     "image_url": "data:image/jpeg;base64,${cat ../../../assets/demo-1.jpg | base64}",
 #     "stream": false
 #   }'
