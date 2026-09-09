@@ -20,7 +20,7 @@ Links:
 
 - [GitHub Repository](https://github.com/vikhyat/moondream)
 - [Hugging Face](https://huggingface.co/vikhyatk/moondream2)
-- [Build with Moondream](http://docs.moondream.ai/)
+- [Build with Moondream](https://docs.moondream.ai/)
 
 ## Features
 
