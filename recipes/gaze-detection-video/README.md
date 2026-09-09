@@ -69,7 +69,7 @@ This project uses the Moondream 2B model to detect faces and their gaze directio
 
 2. Clone and setup the project:
    ```bash
-   git clone https://github.com/vikhyat/moondream.git
+    git clone https://github.com/m87-labs/moondream.git
    cd moondream/recipes/gaze-detection-video
    python3 -m venv venv
    source venv/bin/activate
