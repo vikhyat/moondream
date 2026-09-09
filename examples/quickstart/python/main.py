@@ -8,7 +8,7 @@ model = md.vl(endpoint="http://localhost:2020/v1")
 # model = md.vl(api_key="<your-api-key>")
 
 # Load an image
-image = Image.open("../../images/frieren.jpg")
+image = Image.open("../../../assets/demo-1.jpg")
 
 # Example: Generate a caption
 caption_response = model.caption(image, length="short")
