@@ -28,7 +28,7 @@ To access Modal Labs deployment tools, you need to install the library:
 To launch Moondream Station on Modal Labs, first make sure you're in the correct repository:
 
 ```
-cd quickstart/modal
+cd examples/quickstart/modal
 ```
 You have two deployment options:
 
@@ -47,12 +47,10 @@ For development and testing with live logs in terminal:
 ```
 modal serve deploy_moondream.py
 ```
-This runs the app while streaming logs directly to your terminal. The deployment stops when you terminate the command `Ctrl+C`.
+This runs the app while streaming logs directly to your terminal. The deployment stops when you terminate the command with `Ctrl+C`.
 
 #### **2. Get your URL**
 Modal will show your server URL at the start of execution. Make sure to copy this URL as you will need this to access the Moondream Station instance.
-
-![alt text](../../images/modal/example-image.png)
 
 It may look something like:
    ```
@@ -64,7 +62,7 @@ It may look something like:
    ```
    This is your permanent service endpoint.
 
-#### **4. Stopping your Instance**:
+#### **3. Stopping your Instance**:
 
 To stop your instance, run:
 
