@@ -96,7 +96,7 @@ with gr.Blocks(title="Promptable Video Redaction") as app:
     gr.Markdown("# Promptable Video Redaction with Moondream")
     gr.Markdown(
         """
-    [Moondream 2B](https://github.com/vikhyat/moondream) is a lightweight vision model that detects and visualizes objects in videos. It can identify objects, people, text and more.
+    [Moondream 2B](https://github.com/m87-labs/moondream) is a lightweight vision model that detects and visualizes objects in videos. It can identify objects, people, text and more.
 
     Upload a video and specify what to detect. The app will process each frame and apply your chosen visualization style. For help, join the [Moondream Discord](https://discord.com/invite/tRUdpjDQfH).
     """
@@ -171,7 +171,7 @@ with gr.Blocks(title="Promptable Video Redaction") as app:
             gr.Markdown(
                 """
             ### Links:
-            - [GitHub Repository](https://github.com/vikhyat/moondream)
+            - [GitHub Repository](https://github.com/m87-labs/moondream)
             - [Hugging Face](https://huggingface.co/vikhyatk/moondream2)
             - [Python Package](https://pypi.org/project/moondream/)
             - [Moondream Recipes](https://docs.moondream.ai/recipes)
