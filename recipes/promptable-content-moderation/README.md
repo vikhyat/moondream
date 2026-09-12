@@ -53,7 +53,7 @@ Installation by platform:
 - macOS: `brew install ffmpeg libvips`
 - Windows:
   - Download FFmpeg from [ffmpeg.org](https://ffmpeg.org/download.html)
-  - Follow [libvips Windows installation guide](https://docs.moondream.ai/quick-start)
+  - Follow [libvips Windows installation guide](https://moondream.ai/c/docs/quickstart)
 
 ## Installation
 
@@ -76,7 +76,7 @@ pip install -r requirements.txt
    - On macOS: `brew install ffmpeg`
    - On Windows: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
 
-> Downloading libvips for Windows requires some additional steps, see [here](https://docs.moondream.ai/quick-start)
+> Downloading libvips for Windows requires some additional steps, see [here](https://moondream.ai/c/docs/quickstart)
 
 ## Usage
 
