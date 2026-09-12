@@ -18,7 +18,7 @@ accuracy. Some key features:
 
 Links:
 
-- [GitHub Repository](https://github.com/vikhyat/moondream)
+- [GitHub Repository](https://github.com/m87-labs/moondream)
 - [Hugging Face](https://huggingface.co/vikhyatk/moondream2)
 - [Build with Moondream](http://docs.moondream.ai/)
 

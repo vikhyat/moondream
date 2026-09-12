@@ -374,7 +374,7 @@ with gr.Blocks(title="Promptable Content Moderation") as app:
             gr.Markdown("# Promptable Content Moderation with Moondream")
             gr.Markdown(
                 """
-            Powered by [Moondream 2B](https://github.com/vikhyat/moondream).
+            Powered by [Moondream 2B](https://github.com/m87-labs/moondream).
 
             Upload a video and specify what to moderate. The app will process each frame and moderate any visual content that matches the prompt. For help, join the [Moondream Discord](https://discord.com/invite/tRUdpjDQfH).
             """
@@ -477,7 +477,7 @@ with gr.Blocks(title="Promptable Content Moderation") as app:
                     gr.Markdown(
                         """
                     ### Links:
-                    - [GitHub Repository](https://github.com/vikhyat/moondream)
+                    - [GitHub Repository](https://github.com/m87-labs/moondream)
                     - [Hugging Face](https://huggingface.co/vikhyatk/moondream2)
                     - [Quick Start](https://docs.moondream.ai/quick-start)
                     - [Moondream Recipes](https://docs.moondream.ai/recipes)
