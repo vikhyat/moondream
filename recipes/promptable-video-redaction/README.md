@@ -69,7 +69,7 @@ pip install -r requirements.txt
    - On Ubuntu/Debian: `sudo apt-get install ffmpeg libvips`
    - On macOS: `brew install ffmpeg`
    - On Windows: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
-     > Downloading libvips for Windows requires some additional steps, see [here](https://docs.moondream.ai/quick-start)
+     > Downloading libvips for Windows requires some additional steps, see [here](https://moondream.ai/c/docs/quickstart)
 
 ## Usage
 
