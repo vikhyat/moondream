@@ -8,7 +8,7 @@ curl --location "http://localhost:2020/v1/{endpoint}" \
     "stream": false
   }'
 
-## To run on cloud
+## To run on the cloud
 # curl --location "https://api.moondream.ai/v1/{endpoint}"
 #   --header 'X-Moondream-Auth: ${MOONDREAM_API_KEY}' \
 #   --header 'Content-Type: application/json' \
