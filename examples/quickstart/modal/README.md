@@ -4,7 +4,7 @@ Get Moondream Station running in the cloud with Modal Labs—no hassle, just fas
 
 ## Setting Up
 
-### **1. Create Modal account**
+### **1. Create a Modal account**
 Go to [modal.com](https://modal.com) to sign up.
 
 ### **2. Install Modal Labs Python Library**:
@@ -72,7 +72,7 @@ To stop your instance, run:
 modal app stop moondream
 ```
 
-or if you ran it with `modal serve` you can exit by inputting `CTRL+C` on your keyboard.
+or if you ran it with `modal serve` you can exit by pressing `Ctrl+C` on your keyboard.
 
 You may also locate and stop the app from your Modal Labs dashboard.
 
