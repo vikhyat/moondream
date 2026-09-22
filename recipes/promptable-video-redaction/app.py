@@ -174,7 +174,7 @@ with gr.Blocks(title="Promptable Video Redaction") as app:
             - [GitHub Repository](https://github.com/vikhyat/moondream)
             - [Hugging Face](https://huggingface.co/vikhyatk/moondream2)
             - [Python Package](https://pypi.org/project/moondream/)
-            - [Moondream Recipes](https://docs.moondream.ai/recipes)
+            - [Moondream Recipes](https://github.com/m87-labs/moondream/tree/main/recipes)
             """
             )
 
