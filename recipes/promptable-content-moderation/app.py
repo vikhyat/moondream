@@ -480,7 +480,7 @@ with gr.Blocks(title="Promptable Content Moderation") as app:
                     - [GitHub Repository](https://github.com/vikhyat/moondream)
                     - [Hugging Face](https://huggingface.co/vikhyatk/moondream2)
                     - [Quick Start](https://docs.moondream.ai/quick-start)
-                    - [Moondream Recipes](https://docs.moondream.ai/recipes)
+                    - [Moondream Recipes](https://github.com/m87-labs/moondream/tree/main/recipes)
                     """
                     )
 
