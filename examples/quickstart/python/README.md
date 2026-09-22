@@ -25,7 +25,7 @@ Get started with Moondream's vision AI in Python in minutes.
 
 5. Try a full tutorial:
 
-   Open the `detect_cars.ipynb` notebook in Jupyter and run all the cells to try caption, query, detect and point capabilities:
+   Open the `detect_cars.ipynb` notebook in Jupyter and run all the cells to try captioning, querying, detecting and pointing capabilities:
 
    ```bash
    jupyter notebook detect_cars.ipynb
