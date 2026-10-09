@@ -139,7 +139,7 @@ python main.py --detect "person wearing a hat"  # Detect people with hats
 
 ```bash
 python main.py --box-style censor     # Black boxes (default)
-python main.py --box-style bounding-box       # Bounding box-style boxes with labels
+python main.py --box-style bounding-box       # Bounding boxes with labels
 python main.py --box-style hitmarker  # COD-style hitmarkers
 ```
 
