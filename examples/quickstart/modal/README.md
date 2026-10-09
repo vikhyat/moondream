@@ -40,7 +40,7 @@ You have two deployment options:
 This creates a permanent deployment on Modal Labs that continues running even after you close your terminal.
 
 
-**B)  Development Mode**
+**B) Development Mode**
 
 For development and testing with live logs in terminal:
 
