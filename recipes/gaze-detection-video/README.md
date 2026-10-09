@@ -18,7 +18,6 @@
 - [Performance Notes](#performance-notes)
 - [Dependencies](#dependencies)
 - [Model Details](#model-details)
-- [License](#license)
 
 ## Overview
 
