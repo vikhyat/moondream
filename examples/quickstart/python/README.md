@@ -15,7 +15,7 @@ Get started with Moondream's vision AI in Python in minutes.
    pip install -r requirements.txt
    ```
 
-3. Run Moondream Station locally or tweak the [main.py](quickstart/python/main.py) or run on the cloud using an [API key](https://moondream.ai/c/cloud/api-keys).
+3. Run Moondream Station locally or tweak the [main.py](main.py) or run on the cloud using an [API key](https://moondream.ai/c/cloud/api-keys).
 
 4. Run the example to see Moondream in action!
 
