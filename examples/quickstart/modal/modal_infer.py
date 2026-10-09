@@ -24,7 +24,7 @@ print("\nDetect:")
 response = model.detect(image, object="burger")
 print(response)
 
-# Similar to detect, you can use your own object name in object parameter.
+# Similar to detect, you can use your own object name in the object parameter.
 print("\nPoint:")
 response = model.point(image, object="object-name")
 print(response)
