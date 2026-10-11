@@ -80,7 +80,7 @@ You may also locate and stop the app from your Modal Labs dashboard.
 ## Inference
 
 ### Using Moondream Station CLI
-To use Moondream Station from the Moondream Station CLI, launch Moondream Station locally and then set the inference URL to the endpoint. **Make sure to add `/v1` to the end of the url that you copied.**
+To use Moondream Station from the Moondream Station CLI, launch Moondream Station locally and then set the inference URL to the endpoint. **Make sure to add `/v1` to the end of the URL that you copied.**
 
 ```
 moondream> admin set-inference-url https://<username>--moondream-server-dev.modal.run/v1
