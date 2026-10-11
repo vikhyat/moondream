@@ -1,7 +1,7 @@
 """
 Gaze Detection Video Processor using Moondream 2
 ------------------------------------------------
-Read the README.md file for more information on how to use this script. Contact us in our discord for any questions if you get stuck.
+Read the README.md file for more information on how to use this script. Contact us in our Discord for any questions if you get stuck.
 """
 
 import torch
