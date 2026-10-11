@@ -158,7 +158,7 @@ with gr.Blocks(title="Promptable Video Redaction") as app:
 
                 gr.Markdown(
                     """
-                We can get a rough estimate of how long the video will take to process by multiplying the videos framerate * seconds * the number of rows and columns and assuming 0.12 seconds processing time per detection.
+                We can get a rough estimate of how long the video will take to process by multiplying the video's frame rate * seconds * the number of rows and columns and assuming 0.12 seconds processing time per detection.
                 For example, a 3 second video at 30fps with 2x2 grid, the estimated time is 3 * 30 * 2 * 2 * 0.12 = 43.2 seconds (tested on a 4090 GPU).
                 """
                 )
