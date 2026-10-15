@@ -3,7 +3,7 @@ from PIL import Image
 
 # This is where your copied endpoint URL will be utilized.
 # Your endpoint URL may look different, depending on your setup.
-# Replace <username> with your actual username on modal labs.
+# Replace <username> with your actual username on Modal Labs.
 model = md.vl(endpoint="https://<username>--moondream-server.modal.run/v1")
 
 image = Image.open("../../images/frieren.jpg")
