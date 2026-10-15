@@ -114,7 +114,7 @@ python main.py
 
 ### Optional Arguments:
 
-- `--test`: Process only first 3 seconds of each video (useful for testing detection settings)
+- `--test`: Process only the first 3 seconds of each video (useful for testing detection settings)
 
 ```bash
 python main.py --test
