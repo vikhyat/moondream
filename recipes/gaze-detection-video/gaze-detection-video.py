@@ -31,7 +31,7 @@ def initialize_model() -> Optional[AutoModelForCausalLM]:
             print("No GPU detected, using CPU")
             device = "cpu"
 
-        print("Loading model from HuggingFace...")
+        print("Loading model from Hugging Face...")
         model = AutoModelForCausalLM.from_pretrained(
             model_id,
             revision=revision,
