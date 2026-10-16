@@ -174,7 +174,7 @@ The tool supports three different visualization styles for detected objects:
    - Good for analysis and debugging
 
 3. **Hitmarker**
-   - Call of Duty inspired visualization
+   - Call-of-Duty-inspired visualization
    - White crosshair marker at center of detected objects
    - Small label above the marker
    - Stylistic choice for gaming-inspired visualization
