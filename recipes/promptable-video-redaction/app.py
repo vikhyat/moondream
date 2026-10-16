@@ -110,7 +110,7 @@ with gr.Blocks(title="Promptable Video Redaction") as app:
                 label="What to Detect",
                 placeholder="e.g. face, logo, text, person, car, dog, etc.",
                 value="face",
-                info="Moondream can detect anything that you can describe in natural language",
+                info="Moondream can detect anything you can describe in natural language",
             )
             process_btn = gr.Button("Process Video", variant="primary")
 
