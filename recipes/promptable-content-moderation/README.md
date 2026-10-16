@@ -156,4 +156,4 @@ The tool uses advanced scene detection and object tracking:
 - Processing time depends on video length, resolution, GPU availability, and chosen settings
 - GPU is strongly recommended for faster processing
 - Grid-based detection increases accuracy but requires more processing time (each grid cell is processed independently)
-- Test mode processes only first X seconds (default: 3 seconds) for quick validation
+- Test mode processes only the first X seconds (default: 3 seconds) for quick validation
