@@ -143,7 +143,7 @@ Windows setup requires a few additional steps for proper GPU support and libvips
 3. The script will:
    - Process all videos in the input directory
    - Show progress bars for each video
-   - Save processed videos to the `output` directory with prefix 'processed\_'
+   - Save processed videos to the `output` directory with prefix 'processed_'
 
 ## Output
 
