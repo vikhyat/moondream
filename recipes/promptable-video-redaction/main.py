@@ -657,7 +657,7 @@ def process_video(
 def main():
     """Process all videos in the inputs directory."""
     parser = argparse.ArgumentParser(
-        description="Detect objects in videos using Moondream2"
+        description="Detect objects in videos using Moondream 2"
     )
     parser.add_argument(
         "--test", action="store_true", help="Process only first 3 seconds of each video"
